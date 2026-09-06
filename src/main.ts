@@ -5,8 +5,13 @@ import { fileURLToPath } from 'url';
 import os from 'os';
 import crypto from 'crypto';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const resolvedFilename = typeof __filename !== 'undefined'
+  ? __filename
+  : fileURLToPath(new Function('return import.meta.url')());
+
+const resolvedDirname = typeof __dirname !== 'undefined'
+  ? __dirname
+  : path.dirname(resolvedFilename);
 
 // Network & Web Security bypasses for Quran API media access
 app.commandLine.appendSwitch('disable-web-security');
@@ -190,8 +195,8 @@ function resolveEntryHtml(): string {
   const candidates = [
     path.join(appPath, 'dist', 'index.html'),
     path.join(appPath, 'index.html'),
-    path.join(__dirname, '../dist/index.html'),
-    path.join(__dirname, 'index.html'),
+    path.join(resolvedDirname, '../dist/index.html'),
+    path.join(resolvedDirname, 'index.html'),
     path.join(process.cwd(), 'dist', 'index.html'),
     path.join(process.cwd(), 'index.html')
   ];
