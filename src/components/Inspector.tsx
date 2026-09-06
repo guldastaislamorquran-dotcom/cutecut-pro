@@ -67,12 +67,18 @@ export default function Inspector({
   useEffect(() => {
     if (selectedClip) {
       setKfTime(currentClipOffset);
-      setKfOpacity(Math.round((selectedClip.opacity ?? 1) * 100));
-      setKfPosX(selectedClip.transform?.posX ?? 0);
-      setKfPosY(selectedClip.transform?.posY ?? 0);
-      setKfScale(selectedClip.transform?.scale ?? 100);
-      setKfRotation(selectedClip.transform?.rotation ?? 0);
-      setKfVolume(Math.round((selectedClip.volume ?? 1) * 100));
+      const targetOpacity = Math.round((selectedClip.opacity ?? 1) * 100);
+      setKfOpacity(targetOpacity);
+      const targetPosX = selectedClip.transform?.posX ?? 0;
+      setKfPosX(targetPosX);
+      const targetPosY = selectedClip.transform?.posY ?? 0;
+      setKfPosY(targetPosY);
+      const targetScale = selectedClip.transform?.scale ?? 100;
+      setKfScale(targetScale);
+      const targetRotation = selectedClip.transform?.rotation ?? 0;
+      setKfRotation(targetRotation);
+      const targetVolume = Math.round((selectedClip.volume ?? 1) * 100);
+      setKfVolume(targetVolume);
 
       // Sync transition state from clip transition & videoEffects properties
       const fxTrans = selectedClip.videoEffects?.transition;
@@ -85,6 +91,15 @@ export default function Inspector({
       }
       const effectiveDuration = selectedClip.transition?.duration || selectedClip.videoEffects?.transitionDuration || 1.0;
       setTransDuration(effectiveDuration);
+
+      // --- DEVELOPMENT ASSERTIONS ---
+      // Check if there is a mismatch between the current clip metadata and the canonical identity
+      if (selectedClip.ayahKey) {
+        const nameMatches = selectedClip.name.includes(selectedClip.ayahKey);
+        if (!nameMatches) {
+          console.error(`[QURAN INSPECTOR STATE MISMATCH] Clip ID ${selectedClip.id} has ayahKey ${selectedClip.ayahKey} but name is "${selectedClip.name}". Stale state detected!`);
+        }
+      }
     }
   }, [selectedClip?.id]);
 
@@ -351,8 +366,9 @@ export default function Inspector({
           <input
             id="clip-title-input"
             type="text"
-            value={selectedClip.name}
+            value={selectedClip.ayahKey && selectedClip.language ? `${selectedClip.language.toUpperCase()}: ${selectedClip.ayahKey}` : selectedClip.name}
             onChange={(e) => onUpdateClip(selectedClip.id, { name: e.target.value })}
+            disabled={!!(selectedClip.ayahKey && selectedClip.language)}
             className="text-xs font-bold text-white bg-[#1a1a20] border border-gray-800 rounded px-2 py-1 flex-1 focus:outline-none focus:border-cyan-500 font-mono min-w-0"
           />
           <div className="flex items-center gap-1 flex-shrink-0">

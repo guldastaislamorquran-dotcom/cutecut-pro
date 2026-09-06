@@ -849,7 +849,10 @@ export async function fetchSingleAyahTranslation(
   try {
     const apiId = translationOption.apiId || 20;
     const apiUrl = `https://api.quran.com/api/v4/verses/by_key/${verseKey}?language=${translationOption.languageCode}&words=false&translations=${apiId}`;
-    const res = await fetch(apiUrl);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3000);
+    const res = await fetch(apiUrl, { signal: controller.signal });
+    clearTimeout(timeoutId);
     if (res.ok) {
       const data = await res.json();
       const rawText = data.verse?.translations?.[0]?.text || '';

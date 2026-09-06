@@ -107,7 +107,10 @@ export default function PreviewPlayer({
   useEffect(() => {
     const targetPreset = isExporting ? (exportResolution || '1080p') : '1080p';
     const dims = getExportResolutionDimensions(targetPreset, aspectRatio);
-    setDimensions(dims);
+    setDimensions((prev) => {
+      if (prev.width === dims.width && prev.height === dims.height) return prev;
+      return dims;
+    });
   }, [aspectRatio, isExporting, exportResolution]);
 
   // Find active video clip for adjustment controls
@@ -179,7 +182,7 @@ export default function PreviewPlayer({
         }
       });
     });
-  }, [tracks, videoNodes, currentTime, isMuted]);
+  }, [tracks, videoNodes, isMuted]);
 
   // Render loop to draw active layers onto Canvas
   useEffect(() => {
@@ -676,7 +679,12 @@ export default function PreviewPlayer({
 
           const xPos = (((clip.textX ?? 50) / 100) * dimensions.width) + transState.offsetX;
           const yPos = (((clip.textY ?? 50) / 100) * dimensions.height) + transState.offsetY;
-          const fontSize = clip.fontSize ?? 32;
+          const rawFontSize = clip.fontSize ?? 32;
+          // Scale font size from logical mobile CSS pixels (e.g. 390 width) to actual canvas dimensions
+          const referenceWidth = 390;
+          const fontScale = dimensions.width / referenceWidth;
+          const fontSize = rawFontSize * fontScale;
+
           const color = clip.color ?? '#FFFFFF';
           const alignment = clip.textAlignment ?? 'center';
           const wrapEnabled = clip.textWrap !== false;

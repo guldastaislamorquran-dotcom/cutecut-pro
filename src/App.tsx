@@ -10,13 +10,13 @@ import ProjectSaveModal, { SavedProjectSession } from './components/ProjectSaveM
 import UpdateCheckerModal from './components/UpdateCheckerModal';
 import VoiceAssistantModal from './components/VoiceAssistantModal';
 import { GeminiAIIntelligenceModal } from './components/GeminiAIIntelligenceModal';
-import { GitHubInboxModal } from './components/GitHubInboxModal';
 import KeyboardShortcutsModal from './components/KeyboardShortcutsModal';
 import ExportModal, { ExportConfig } from './components/ExportModal';
+import { VideoExport } from './components/video/VideoExport';
 import LandingPortal from './components/LandingPortal';
 import { MobileCapCutLayout } from './components/MobileCapCutLayout';
 import { AdMobService } from './utils/admobService';
-import { applyPixelFilters, formatTimeCode, normalizeMediaUrl, getSafeCrossOrigin, DEFAULT_INITIAL_TRACKS, alignQuranLocalClient, runVoiceAlignmentPipeline, convertToArabicDigits, analyzeVoiceActivityRMS, fitAcousticSegmentsToVerses, splitTextIntoPhrases, assignAcousticSegmentsToVerses, splitVerseAcrossBreaths, autoSegmentAudioClipsBySilence, autoSyncVideoClipsToAyahs, autoSegmentClipByRhythm, AyahSymbolStyle, AyahDigitType, AyahSymbolPosition, attachAyahSymbolToText, extractAyahNumberFromClip, formatAyahSymbol, stripAyahSymbol, getExportResolutionDimensions, fixWebmDuration, calculateTasmeeaMatchRatio, normalizeQuranicText, inspectQuranAyahAlignment, generateAutoFixQuranTextClips, getTajweedPhoneticWeight, runQuranAlignmentEngine, QuranVerseInput } from './utils/editorUtils';
+import { applyPixelFilters, formatTimeCode, normalizeMediaUrl, getSafeCrossOrigin, DEFAULT_INITIAL_TRACKS, alignQuranLocalClient, runVoiceAlignmentPipeline, convertToArabicDigits, analyzeVoiceActivityRMS, fitAcousticSegmentsToVerses, splitTextIntoPhrases, assignAcousticSegmentsToVerses, splitVerseAcrossBreaths, autoSegmentAudioClipsBySilence, autoSyncVideoClipsToAyahs, autoSegmentClipByRhythm, enforceStrictNonOverlappingClips, AyahSymbolStyle, AyahDigitType, AyahSymbolPosition, attachAyahSymbolToText, extractAyahNumberFromClip, formatAyahSymbol, stripAyahSymbol, getExportResolutionDimensions, fixWebmDuration, calculateTasmeeaMatchRatio, normalizeQuranicText, getTajweedPhoneticWeight, runQuranAlignmentEngine, QuranVerseInput } from './utils/editorUtils';
 import { QURAN_TRANSLATION_OPTIONS, getTranslationOptionById, fetchSingleAyahTranslation, getTaawwuzTranslation, getTasmiyahTranslation, OFFLINE_SURAH_TRANSLATIONS } from './utils/quranTranslations';
 import { auth, googleProvider, saveUserTimelineProject, getUserTimelineProject } from './utils/firebaseConfig';
 import { getSystemSpecs, SystemSpecs } from './utils/systemPerformance';
@@ -302,6 +302,7 @@ export default function App() {
   const [exportProgress, setExportProgress] = useState(0);
   const [exportTerminalLogs, setExportTerminalLogs] = useState<string[]>([]);
   const [exporting, setExporting] = useState(false);
+  const [showVideoSynthesis, setShowVideoSynthesis] = useState(false);
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
 
   // New Features: Modals & Identity state
@@ -314,8 +315,6 @@ export default function App() {
   const [showGeminiIntelligenceModal, setShowGeminiIntelligenceModal] = useState(false);
   const [showShortcutsModal, setShowShortcutsModal] = useState(false);
   const [showAISegmentationModal, setShowAISegmentationModal] = useState(false);
-  const [showGitHubInboxModal, setShowGitHubInboxModal] = useState(false);
-  const [githubUnreadCount, setGithubUnreadCount] = useState(3);
 
   // Apply AI Segmentation results to timeline tracks (Infinite batch layout compliant)
   const handleApplyAISegmentation = (result: { generatedClips?: any[] }) => {
@@ -526,15 +525,15 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  const handleLoginUser = (user: UserProfile) => {
+  const handleLoginUser = useCallback((user: UserProfile) => {
     setCurrentUser(user);
     localStorage.setItem('cutecut_pro_user', JSON.stringify(user));
-  };
+  }, []);
 
-  const handleLogoutUser = () => {
+  const handleLogoutUser = useCallback(() => {
     setCurrentUser(null);
     localStorage.removeItem('cutecut_pro_user');
-  };
+  }, []);
 
   // Google Sign-In with Firebase Auth Popup
   const handleGoogleSignIn = async () => {
@@ -3412,36 +3411,6 @@ export default function App() {
     }));
   };
 
-  // ------------------ (C2) QURAN TILAWAT ALIGNMENT DETECTOR & SUBTITLE AUTO-FIXER ------------------
-  const handleAutoFixQuranText = async (params: {
-    surahNumber?: number;
-    startAyahNumber?: number;
-    translationOption?: any;
-    targetClipIds?: string[];
-  }) => {
-    try {
-      const report = inspectQuranAyahAlignment(tracks);
-      const surahToUse = params.surahNumber || report.detectedSurah || 1;
-      const startAyahToUse = params.startAyahNumber || report.detectedStartAyah || 1;
-      const transOptionToUse = params.translationOption || getTranslationOptionById(quranTranslation);
-
-      const { newTracks, fixedCount } = await generateAutoFixQuranTextClips({
-        tracks,
-        surahNumber: surahToUse,
-        startAyahNumber: startAyahToUse,
-        translationOption: transOptionToUse,
-        targetClipIds: params.targetClipIds,
-      });
-
-      if (fixedCount > 0) {
-        setTracks(newTracks);
-      }
-    } catch (err: any) {
-      console.error('handleAutoFixQuranText error:', err);
-      alert(`Quran subtitle auto-fix notice: ${err?.message || 'Could not align text'}`);
-    }
-  };
-
   // ------------------ (D) AI AUTO CAPTION PARSER ------------------
   const handleGenerateAICaptions = async (transcript: string, style: string) => {
     const response = await fetch('/api/ai/captions', {
@@ -3596,14 +3565,14 @@ export default function App() {
           symbolOpts.ayahSymbolPosition
         );
       }
-      const vStart = Number(segs[0].start.toFixed(2));
-      const vEnd = Number(segs[0].end.toFixed(2));
+      const vStart = Math.max(0, Number(segs[0].start.toFixed(2)));
+      const vEnd = Math.max(vStart + 0.3, Number(segs[0].end.toFixed(2)));
       return [{
         verse_key: verse.verse_key,
         text_arabic: arText,
         text_english: verse.text_english || '',
         start: vStart,
-        end: Math.max(vStart + 0.8, vEnd),
+        end: vEnd,
         isTaawwuz: verse.isTaawwuz,
         isTasmiyah: verse.isTasmiyah
       }];
@@ -3612,13 +3581,14 @@ export default function App() {
     const arWords = (verse.text_arabic || '').trim().split(/\s+/);
     const enWords = (verse.text_english || '').trim().split(/\s+/);
 
-    const totalSegDur = segs.reduce((sum, s) => sum + Math.max(0.2, s.end - s.start), 0) || 1;
+    const totalSegDur = segs.reduce((sum, s) => sum + Math.max(0.2, Math.max(0, s.end - s.start)), 0) || 1;
     let arWordOffset = 0;
     let enWordOffset = 0;
+    let lastEnd = 0;
 
     for (let sIdx = 0; sIdx < totalSegs; sIdx++) {
       const seg = segs[sIdx];
-      const segDur = Math.max(0.2, seg.end - seg.start);
+      const segDur = Math.max(0.2, Math.max(0, seg.end - seg.start));
       const segRatio = segDur / totalSegDur;
       const isLastSeg = (sIdx === totalSegs - 1);
 
@@ -3651,18 +3621,31 @@ export default function App() {
         );
       }
 
-      const vStart = Number(seg.start.toFixed(2));
-      const vEnd = Number(seg.end.toFixed(2));
+      let vStart = Math.max(lastEnd, Math.max(0, Number(seg.start.toFixed(2))));
+      let vEnd = Math.max(vStart + 0.2, Number(seg.end.toFixed(2)));
+
+      if (sIdx < totalSegs - 1) {
+        const nextRawStart = Math.max(0, Number(segs[sIdx + 1].start.toFixed(2)));
+        if (nextRawStart > vStart && vEnd > nextRawStart) {
+          vEnd = nextRawStart;
+        }
+      }
+
+      if (vEnd <= vStart) {
+        vEnd = Number((vStart + 0.2).toFixed(2));
+      }
 
       result.push({
         verse_key: verse.isTaawwuz || verse.isTasmiyah ? verse.verse_key : `${verse.verse_key} [${sIdx + 1}/${totalSegs}]`,
         text_arabic: arTextWithSym,
         text_english: enPhrase,
         start: vStart,
-        end: Math.max(vStart + 0.8, vEnd),
+        end: vEnd,
         isTaawwuz: verse.isTaawwuz,
         isTasmiyah: verse.isTasmiyah
       });
+
+      lastEnd = vEnd;
     }
 
     return result;
@@ -3890,11 +3873,9 @@ export default function App() {
               totalAudioDuration = Math.max(targetClip.duration || 0, audioBuffer.duration || 0);
               audioCtx.close();
 
-              // Analyze RMS voice activity with 600ms silence threshold to bridge normal word transitions and detect true breathing pauses (Waqf)
+              // Adaptive multi-scale RMS voice activity analysis tailored for Quranic recitation with natural Waqf pauses
               acousticSpeechSegments = analyzeVoiceActivityRMS(pcmData, sampleRate, {
-                minSilenceMs: 600,
-                minSpeechMs: 650,
-                paddingMs: 60
+                noiseFloorSensitivity: 'quran-ayah'
               });
 
               addLog(`[RMS Voice Analyzer] Extracted ${acousticSpeechSegments.length} natural voice speech segments with breathing pause gaps across ${totalAudioDuration.toFixed(1)}s audio.`, 65);
@@ -3967,7 +3948,10 @@ export default function App() {
         while (page <= totalPages && page <= 5) {
           try {
             const apiUrl = `https://api.quran.com/api/v4/verses/by_chapter/${currentSurah}?language=${transOpt.languageCode}&words=false&translations=${transApiId}&fields=text_uthmani&per_page=300&page=${page}`;
-            const res = await fetch(apiUrl);
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 3000);
+            const res = await fetch(apiUrl, { signal: controller.signal });
+            clearTimeout(timeoutId);
             if (res.ok) {
               const data = await res.json();
               totalPages = data.pagination?.total_pages || 1;
@@ -4087,6 +4071,45 @@ export default function App() {
         ayahSymbolPosition: quranAyahSymbolPosition
       });
 
+      // Generate Exportable Diagnostic Report
+      try {
+        const diagnosticsReport = alignedEngineSegments.map(seg => ({
+          ayahNumber: seg.ayahIndex,
+          predictedStart: seg.startTime,
+          predictedEnd: seg.endTime,
+          duration: seg.endTime - seg.startTime,
+          startEvidence: seg.diagnostics?.startEvidence || 'unknown',
+          endEvidence: seg.diagnostics?.endEvidence || 'unknown',
+          acousticScore: seg.diagnostics?.acousticScore,
+          boundaryScore: seg.diagnostics?.boundaryScore,
+          transitionScore: seg.diagnostics?.transitionScore,
+          durationPriorScore: seg.diagnostics?.durationPriorScore,
+          recognitionScore: seg.diagnostics?.recognitionScore,
+          globalScore: seg.diagnostics?.globalScore,
+          confidence: seg.confidenceScore,
+          alignmentMethod: seg.diagnostics?.alignmentMethod || 'UNKNOWN',
+          warnings: seg.diagnostics?.warnings || []
+        }));
+        
+        if (diagnosticsReport.length > 0) {
+          const reportJson = JSON.stringify({ surah, startAyah, mode: alignMode, diagnostics: diagnosticsReport }, null, 2);
+          console.log("[Quran AI Diagnostic Report]\n", reportJson);
+          
+          const blob = new Blob([reportJson], { type: 'application/json' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `quran_alignment_diagnostics_surah${surah}_${Date.now()}.json`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+          addLog(`[System] Exported detailed diagnostic report as JSON.`, 75);
+        }
+      } catch (e) {
+        console.warn("[System] Failed to export diagnostic report", e);
+      }
+
       const subtitles: any[] = alignedEngineSegments.map(seg => ({
         verse_key: seg.verse_key,
         text_arabic: seg.text_arabic,
@@ -4142,12 +4165,27 @@ export default function App() {
         const clipStart = targetClip!.start + sub.start;
         const clipDuration = Math.max(0.8, sub.end - sub.start);
         const textAr = sub.text_arabic || '';
-        const matchScore = calculateTasmeeaMatchRatio(textAr, textAr) || 99.2;
+        const realConfidence = typeof sub.confidenceScore === 'number' && !isNaN(sub.confidenceScore)
+          ? sub.confidenceScore
+          : 60.0;
         const { arId, transId } = pairedIds[idx];
+
+        let surahNumber = Number(surah);
+        let ayahNumber = idx + startAyah;
+        let ayahKey = sub.verse_key;
+        if (ayahKey && ayahKey.includes(':')) {
+          const parts = ayahKey.split(':');
+          surahNumber = parseInt(parts[0], 10);
+          ayahNumber = parseInt(parts[1], 10);
+        }
 
         return {
           id: arId,
           linkedClipId: hasTranslation ? transId : undefined,
+          surahNumber,
+          ayahNumber,
+          ayahKey,
+          language: 'ar',
           name: sub.isTaawwuz ? `AR: Ta'awwuz` : sub.isTasmiyah ? `AR: Tasmiyah` : `AR: ${sub.verse_key}`,
           type: ClipType.TEXT,
           trackId: trackArId,
@@ -4168,7 +4206,7 @@ export default function App() {
           textMaxWidth: quranArabicMaxWidth,
           textLineHeight: quranArabicLineHeight,
           textAlignment: quranArabicAlign,
-          confidenceScore: Number(matchScore.toFixed(1))
+          confidenceScore: Number(realConfidence.toFixed(1))
         };
       });
 
@@ -4178,11 +4216,27 @@ export default function App() {
         const clipDuration = Math.max(0.8, sub.end - sub.start);
         const prefix = transOpt.languageCode.toUpperCase();
         const textEn = sub.text_english || '';
+        const realConfidence = typeof sub.confidenceScore === 'number' && !isNaN(sub.confidenceScore)
+          ? sub.confidenceScore
+          : 60.0;
         const { arId, transId } = pairedIds[idx];
+
+        let surahNumber = Number(surah);
+        let ayahNumber = idx + startAyah;
+        let ayahKey = sub.verse_key;
+        if (ayahKey && ayahKey.includes(':')) {
+          const parts = ayahKey.split(':');
+          surahNumber = parseInt(parts[0], 10);
+          ayahNumber = parseInt(parts[1], 10);
+        }
 
         return {
           id: transId,
           linkedClipId: arId,
+          surahNumber,
+          ayahNumber,
+          ayahKey,
+          language: 'en',
           name: sub.isTaawwuz ? `${prefix}: Ta'awwuz` : sub.isTasmiyah ? `${prefix}: Tasmiyah` : `${prefix}: ${sub.verse_key}`,
           type: ClipType.TEXT,
           trackId: trackEnId,
@@ -4204,22 +4258,25 @@ export default function App() {
           textMaxWidth: quranEnglishMaxWidth,
           textLineHeight: quranEnglishLineHeight,
           textAlignment: quranEnglishAlign,
-          confidenceScore: 98.8
+          confidenceScore: Number(realConfidence.toFixed(1))
         };
       });
+
+      const sanitizedArabicClips = enforceStrictNonOverlappingClips(arabicClips, 0.2);
+      const sanitizedTranslationClips = enforceStrictNonOverlappingClips(translationClips, 0.2);
 
       const arTrack: Track = {
         id: trackArId,
         name: 'Quran Arabic (Uthmani)',
         type: ClipType.TEXT,
-        clips: arabicClips
+        clips: sanitizedArabicClips
       };
 
       const transTrack: Track = {
         id: trackEnId,
         name: `Quran Translation (${transOpt.language})`,
         type: ClipType.TEXT,
-        clips: translationClips
+        clips: sanitizedTranslationClips
       };
 
       if (transOpt.id === 'none') {
@@ -4227,11 +4284,11 @@ export default function App() {
       } else {
         setTracks([...filteredTracks, arTrack, transTrack]);
       }
-      setSelectedClipId(arabicClips[0]?.id || null);
+      setSelectedClipId(sanitizedArabicClips[0]?.id || null);
 
       const maxClipEnd = Math.max(
-        ...arabicClips.map(c => c.start + c.duration),
-        ...(translationClips.length > 0 ? translationClips.map(c => c.start + c.duration) : [0]),
+        ...sanitizedArabicClips.map(c => c.start + c.duration),
+        ...(sanitizedTranslationClips.length > 0 ? sanitizedTranslationClips.map(c => c.start + c.duration) : [0]),
         totalAudioDuration
       );
       setDuration(prev => Math.max(prev, Math.ceil(maxClipEnd + 5)));
@@ -5131,7 +5188,6 @@ export default function App() {
               onAutoSyncVideoToAyahs={handleAutoSyncVideoToAyahs}
               onAutoRemoveSilence={handleAutoRemoveSilence}
               onAutoSegmentRhythm={handleAutoSegmentRhythm}
-              onAutoFixQuranText={handleAutoFixQuranText}
             />
           )}
           renderMediaPanel={() => (
@@ -5209,6 +5265,8 @@ export default function App() {
               onAutoRemoveSilence={handleAutoRemoveSilence}
               onAutoSegmentRhythm={handleAutoSegmentRhythm}
               onReplaceVideoTrackClips={handleReplaceVideoTrackClips}
+              onReplaceTracks={setTracks}
+              onSeekTime={setCurrentTime}
               currentTime={currentTime}
             />
           )}
@@ -5373,22 +5431,6 @@ export default function App() {
             <Brain className="w-3.5 h-3.5 text-purple-400" />
             <span>Gemini AI Intelligence</span>
             <span className="bg-purple-500/20 text-purple-300 text-[9px] px-1 py-0.5 rounded font-mono font-bold border border-purple-500/30">PRO</span>
-          </button>
-
-          {/* GitHub Push Inbox Button */}
-          <button
-            id="btn-github-push-inbox"
-            onClick={() => setShowGitHubInboxModal(true)}
-            className="relative flex items-center gap-1.5 px-3 h-9 bg-[#111625] hover:bg-[#1a2035] border border-purple-500/20 hover:border-purple-400 text-purple-300 text-xs font-semibold rounded-lg transition shadow-sm active:scale-95 cursor-pointer"
-            title="Open GitHub Push Inbox & Message Feed"
-          >
-            <Bell className={`w-3.5 h-3.5 text-purple-400 ${githubUnreadCount > 0 ? 'animate-bounce' : ''}`} />
-            <span>GitHub Inbox</span>
-            {githubUnreadCount > 0 && (
-              <span className="absolute -top-1.5 -right-1.5 w-4.5 h-4.5 bg-purple-600 text-white text-[9px] font-extrabold flex items-center justify-center rounded-full shadow-lg border border-[#111625]">
-                {githubUnreadCount}
-              </span>
-            )}
           </button>
 
           {/* Save Project Button */}
@@ -5619,6 +5661,16 @@ export default function App() {
 
           <div className="h-4 w-px bg-[#2a2a3a] mx-1" />
 
+          {/* Video Synthesis button */}
+          <button
+            id="btn-video-synthesis"
+            onClick={() => setShowVideoSynthesis(true)}
+            className="flex items-center gap-2 px-4 h-9 bg-[#1b1b24] hover:bg-[#252532] border border-blue-500/40 text-blue-400 font-bold text-xs rounded-lg transition active:scale-95 cursor-pointer shadow-sm shadow-blue-500/10"
+          >
+            <Film className="w-4 h-4 text-blue-400" />
+            <span>Synthesis</span>
+          </button>
+
           {/* Export Video button */}
           <button
             id="btn-export-project"
@@ -5835,7 +5887,6 @@ export default function App() {
         onAutoSyncVideoToAyahs={handleAutoSyncVideoToAyahs}
         onAutoRemoveSilence={handleAutoRemoveSilence}
         onAutoSegmentRhythm={handleAutoSegmentRhythm}
-        onAutoFixQuranText={handleAutoFixQuranText}
       />
       </div>
 
@@ -5917,12 +5968,28 @@ export default function App() {
         onClose={() => setShowShortcutsModal(false)}
       />
 
-      {/* GitHub Push Inbox & Notifications Feed Modal */}
-      <GitHubInboxModal
-        isOpen={showGitHubInboxModal}
-        onClose={() => setShowGitHubInboxModal(false)}
-        onNewNotificationCountChange={(count) => setGithubUnreadCount(count)}
-      />
+      {showVideoSynthesis && (
+        <VideoExport 
+          projectId={Date.now().toString()} 
+          alignment={tracks
+            .find(t => t.id === 'track-quran-arabic')?.clips
+            .map(c => ({
+              ayahIndex: c.ayahNumber || 0,
+              wordIndex: 0,
+              startTime: c.start,
+              endTime: c.start + c.duration,
+              isWaqfPause: false,
+              confidenceScore: c.confidenceScore || 0,
+              verse_key: c.ayahKey || `${c.surahNumber}:${c.ayahNumber}`,
+              text_arabic: c.text,
+              text_english: tracks
+                .find(t => t.id === 'track-quran-english')?.clips
+                .find(ec => ec.linkedClipId === c.id || (ec.ayahNumber === c.ayahNumber && ec.surahNumber === c.surahNumber))?.text
+            })) || []}
+          audioSource={tracks.find(t => t.id === 'track-audio-1')?.clips[0]?.url || ''}
+          onClose={() => setShowVideoSynthesis(false)}
+        />
+      )}
 
     </div>
   );

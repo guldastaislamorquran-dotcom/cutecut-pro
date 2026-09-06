@@ -97,6 +97,12 @@ export interface Clip {
   linkedClipId?: string; // Two-Track Anchor Lock: Links Arabic clip and Translation clip together on timeline
   groupId?: string; // Unified Group Container / Compound Clip ID for synchronized selection & movement
 
+  // Quran Ayah Canonical Identity
+  surahNumber?: number;
+  ayahNumber?: number;
+  ayahKey?: string; // e.g., "67:22"
+  language?: 'ar' | 'en' | string;
+
   // Video adjustments and filters
   transform?: {
     scale?: number;    // 10 to 200 (%)
@@ -333,6 +339,42 @@ export interface TextAnimationConfig {
   outAnimation?: TextAnimationOut;
   outDuration?: number; // Out animation duration in seconds (0.1 - 2.0s)
   loopAnimation?: TextAnimationLoop;
+}
+
+export interface QuranAlignmentDiagnostics {
+  ayahNumber: number;
+  predictedStart: number;
+  predictedEnd: number;
+  duration: number;
+  startEvidence: string;
+  endEvidence: string;
+  acousticScore: number;
+  boundaryScore: number;
+  transitionScore: number;
+  durationPriorScore: number;
+  recognitionScore: number;
+  globalScore: number;
+  confidence: number;
+  alignmentMethod: string;
+  warnings: string[];
+  
+  // Real-audio forensics diagnostics
+  speechOffsetScore?: number;
+  speechOnsetScore?: number;
+  silenceDuration?: number;
+  silenceBoundaryBoost?: number;
+  finalBoundaryScore?: number;
+  selectedCandidateReason?: string;
+  
+  // Legacy mappings
+  verseKey: string;
+  matchedAudioRange: { start: number; end: number; duration: number };
+  matchingScore: number;
+  textSimilarityScore: number;
+  boundaryConfidence: number;
+  boundaryType: string;
+  isRepetition?: boolean;
+  isLowConfidence?: boolean;
 }
 
 

@@ -282,6 +282,8 @@ interface MediaPanelProps {
   onAutoRemoveSilence?: (clipId?: string) => void;
   onAutoSegmentRhythm?: (clipId?: string, interval?: number) => void;
   onReplaceVideoTrackClips?: (clips: Partial<Clip>[]) => void;
+  onReplaceTracks?: (tracks: Track[]) => void;
+  onSeekTime?: (time: number) => void;
   currentTime?: number;
 }
 
@@ -359,6 +361,8 @@ export default function MediaPanel({
   onAutoRemoveSilence,
   onAutoSegmentRhythm,
   onReplaceVideoTrackClips,
+  onReplaceTracks,
+  onSeekTime,
   currentTime = 0,
 }: MediaPanelProps) {
   const [activeTab, setActiveTab] = useState<'upload' | 'video' | 'audio' | 'image' | 'text' | 'stickers' | 'effects' | 'transitions' | 'filters' | 'adjustment' | 'quran-visuals' | 'quran' | 'background' | 'watermark'>('upload');

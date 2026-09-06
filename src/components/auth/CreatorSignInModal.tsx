@@ -39,9 +39,15 @@ export const CreatorSignInModal: React.FC<CreatorSignInModalProps> = ({
 
   useEffect(() => {
     const handleStateChange = (connected: boolean) => {
-      setDriveConnected(connected);
+      setDriveConnected(prev => prev === connected ? prev : connected);
       const connectedUser = driveService.getConnectedUser();
-      setDriveUser(connectedUser);
+      setDriveUser(prev => {
+        if (!prev && !connectedUser) return null;
+        if (prev && connectedUser && prev.email === connectedUser.email && prev.name === connectedUser.name && prev.picture === connectedUser.picture) {
+          return prev;
+        }
+        return connectedUser;
+      });
 
       // Automatically sign into the application workspace if Google Drive connects successfully
       if (connected && connectedUser && !user) {

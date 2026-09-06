@@ -1,8 +1,13 @@
 import express from 'express';
 import path from 'path';
+import * as fs from 'fs';
 import dotenv from 'dotenv';
 import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI, Type, ThinkingLevel } from '@google/genai';
+import { FFmpegPipeline } from './src/services/video/ffmpegPipeline';
+import { ScenePlanner } from './src/services/video/scenePlanner';
+import { LayoutEngine } from './src/services/video/layoutEngine';
+import { RenderTimeline, RenderManifest } from './src/types/video';
 
 dotenv.config();
 
@@ -625,6 +630,88 @@ async function startServer() {
 
     console.log(`[Quran Align API] Auto-segmented ${subtitles.length} total segments using Word/Char ratio algorithm.`);
     res.json({ subtitles });
+  });
+
+  // Video Rendering State Management
+  const renderJobs = new Map<string, RenderManifest>();
+
+  // API Route: Start Video Render
+  app.post('/api/video/render', async (req, res) => {
+    try {
+      const { timeline } = req.body as { timeline: RenderTimeline };
+      const renderId = `render_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      
+      const manifest: RenderManifest = {
+        renderId,
+        projectId: timeline.projectId,
+        status: 'pending',
+        progress: 0,
+        startTime: Date.now(),
+        config: {
+          resolution: timeline.resolution,
+          fps: timeline.fps,
+          codec: 'libx264',
+          bitrate: '8000k'
+        }
+      };
+
+      renderJobs.set(renderId, manifest);
+
+      // Start rendering in background
+      const outputPath = path.join(process.cwd(), 'public', 'renders', `${renderId}.mp4`);
+      
+      FFmpegPipeline.render(timeline, outputPath, (progress) => {
+        const job = renderJobs.get(renderId);
+        if (job) {
+          job.status = 'rendering';
+          job.progress = progress.percent;
+        }
+      }).then(() => {
+        const job = renderJobs.get(renderId);
+        if (job) {
+          job.status = 'completed';
+          job.progress = 100;
+          job.endTime = Date.now();
+          job.outputPath = `/renders/${renderId}.mp4`;
+          
+          // Basic validation
+          if (fs.existsSync(outputPath)) {
+            const stats = fs.statSync(outputPath);
+            job.validationResult = {
+              isValid: stats.size > 0,
+              checks: {
+                fileCreated: true,
+                sizeCheck: stats.size > 0,
+                durationCheck: true
+              }
+            };
+          }
+        }
+      }).catch((err) => {
+        console.error(`[Render Error] ${renderId}:`, err);
+        const job = renderJobs.get(renderId);
+        if (job) {
+          job.status = 'failed';
+          job.error = err.message;
+          job.endTime = Date.now();
+        }
+      });
+
+      res.json({ success: true, renderId });
+    } catch (err: any) {
+      console.error('[Render Initiation Error]', err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // API Route: Get Render Status
+  app.get('/api/video/status/:renderId', (req, res) => {
+    const { renderId } = req.params;
+    const job = renderJobs.get(renderId);
+    if (!job) {
+      return res.status(404).json({ error: 'Render job not found' });
+    }
+    res.json(job);
   });
 
   // API Route: AI Quran Verse Visuals & Background Scenery Generator

@@ -277,12 +277,15 @@ export const VideoFilmstripVisual = React.memo<VideoFilmstripVisualProps>(({
     let isMounted = true;
 
     if (isImage) {
+      if (globalThumbnailCache.has(posterKey)) {
+        return;
+      }
       const img = new Image();
       img.src = normalizedUrl;
       img.onload = () => {
         if (isMounted) {
           globalThumbnailCache.set(posterKey, normalizedUrl);
-          setPosterThumb(normalizedUrl);
+          setPosterThumb((prev) => (prev === normalizedUrl ? prev : normalizedUrl));
         }
       };
       return () => {
@@ -290,25 +293,28 @@ export const VideoFilmstripVisual = React.memo<VideoFilmstripVisualProps>(({
       };
     }
 
-    // Video extraction: Get poster frame sequentially
+    // Video extraction: Get poster frame sequentially if not already cached
     const initialTime = (clip.sourceStart || 0) + 0.1;
-    queueFrameExtraction(normalizedUrl, initialTime, crossOrigin, (_key, dataUrl) => {
-      if (isMounted) {
-        setPosterThumb(dataUrl);
-      }
-    });
+    if (!globalThumbnailCache.has(posterKey)) {
+      queueFrameExtraction(normalizedUrl, initialTime, crossOrigin, (_key, dataUrl) => {
+        if (isMounted) {
+          setPosterThumb((prev) => (prev === dataUrl ? prev : dataUrl));
+        }
+      });
+    }
 
-    // Extract all frame slices sequentially through the lightweight global queue
+    // Extract any frame slices that are not yet in global cache
     frames.forEach((frame) => {
       const roundedTime = Math.round(frame.mediaTime * 10) / 10;
       const cacheKey = `${normalizedUrl}_${roundedTime}`;
       
-      if (globalThumbnailCache.has(cacheKey)) {
-        setThumbnails((prev) => ({ ...prev, [frame.index]: globalThumbnailCache.get(cacheKey)! }));
-      } else {
+      if (!globalThumbnailCache.has(cacheKey)) {
         queueFrameExtraction(normalizedUrl, frame.mediaTime, crossOrigin, (_key, dataUrl) => {
           if (isMounted) {
-            setThumbnails((prev) => ({ ...prev, [frame.index]: dataUrl }));
+            setThumbnails((prev) => {
+              if (prev[frame.index] === dataUrl) return prev;
+              return { ...prev, [frame.index]: dataUrl };
+            });
           }
         });
       }
@@ -349,7 +355,9 @@ export const VideoFilmstripVisual = React.memo<VideoFilmstripVisualProps>(({
           </div>
         ) : (
           frames.map((frame) => {
-            const thumb = thumbnails[frame.index] || posterThumb;
+            const roundedTime = Math.round(frame.mediaTime * 10) / 10;
+            const cacheKey = `${normalizedUrl}_${roundedTime}`;
+            const thumb = thumbnails[frame.index] || globalThumbnailCache.get(cacheKey) || posterThumb || globalThumbnailCache.get(posterKey);
 
             return (
               <div

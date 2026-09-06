@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Sparkles,
   Scissors,
@@ -56,6 +56,168 @@ export const LandingPortal: React.FC<LandingPortalProps> = ({
   recentProjects = [],
 }) => {
   const [activeCategory, setActiveCategory] = useState<'all' | 'quran' | 'shorts' | 'cinematic' | 'calligraphy'>('all');
+  const [currentSlide, setCurrentSlide] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentSlide((prev) => (prev + 1) % 4);
+    }, 4500);
+    return () => clearInterval(interval);
+  }, []);
+
+  const slideshowSlides = [
+    {
+      title: "Automated Quranic Ayah Alignment",
+      subtitle: "Microsecond Speech-to-Text Precision",
+      desc: "Instantly segments and aligns continuous full-surah audio tracks matching the exact canonical Uthmani script coordinates.",
+      badge: "AI Align Engine v2.3.9",
+      color: "from-emerald-500/20 to-teal-500/10 border-emerald-500/30 text-emerald-400",
+      icon: BookOpen,
+      visual: (
+        <div className="w-full h-full bg-[#07070b] border border-[#1f1f2e] rounded-2xl p-4 flex flex-col justify-between relative overflow-hidden h-[180px]">
+          <div className="space-y-1">
+            <div className="flex items-center justify-between text-[9px] font-mono text-gray-400">
+              <span>Reciter: Al-Husary (Murattal)</span>
+              <span className="text-emerald-400">Aligned • 45.2 ms MAE</span>
+            </div>
+            
+            <div className="h-10 flex items-end gap-[2px] pt-1">
+              {[20, 45, 10, 80, 95, 30, 40, 60, 20, 15, 85, 90, 70, 10, 30, 40, 85, 95, 60, 30, 10, 75, 80, 20, 50, 90, 35, 10, 60, 80, 95].map((h, i) => (
+                <div
+                  key={i}
+                  className={`flex-1 rounded-full transition-all duration-500 ${
+                    i < 16 ? 'bg-emerald-500' : 'bg-[#1a1a26]'
+                  }`}
+                  style={{ height: `${h}%` }}
+                />
+              ))}
+            </div>
+          </div>
+
+          <div className="bg-[#12121d] border border-[#222238] rounded-xl p-2 flex flex-col items-center justify-center text-center">
+            <div className="text-emerald-400 font-bold font-mono text-[8px] uppercase tracking-wider mb-0.5">
+              Ayah 1 Alignment Status
+            </div>
+            <div className="text-xs font-bold text-white mb-0.5" dir="rtl">
+              صِرَٰطَ ٱلَّذِينَ أَنْعَمْتَ عَلَيْهِمْ
+            </div>
+            <div className="text-[9px] text-gray-400 italic">
+              "The path of those upon whom You have bestowed favor..."
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between text-[8px] font-mono text-gray-500">
+            <span>00:00.00</span>
+            <span className="text-emerald-500 font-bold">Words synced: 4/4</span>
+            <span>00:10.15</span>
+          </div>
+        </div>
+      )
+    },
+    {
+      title: "CapCut-Grade Timeline Engine",
+      subtitle: "Multi-Track Video, Audio & Subtitles",
+      desc: "Trims, splits, and ripple-deletes infinite overlaps with zero lag. Features smooth sub-frame scrubbing.",
+      badge: "Real-Time GPU Render",
+      color: "from-cyan-500/20 to-indigo-500/10 border-cyan-500/30 text-cyan-400",
+      icon: Scissors,
+      visual: (
+        <div className="w-full h-full bg-[#07070b] border border-[#1f1f2e] rounded-2xl p-4 flex flex-col justify-between relative overflow-hidden h-[180px]">
+          <div className="relative aspect-video w-full rounded-lg overflow-hidden bg-slate-900 border border-[#1f1f2e] h-20">
+            <img 
+              src="https://images.unsplash.com/photo-1542816417-0983c9c9ad53?w=400&auto=format&fit=crop&q=80" 
+              className="w-full h-full object-cover brightness-75"
+              alt="Video Preview"
+            />
+            <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+              <div className="w-8 h-8 rounded-full bg-cyan-500/95 text-black flex items-center justify-center shadow-lg shadow-cyan-500/30">
+                <Play className="w-3.5 h-3.5 fill-black ml-0.5" />
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-1 mt-1 font-mono text-[8px]">
+            <div className="flex items-center gap-2">
+              <span className="w-5 text-gray-400 shrink-0">V1</span>
+              <div className="flex-1 bg-[#161622] border border-[#2c2c3e] rounded-md h-4 flex items-center px-1.5 relative overflow-hidden">
+                <div className="absolute inset-y-0 left-0 w-2/3 bg-cyan-500/20 border-r-2 border-cyan-400" />
+                <span className="text-gray-300 relative z-10 truncate text-[8px]">tilawat_drone_footage.mp4</span>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="w-5 text-gray-400 shrink-0">A1</span>
+              <div className="flex-1 bg-[#161622] border border-[#2c2c3e] rounded-md h-4 flex items-center px-1.5 relative overflow-hidden">
+                <div className="absolute inset-y-0 left-0 w-2/3 bg-emerald-500/20 border-r-2 border-emerald-400" />
+                <span className="text-gray-300 relative z-10 truncate text-[8px]">recitation_stereo_mix.wav</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )
+    },
+    {
+      title: "Viral Word-by-Word Subtitles",
+      subtitle: "Dynamic Subtitle Animations",
+      desc: "Generates punchy social captions with customizable active color highlights, glow shadows, and entrance triggers.",
+      badge: "TikTok/Shorts Ready",
+      color: "from-purple-500/20 to-pink-500/10 border-purple-500/30 text-purple-400",
+      icon: Type,
+      visual: (
+        <div className="w-full h-full bg-[#07070b] border border-[#1f1f2e] rounded-2xl p-4 flex flex-col justify-center items-center relative overflow-hidden h-[180px]">
+          <div className="space-y-2 text-center">
+            <span className="text-[8px] font-mono text-gray-400 tracking-wider uppercase block">Active Preset: "GLOW POP"</span>
+            
+            <div className="flex flex-wrap items-center justify-center gap-1.5 text-lg font-black tracking-tight">
+              <span className="text-white">Create</span>
+              <span className="text-white">Viral</span>
+              <span className="text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded-lg shadow-lg shadow-cyan-500/20 scale-105 border border-cyan-400/30 animate-pulse">Tilawat</span>
+              <span className="text-white">Videos</span>
+            </div>
+
+            <div className="text-[9px] text-gray-400 italic">
+              "Word highlight synchronized with active voice peak detection"
+            </div>
+          </div>
+          
+          <div className="absolute bottom-2 left-3 right-3 flex items-center justify-between text-[8px] font-mono text-gray-500">
+            <span>Font: Montserrat</span>
+            <span className="text-cyan-400 font-bold">Glow Active</span>
+          </div>
+        </div>
+      )
+    },
+    {
+      title: "Royal 3D Calligraphy",
+      subtitle: "Custom Shaders & Glows",
+      desc: "Applies 3D gold foil, chrome outlines, and neon ambient glows to any Arabic calligraphy preset with real-time adjustments.",
+      badge: "WebGL Shader Engine",
+      color: "from-amber-500/20 to-yellow-500/10 border-amber-500/30 text-amber-400",
+      icon: Palette,
+      visual: (
+        <div className="w-full h-full bg-[#07070b] border border-[#1f1f2e] rounded-2xl p-4 flex flex-col justify-between relative overflow-hidden h-[180px]">
+          <div className="flex items-center justify-between text-[9px] font-mono text-gray-400">
+            <span>Material: Gold Foil</span>
+            <span className="text-amber-400 font-bold">Shader Live</span>
+          </div>
+
+          <div className="flex-1 flex flex-col items-center justify-center text-center space-y-1">
+            <div className="text-xl font-bold bg-gradient-to-r from-amber-200 via-yellow-400 to-amber-200 bg-clip-text text-transparent drop-shadow-[0_0_12px_rgba(234,179,8,0.3)] select-none" dir="rtl">
+              بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ
+            </div>
+            <div className="text-[8px] bg-amber-500/10 border border-amber-500/30 text-amber-400 px-1.5 py-0.2 rounded-full font-mono uppercase font-bold">
+              3D Metallic Extruded
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between text-[8px] font-mono text-gray-500">
+            <span>Depth: 12px</span>
+            <span>Reflectivity: 85%</span>
+          </div>
+        </div>
+      )
+    }
+  ];
+
 
   const templates = [
     {
@@ -326,14 +488,14 @@ export const LandingPortal: React.FC<LandingPortalProps> = ({
         <div className="flex flex-col items-center justify-center gap-3 mb-14 w-full max-w-5xl">
           <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-gray-400">
             <Download className="w-3.5 h-3.5 text-cyan-400" />
-            <span>Download Desktop Native Apps (v2.3.8)</span>
+            <span>Download Desktop Native Apps (v2.3.9)</span>
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 w-full">
             {/* Windows Download */}
             <a
-              href="https://github.com/guldastaislamorquran-dotcom/cutecut-pro/releases/download/v2.3.8/CUTECUT.PRO.Setup.2.3.8.exe"
-              download="CUTECUT.PRO.Setup.2.3.8.exe"
+              href="https://github.com/guldastaislamorquran-dotcom/cutecut-pro/releases/download/v2.3.9/CUTECUT.PRO.Setup.2.3.9.exe"
+              download="CUTECUT.PRO.Setup.2.3.9.exe"
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl bg-[#14141f] hover:bg-[#1c1c2b] border border-[#28283c] hover:border-cyan-400/60 text-gray-200 hover:text-white transition group cursor-pointer shadow-lg shadow-black/40"
@@ -348,8 +510,8 @@ export const LandingPortal: React.FC<LandingPortalProps> = ({
 
             {/* macOS Download */}
             <a
-              href="https://github.com/guldastaislamorquran-dotcom/cutecut-pro/releases/download/v2.3.8/CUTECUT.PRO-2.3.8-arm64.dmg"
-              download="CUTECUT.PRO-2.3.8-arm64.dmg"
+              href="https://github.com/guldastaislamorquran-dotcom/cutecut-pro/releases/download/v2.3.9/CUTECUT.PRO-2.3.9-arm64.dmg"
+              download="CUTECUT.PRO-2.3.9-arm64.dmg"
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl bg-[#14141f] hover:bg-[#1c1c2b] border border-[#28283c] hover:border-gray-200/60 text-gray-200 hover:text-white transition group cursor-pointer shadow-lg shadow-black/40"
@@ -364,8 +526,8 @@ export const LandingPortal: React.FC<LandingPortalProps> = ({
 
             {/* Linux AppImage */}
             <a
-              href="https://github.com/guldastaislamorquran-dotcom/cutecut-pro/releases/download/v2.3.8/CUTECUT.PRO-2.3.8.AppImage"
-              download="CUTECUT.PRO-2.3.8.AppImage"
+              href="https://github.com/guldastaislamorquran-dotcom/cutecut-pro/releases/download/v2.3.9/CUTECUT.PRO-2.3.9.AppImage"
+              download="CUTECUT.PRO-2.3.9.AppImage"
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl bg-[#14141f] hover:bg-[#1c1c2b] border border-[#28283c] hover:border-emerald-400/60 text-gray-200 hover:text-white transition group cursor-pointer shadow-lg shadow-black/40"
@@ -380,8 +542,8 @@ export const LandingPortal: React.FC<LandingPortalProps> = ({
 
             {/* Linux DEB */}
             <a
-              href="https://github.com/guldastaislamorquran-dotcom/cutecut-pro/releases/download/v2.3.8/cutecut-pro_2.3.8_amd64.deb"
-              download="cutecut-pro_2.3.8_amd64.deb"
+              href="https://github.com/guldastaislamorquran-dotcom/cutecut-pro/releases/download/v2.3.9/cutecut-pro_2.3.9_amd64.deb"
+              download="cutecut-pro_2.3.9_amd64.deb"
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl bg-[#14141f] hover:bg-[#1c1c2b] border border-[#28283c] hover:border-blue-400/60 text-gray-200 hover:text-white transition group cursor-pointer shadow-lg shadow-black/40"
@@ -433,7 +595,7 @@ export const LandingPortal: React.FC<LandingPortalProps> = ({
               <div className="w-3 h-3 rounded-full bg-red-500/80" />
               <div className="w-3 h-3 rounded-full bg-amber-500/80" />
               <div className="w-3 h-3 rounded-full bg-emerald-500/80" />
-              <span className="text-xs font-mono text-gray-400 ml-2">CUTECUT PRO — Video Editor Timeline Studio</span>
+              <span className="text-xs font-mono text-gray-400 ml-2 font-bold uppercase tracking-wider">CUTECUT PRO — Studio Dashboard</span>
             </div>
             <div className="flex items-center gap-2 text-xs font-mono text-cyan-400">
               <span className="inline-block w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
@@ -441,49 +603,94 @@ export const LandingPortal: React.FC<LandingPortalProps> = ({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <div 
-              onClick={() => onLoadTemplate('tpl-quran-reels')}
-              className="p-4 rounded-2xl bg-[#171724] hover:bg-[#202034] border border-[#29293e] hover:border-emerald-500/50 text-left transition cursor-pointer group"
-            >
-              <div className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-400 w-fit mb-3 group-hover:scale-110 transition">
-                <BookOpen className="w-5 h-5" />
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
+            {/* Left side: The 4 Interactive Template Options */}
+            <div className="lg:col-span-5 flex flex-col justify-between gap-3.5">
+              <div className="text-left">
+                <span className="text-[10px] font-mono text-cyan-400 uppercase tracking-widest font-extrabold block mb-1">Interactive Studio</span>
+                <h3 className="text-lg font-black text-white leading-tight">Timeline & Auto-Alignment Preview</h3>
+                <p className="text-[11px] text-gray-400 leading-relaxed mt-1">
+                  Select any preset below to instantly preview the live auto-segmentation track, metallic 3D calligraphy shaders, or the viral multi-track CapCut-grade editor layout.
+                </p>
               </div>
-              <h4 className="text-xs font-bold text-white mb-1">Quran Tilawat Reels</h4>
-              <p className="text-[11px] text-gray-400">9:16 Vertical video with auto Arabic & Urdu text</p>
+
+              <div className="grid grid-cols-1 gap-2.5">
+                {[
+                  { id: 'tpl-quran-reels', title: 'Quran Tilawat Reels', desc: '9:16 Auto Arabic & Urdu text', borderClass: 'border-emerald-500/50', textClass: 'text-emerald-400', bgClass: 'bg-emerald-500/10', icon: BookOpen, slideIdx: 0 },
+                  { id: 'tpl-cinematic-documentary', title: '16:9 YouTube Docu', desc: 'Cinematic landscape layout with transitions', borderClass: 'border-cyan-500/50', textClass: 'text-cyan-400', bgClass: 'bg-cyan-500/10', icon: Film, slideIdx: 1 },
+                  { id: 'tpl-viral-captions', title: 'Viral Captions', desc: 'Word-by-word dynamic glowing text', borderClass: 'border-purple-500/50', textClass: 'text-purple-400', bgClass: 'bg-purple-500/10', icon: Type, slideIdx: 2 },
+                  { id: 'tpl-cyber-calligraphy', title: '3D Calligraphy', desc: 'Gold foil, metallic stroke & neon glow', borderClass: 'border-amber-500/50', textClass: 'text-amber-400', bgClass: 'bg-amber-500/10', icon: Palette, slideIdx: 3 }
+                ].map((item) => {
+                  const Icon = item.icon;
+                  const isActive = currentSlide === item.slideIdx;
+                  return (
+                    <div 
+                      key={item.id}
+                      onClick={() => {
+                        setCurrentSlide(item.slideIdx);
+                        onLoadTemplate(item.id);
+                      }}
+                      className={`p-3 rounded-2xl text-left transition cursor-pointer flex items-center gap-3 border ${
+                        isActive 
+                          ? `bg-[#181a2e] ${item.borderClass} shadow-xl shadow-cyan-500/5` 
+                          : 'bg-[#151522] border-[#222238] hover:bg-[#1b1b2a] hover:border-cyan-500/30'
+                      }`}
+                    >
+                      <div className={`p-2 rounded-xl shrink-0 ${item.bgClass} ${item.textClass}`}>
+                        <Icon className="w-4 h-4" />
+                      </div>
+                      <div className="min-w-0">
+                        <h4 className="text-xs font-bold text-white mb-0.5">{item.title}</h4>
+                        <p className="text-[10px] text-gray-400 truncate">{item.desc}</p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
 
-            <div 
-              onClick={() => onLoadTemplate('tpl-viral-captions')}
-              className="p-4 rounded-2xl bg-[#171724] hover:bg-[#202034] border border-[#29293e] hover:border-cyan-500/50 text-left transition cursor-pointer group"
-            >
-              <div className="p-2.5 rounded-xl bg-cyan-500/10 text-cyan-400 w-fit mb-3 group-hover:scale-110 transition">
-                <Type className="w-5 h-5" />
-              </div>
-              <h4 className="text-xs font-bold text-white mb-1">Viral Captions</h4>
-              <p className="text-[11px] text-gray-400">Word-by-word dynamic glowing animations</p>
-            </div>
+            {/* Right side: The Auto-Playing Slideshow showing video editing / auto-segmentation previews */}
+            <div className="lg:col-span-7 flex flex-col justify-between bg-[#12121c]/80 border border-[#232336] rounded-3xl p-5 relative overflow-hidden shadow-2xl min-h-[350px]">
+              {/* Slideshow Ambient Background */}
+              <div className="absolute inset-0 bg-gradient-to-tr from-cyan-500/5 via-transparent to-transparent pointer-events-none" />
 
-            <div 
-              onClick={() => onLoadTemplate('tpl-cinematic-documentary')}
-              className="p-4 rounded-2xl bg-[#171724] hover:bg-[#202034] border border-[#29293e] hover:border-amber-500/50 text-left transition cursor-pointer group"
-            >
-              <div className="p-2.5 rounded-xl bg-amber-500/10 text-amber-400 w-fit mb-3 group-hover:scale-110 transition">
-                <Film className="w-5 h-5" />
+              {/* Active Slide Header */}
+              <div className="flex items-center justify-between mb-4 relative z-10">
+                <div className="flex items-center gap-2">
+                  <span className="text-[9px] font-mono font-black tracking-wider uppercase px-2 py-0.5 rounded-full border bg-[#151928] border-cyan-500/30 text-cyan-400">
+                    {slideshowSlides[currentSlide].badge}
+                  </span>
+                  <span className="text-[10px] text-gray-500 font-semibold">• Slide Showcase</span>
+                </div>
+                {/* Slide indicator dots */}
+                <div className="flex items-center gap-1.5">
+                  {[0, 1, 2, 3].map((idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => setCurrentSlide(idx)}
+                      className={`w-2 h-2 rounded-full transition-all duration-300 ${
+                        idx === currentSlide ? 'bg-cyan-400 w-4' : 'bg-gray-600 hover:bg-gray-500'
+                      }`}
+                    />
+                  ))}
+                </div>
               </div>
-              <h4 className="text-xs font-bold text-white mb-1">16:9 YouTube Docu</h4>
-              <p className="text-[11px] text-gray-400">Cinematic landscape layout with transitions</p>
-            </div>
 
-            <div 
-              onClick={() => onLoadTemplate('tpl-cyber-calligraphy')}
-              className="p-4 rounded-2xl bg-[#171724] hover:bg-[#202034] border border-[#29293e] hover:border-purple-500/50 text-left transition cursor-pointer group"
-            >
-              <div className="p-2.5 rounded-xl bg-purple-500/10 text-purple-400 w-fit mb-3 group-hover:scale-110 transition">
-                <Palette className="w-5 h-5" />
+              {/* Slide Visual (The Auto-Alignment or Timeline layout) */}
+              <div className="flex-1 flex flex-col justify-center relative z-10 mb-4 transition-all duration-500 ease-in-out">
+                {slideshowSlides[currentSlide].visual}
               </div>
-              <h4 className="text-xs font-bold text-white mb-1">3D Calligraphy</h4>
-              <p className="text-[11px] text-gray-400">Gold foil, metallic stroke & neon glow</p>
+
+              {/* Active Slide Description */}
+              <div className="relative z-10 border-t border-[#1f1f2e] pt-4 text-left">
+                <div className="flex items-center gap-2 text-xs font-black text-white mb-1.5">
+                  {React.createElement(slideshowSlides[currentSlide].icon, { className: "w-4 h-4 text-cyan-400" })}
+                  <span className="uppercase tracking-wide text-xs">{slideshowSlides[currentSlide].title}</span>
+                </div>
+                <p className="text-[11px] text-gray-400 leading-relaxed">
+                  {slideshowSlides[currentSlide].desc}
+                </p>
+              </div>
             </div>
           </div>
         </div>

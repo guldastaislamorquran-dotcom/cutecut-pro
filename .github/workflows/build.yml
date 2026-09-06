@@ -73,15 +73,15 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: |
           sudo apt-get update
-          sudo apt-get install -y fakeroot dpkg libfuse2 squashfs-tools snapd || sudo apt-get install -y fakeroot dpkg libfuse2t64 squashfs-tools snapd || true
+          sudo apt-get install -y fakeroot dpkg libfuse2 squashfs-tools snapd flatpak flatpak-builder || sudo apt-get install -y fakeroot dpkg libfuse2t64 squashfs-tools snapd flatpak flatpak-builder || true
           sudo snap install snapcraft --classic || true
           echo "/snap/bin" >> $GITHUB_PATH
 
-      - name: Bundle Linux Binaries (DEB, AppImage & Snap)
+      - name: Bundle Linux Binaries (DEB, AppImage, Snap & Flatpak)
         if: matrix.os == 'ubuntu-latest'
         run: |
           rm -rf dist-desktop
-          npx electron-builder build --linux appimage deb snap --x64 --publish never
+          npx electron-builder build --linux appimage deb snap flatpak --x64 --publish never || npx electron-builder build --linux appimage deb snap --x64 --publish never
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -144,6 +144,7 @@ jobs:
             dist-desktop/*.deb
             dist-desktop/*.AppImage
             dist-desktop/*.snap
+            dist-desktop/*.flatpak
             dist-desktop/*.dmg
             dist-desktop/
 
@@ -156,7 +157,148 @@ jobs:
             dist-desktop/*.deb
             dist-desktop/*.AppImage
             dist-desktop/*.snap
+            dist-desktop/*.flatpak
             dist-desktop/*.dmg
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # -------------------------------------------------------------
+  # ANDROID APK BUILD & PACKAGING JOB (Capacitor + Gradle)
+  # -------------------------------------------------------------
+  build-android:
+    name: Build & Package Android APK
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js (v20)
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Setup Java JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Install NPM Dependencies
+        run: npm install --legacy-peer-deps --no-audit
+
+      - name: Build Web Application Bundle
+        run: npm run build
+
+      - name: Initialize and Sync Capacitor Android Project
+        run: |
+          # If android folder is missing, initialize Capacitor Android
+          if [ ! -f "android/build.gradle" ]; then
+            echo "Initializing fresh Capacitor Android platform..."
+            rm -rf android
+            npx cap add android
+          fi
+          
+          # Ensure AdMob App ID is present in AndroidManifest.xml
+          MANIFEST="android/app/src/main/AndroidManifest.xml"
+          if [ -f "$MANIFEST" ] && ! grep -q "com.google.android.gms.ads.APPLICATION_ID" "$MANIFEST"; then
+            echo "Injecting AdMob App ID meta-data into AndroidManifest.xml..."
+            sed -i '/<\/application>/i \        <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="ca-app-pub-8898043565822840~4018462556"/>' "$MANIFEST"
+          fi
+
+          echo "Synchronizing web assets to Android platform..."
+          npx cap sync android
+
+      - name: Build Android APK with Gradle
+        working-directory: android
+        run: |
+          yes | sdkmanager --licenses || true
+          
+          if [ -f "gradlew" ]; then
+            chmod +x gradlew
+            ./gradlew assembleDebug --no-daemon
+          else
+            gradle assembleDebug --no-daemon
+          fi
+
+      - name: Upload Android APK Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: CuteCut-Pro-Android-APK
+          path: |
+            android/app/build/outputs/apk/debug/*.apk
+            android/app/build/outputs/apk/**/*.apk
+          retention-days: 14
+          if-no-files-found: warn
+
+      - name: Publish Android APK to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            android/app/build/outputs/apk/debug/*.apk
+            android/app/build/outputs/apk/**/*.apk
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # -------------------------------------------------------------
+  # FLATHUB FLATPAK PACKAGING & PUBLISHING JOB
+  # -------------------------------------------------------------
+  build-flathub:
+    name: Build & Package Flathub Flatpak
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    container:
+      image: ghcr.io/flathub-infra/flatpak-github-actions:gnome-46
+      options: --privileged
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js Runtime
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Dependencies and Build Web Core
+        run: |
+          npm install --include=optional --no-audit
+          npm run build
+          node scripts/generate-icons.cjs || true
+
+      - name: Build Flatpak Package
+        uses: flatpak/flatpak-github-actions/flatpak-builder@v6
+        with:
+          bundle: org.guldasta.cutecutpro.flatpak
+          manifest-path: org.guldasta.cutecutpro.yaml
+          cache-key: flatpak-builder-${{ github.sha }}
+          run-tests: false
+          upload-artifact: true
+
+      - name: Upload Flatpak Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: CuteCut-Pro-Flathub-Flatpak
+          path: org.guldasta.cutecutpro.flatpak
+          if-no-files-found: warn
+
+      - name: Publish Flatpak to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: org.guldasta.cutecutpro.flatpak
           draft: false
           prerelease: false
         env:

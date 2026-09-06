@@ -1,4 +1,5 @@
 import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import {
   Scissors, Trash2, ZoomIn, ZoomOut, Layers, SquareSlash, Undo2, Redo2,
   Copy, Snowflake, Volume2, VolumeX, Lock, Unlock, Eye, EyeOff, Plus, Minus,
@@ -10,9 +11,7 @@ import {
   GripHorizontal, Move, AlertTriangle, CheckCircle2, Wand2, FileText, BookOpen
 } from 'lucide-react';
 import { Track, Clip, ClipType, TransitionType } from '../types';
-import { formatTimeCode, inspectQuranAyahAlignment, QuranSyncInspectionReport, QuranSyncInspectionItem, generateAutoFixQuranTextClips, extractAyahNumberFromClip, globalBreathMarkersRegistry } from '../utils/editorUtils';
-import { SURAHS } from './MediaPanel';
-import { QURAN_TRANSLATION_OPTIONS, getTranslationOptionById } from '../utils/quranTranslations';
+import { formatTimeCode, extractAyahNumberFromClip, globalBreathMarkersRegistry, QURAN_CHAPTER_AYAH_COUNTS } from '../utils/editorUtils';
 import AudioWaveformGraph from './AudioWaveformGraph';
 import VideoFilmstripVisual from './VideoFilmstripVisual';
 import { SmartPauseConfigModal } from './SmartPauseConfigModal';
@@ -114,12 +113,6 @@ interface TimelineProps {
   onAutoSyncVideoToAyahs?: () => void;
   onAutoRemoveSilence?: (clipId?: string) => void;
   onAutoSegmentRhythm?: (clipId?: string, interval?: number) => void;
-  onAutoFixQuranText?: (params: {
-    surahNumber?: number;
-    startAyahNumber?: number;
-    translationOption?: any;
-    targetClipIds?: string[];
-  }) => Promise<void> | void;
 }
 
 export default function Timeline({
@@ -174,7 +167,6 @@ export default function Timeline({
   onAutoSyncVideoToAyahs,
   onAutoRemoveSilence,
   onAutoSegmentRhythm,
-  onAutoFixQuranText,
   snapToGrid: propSnapToGrid = true,
   onToggleSnapToGrid,
 }: TimelineProps) {
@@ -304,7 +296,7 @@ export default function Timeline({
 
   useEffect(() => {
     if (propSnapToGrid !== undefined) {
-      setSnapToGrid(propSnapToGrid);
+      setSnapToGrid((prev) => (prev === propSnapToGrid ? prev : propSnapToGrid));
     }
   }, [propSnapToGrid]);
 
@@ -346,11 +338,6 @@ export default function Timeline({
   const [followPlayheadMode, setFollowPlayheadMode] = useState<'page' | 'smooth' | 'off'>('page');
   const lastAutoScrollRef = useRef<number>(0);
 
-  // Real-Time Quran Tilawat & Ayah Subtitle Sync Inspection Suite
-  const quranSyncReport = useMemo(() => {
-    return inspectQuranAyahAlignment(tracks);
-  }, [tracks]);
-
   // Extract all timeline-absolute breath markers across all audio clips for snapping and overlays
   const activeBreathMarkers = useMemo(() => {
     const list: Array<{ id: string; startTime: number; endTime: number; duration: number; clipId: string }> = [];
@@ -377,14 +364,6 @@ export default function Timeline({
 
   const activeBreathMarkersRef = useRef(activeBreathMarkers);
   activeBreathMarkersRef.current = activeBreathMarkers;
-
-  const [showQuranInspectorModal, setShowQuranInspectorModal] = useState(false);
-  const [isFixingText, setIsFixingText] = useState(false);
-  const [inspectorSurah, setInspectorSurah] = useState<number>(1);
-  const [inspectorStartAyah, setInspectorStartAyah] = useState<number>(1);
-  const [inspectorTranslationId, setInspectorTranslationId] = useState<string>('urdu-jalandhry');
-  const [inspectorTargetClips, setInspectorTargetClips] = useState<string[]>([]);
-  const [fixNotification, setFixNotification] = useState<string | null>(null);
 
   // Timeline Direct File Drag & Drop State
   const [isDraggingFiles, setIsDraggingFiles] = useState(false);
@@ -475,41 +454,6 @@ export default function Timeline({
       processDroppedFiles(e.dataTransfer.files);
     }
   };
-
-  useEffect(() => {
-    if (quranSyncReport.detectedSurah && quranSyncReport.detectedSurah !== inspectorSurah) {
-      setInspectorSurah(quranSyncReport.detectedSurah);
-    }
-    if (quranSyncReport.detectedStartAyah && quranSyncReport.detectedStartAyah !== inspectorStartAyah) {
-      setInspectorStartAyah(quranSyncReport.detectedStartAyah);
-    }
-  }, [quranSyncReport.detectedSurah, quranSyncReport.detectedStartAyah, inspectorSurah, inspectorStartAyah]);
-
-  const handleExecuteFixText = async (targetClipIds?: string[], specificSurah?: number, specificStartAyah?: number) => {
-    setIsFixingText(true);
-    try {
-      const surahNum = specificSurah || inspectorSurah || 1;
-      const startAyahNum = specificStartAyah || inspectorStartAyah || 1;
-      const transOption = getTranslationOptionById(inspectorTranslationId);
-
-      if (onAutoFixQuranText) {
-        await onAutoFixQuranText({
-          surahNumber: surahNum,
-          startAyahNumber: startAyahNum,
-          translationOption: transOption,
-          targetClipIds: targetClipIds || (inspectorTargetClips.length > 0 ? inspectorTargetClips : undefined),
-        });
-      }
-      setFixNotification(`✓ Successfully synced Ayah subtitles!`);
-      setTimeout(() => setFixNotification(null), 4000);
-      setShowQuranInspectorModal(false);
-    } catch (err) {
-      console.error('Failed to auto-fix Quran text:', err);
-    } finally {
-      setIsFixingText(false);
-    }
-  };
-
 
   // Multi-Selection Marquee (Rubberband Box Selection)
   const [marquee, setMarquee] = useState<MarqueeBox | null>(null);
@@ -2145,63 +2089,6 @@ export default function Timeline({
             <Magnet className="w-3.5 h-3.5" />
           </button>
 
-
-          {/* Quran Tilawat & Ayah Subtitle Sync Inspector & Auto-Fixer Toolbar Widget */}
-          {quranSyncReport.isQuranAudioPresent && (
-            <div className="flex items-center gap-1 bg-[#13131d] border border-amber-500/40 rounded-lg p-0.5 shadow-sm">
-              <button
-                id="btn-quran-sync-detector"
-                onClick={() => {
-                  setInspectorTargetClips([]);
-                  setShowQuranInspectorModal(true);
-                }}
-                className={`px-2 py-1 rounded text-[11px] font-mono font-bold transition flex items-center gap-1.5 cursor-pointer ${
-                  quranSyncReport.missingTextCount > 0
-                    ? 'bg-amber-950/90 text-amber-300 border border-amber-500/60 hover:bg-amber-900/80 shadow-xs animate-pulse'
-                    : quranSyncReport.outOfSyncCount > 0
-                    ? 'bg-orange-950/90 text-orange-300 border border-orange-500/60 hover:bg-orange-900/80'
-                    : 'bg-emerald-950/90 text-emerald-300 border border-emerald-500/50 hover:bg-emerald-900/80'
-                }`}
-                title={`Quran Tilawat Alignment Detector: ${quranSyncReport.syncedCount}/${quranSyncReport.totalAudioSegments} Synced (${quranSyncReport.missingTextCount} Missing Subtitles). Click to inspect & fix!`}
-              >
-                <span className="text-xs">🕌</span>
-                <span className="font-semibold text-[10px] hidden md:inline">
-                  {quranSyncReport.missingTextCount > 0
-                    ? `Ayah Text: ${quranSyncReport.missingTextCount} Missing ⚠️`
-                    : quranSyncReport.outOfSyncCount > 0
-                    ? `Ayah Text: ${quranSyncReport.outOfSyncCount} Shifted ⚠️`
-                    : `Ayah Text: ${quranSyncReport.syncedCount} Synced ✓`}
-                </span>
-                <span className="md:hidden text-[10px]">
-                  {quranSyncReport.missingTextCount > 0 ? `⚠️ ${quranSyncReport.missingTextCount}` : '✓'}
-                </span>
-              </button>
-
-              {/* 1-Click Instant Auto-Fix All Button */}
-              {(quranSyncReport.missingTextCount > 0 || quranSyncReport.outOfSyncCount > 0) && (
-                <button
-                  id="btn-quick-fix-all-quran-text"
-                  onClick={() => handleExecuteFixText()}
-                  disabled={isFixingText}
-                  className="px-2 py-1 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black font-extrabold text-[10px] rounded shadow-sm flex items-center gap-1 transition cursor-pointer disabled:opacity-50"
-                  title="1-Click Auto-Fix & Generate Missing Ayah Subtitle Text Clips"
-                >
-                  <Zap className="w-3 h-3 fill-current text-black" />
-                  <span className="hidden sm:inline">Fix Text</span>
-                </button>
-              )}
-            </div>
-          )}
-
-          {/* Quick Notification Toast */}
-          {fixNotification && (
-            <div className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/50 text-[10px] font-mono flex items-center gap-1 animate-fade-in">
-              <Check className="w-3 h-3 text-emerald-400" />
-              <span>{fixNotification}</span>
-            </div>
-          )}
-
-
           <div className="h-4 w-px bg-[#2a2a35] mx-0.5" />
 
           {/* Zoom Controls */}
@@ -2575,12 +2462,17 @@ export default function Timeline({
                         draggingClips &&
                         draggingClips.clips.some(c => c.id === clip.id)
                       );
+                      const isResizingThisClip = Boolean(
+                        isDraggingThisClip && (draggingClips?.handle === 'left' || draggingClips?.handle === 'right')
+                      );
+                      const isResizingLeft = Boolean(isResizingThisClip && draggingClips?.handle === 'left');
+                      const isResizingRight = Boolean(isResizingThisClip && draggingClips?.handle === 'right');
                       const left = clip.start * zoom;
                       const width = clip.duration * zoom;
 
                       // Track specific clip styling with Multi-Selection Matrix glow
                       let clipStyleClass = isSelected
-                        ? 'bg-[#2a2200] border-2 border-amber-400 text-amber-100 font-bold shadow-[0_0_15px_rgba(251,191,36,0.5)] ring-2 ring-amber-400/40 z-30 scale-[1.005]'
+                        ? 'bg-[#2a2200] border-2 border-amber-400 text-amber-100 font-bold shadow-[0_0_15px_rgba(251,191,36,0.5)] ring-2 ring-amber-400/40 z-30'
                         : 'bg-[#1a1a24] hover:bg-[#20202c] border-gray-800 text-gray-300';
 
                       if (!isSelected) {
@@ -2607,22 +2499,28 @@ export default function Timeline({
                         }
                       }
 
-                      const syncItem = clip.type === ClipType.AUDIO
-                        ? quranSyncReport.items.find(it => it.audioClipId === clip.id)
-                        : null;
-
                       return (
                         <React.Fragment key={clip.id ? `${clip.id}-${clipIdx}` : `clip-${track.id}-${clipIdx}`}>
-                          <div
+                          <motion.div
                             id={`clip-${clip.id}`}
                             onMouseDown={(e) => startClipDrag(e, clip)}
                             onTouchStart={(e) => startClipDrag(e, clip)}
                             onContextMenu={(e) => handleContextMenu(e, clip, track)}
-                            className={`absolute top-[4px] ${clip.type === ClipType.TEXT ? 'h-[32px] rounded-full justify-center px-2 py-1 items-center font-bold' : 'h-[64px] rounded-lg justify-between flex-col'} flex cursor-pointer transition-colors duration-100 select-none group border shadow-sm overflow-hidden ${clipStyleClass} ${isDraggingThisClip ? 'pointer-events-none opacity-60' : ''}`}
-                            style={{
+                            className={`absolute top-[4px] ${clip.type === ClipType.TEXT ? 'h-[32px] rounded-full justify-center px-2 py-1 items-center font-bold' : 'h-[64px] rounded-lg justify-between flex-col'} flex cursor-pointer select-none group border shadow-sm overflow-hidden ${clipStyleClass} ${isDraggingThisClip && !isResizingThisClip ? 'pointer-events-none opacity-60' : ''}`}
+                            initial={false}
+                            animate={{
                               left: `${left}px`,
                               width: `${width}px`,
+                              scale: isResizingThisClip ? 1.015 : isSelected ? 1.005 : 1,
+                              boxShadow: isResizingThisClip
+                                ? '0 0 20px rgba(6, 182, 212, 0.6), 0 0 4px rgba(6, 182, 212, 0.9)'
+                                : undefined,
                             }}
+                            transition={
+                              isDraggingThisClip
+                                ? { duration: 0, ease: 'linear' }
+                                : { type: 'spring', damping: 26, stiffness: 340, mass: 0.4 }
+                            }
                           >
                             {/* Top Header Bar (~20px) */}
                             {clip.type === ClipType.TEXT && (
@@ -2646,24 +2544,6 @@ export default function Timeline({
                                   <span className="px-1 py-0.1 rounded text-[6.5px] font-mono font-bold bg-amber-950 text-amber-300 border border-amber-500/60 shrink-0 uppercase flex items-center gap-0.5" title="Grouped Clip (Ctrl+G / Cmd+G)">
                                     <Layers className="w-2 h-2 text-amber-300" /> Group
                                   </span>
-                                )}
-                                {/* Ayah Alignment Badge */}
-                                {syncItem && (
-                                  <div className="shrink-0 flex items-center ml-0.5 pointer-events-auto">
-                                    {syncItem.status === 'missing_text' ? (
-                                      <span className="px-1 py-0.1 rounded text-[6.5px] font-mono font-bold bg-red-950 text-red-300 border border-red-500/60">
-                                        No Text
-                                      </span>
-                                    ) : syncItem.status === 'out_of_sync' ? (
-                                      <span className="px-1 py-0.1 rounded text-[6.5px] font-mono font-bold bg-amber-950 text-amber-300 border border-amber-500/60">
-                                        Shift {syncItem.timeShiftSec}s
-                                      </span>
-                                    ) : (
-                                      <span className="px-1 py-0.1 rounded text-[6.5px] font-mono font-bold bg-emerald-950 text-emerald-300 border border-emerald-500/50">
-                                        Ayah {syncItem.ayahNumber} ✓
-                                      </span>
-                                    )}
-                                  </div>
                                 )}
                                 {/* Transition Badge */}
                                 {clip.transition && (clip.transition.inType !== 'none' || clip.transition.outType !== 'none' || clip.transition.type !== 'none') && (
@@ -2718,26 +2598,70 @@ export default function Timeline({
                               )}
                             </div>
 
-                            {/* Drag Resize Handle Left */}
-                            <div
+                            {/* Drag Resize Handle Left with Motion */}
+                            <motion.div
                               onMouseDown={(e) => startClipDrag(e, clip, 'left')}
                               onTouchStart={(e) => startClipDrag(e, clip, 'left')}
-                              className={`absolute left-0 top-0 bottom-0 w-3 bg-black/60 hover:bg-cyan-500 cursor-ew-resize flex items-center justify-center transition-all z-20 group/handle ${isSelected ? 'opacity-100 ring-1 ring-amber-400' : 'opacity-0 group-hover:opacity-100'}`}
+                              className={`absolute left-0 top-0 bottom-0 w-3.5 bg-black/60 hover:bg-cyan-500 cursor-ew-resize flex items-center justify-center transition-colors z-20 group/handle ${
+                                isSelected || isResizingLeft ? 'opacity-100 ring-1 ring-amber-400' : 'opacity-0 group-hover:opacity-100'
+                              } ${isResizingLeft ? 'bg-cyan-500 ring-2 ring-cyan-300 shadow-[0_0_12px_rgba(6,182,212,0.8)]' : ''}`}
                               title="Drag to trim start time"
+                              whileHover={{ scaleX: 1.25 }}
+                              whileTap={{ scale: 0.95 }}
+                              animate={isResizingLeft ? { scaleY: 1.05, width: 14 } : { scaleY: 1, width: 12 }}
+                              transition={{ type: 'spring', damping: 22, stiffness: 400 }}
                             >
-                              <div className="w-0.5 h-4 bg-white/90 rounded-full group-hover/handle:bg-white" />
-                            </div>
+                              <div className={`w-0.5 h-4.5 rounded-full ${isResizingLeft ? 'bg-white shadow-[0_0_6px_white]' : 'bg-white/90 group-hover/handle:bg-white'}`} />
 
-                            {/* Drag Resize Handle Right */}
-                            <div
+                              {/* Live Resizing Duration & Delta Badge on Left Handle */}
+                              <AnimatePresence>
+                                {isResizingLeft && (
+                                  <motion.div
+                                    initial={{ opacity: 0, scale: 0.8, y: 8 }}
+                                    animate={{ opacity: 1, scale: 1, y: -26 }}
+                                    exit={{ opacity: 0, scale: 0.8, y: 4 }}
+                                    transition={{ type: 'spring', damping: 20, stiffness: 350 }}
+                                    className="absolute -top-7 left-0 px-2 py-0.5 bg-cyan-600 text-white font-mono text-[10px] font-bold rounded-md shadow-xl shadow-black/80 border border-cyan-400/50 whitespace-nowrap z-50 pointer-events-none flex items-center gap-1.5"
+                                  >
+                                    <span>Trim Start: {clip.start.toFixed(2)}s</span>
+                                    <span className="text-cyan-200 text-[9px]">({clip.duration.toFixed(2)}s)</span>
+                                  </motion.div>
+                                )}
+                              </AnimatePresence>
+                            </motion.div>
+
+                            {/* Drag Resize Handle Right with Motion */}
+                            <motion.div
                               onMouseDown={(e) => startClipDrag(e, clip, 'right')}
                               onTouchStart={(e) => startClipDrag(e, clip, 'right')}
-                              className={`absolute right-0 top-0 bottom-0 w-3 bg-black/60 hover:bg-cyan-500 cursor-ew-resize flex items-center justify-center transition-all z-20 group/handle ${isSelected ? 'opacity-100 ring-1 ring-amber-400' : 'opacity-0 group-hover:opacity-100'}`}
+                              className={`absolute right-0 top-0 bottom-0 w-3.5 bg-black/60 hover:bg-cyan-500 cursor-ew-resize flex items-center justify-center transition-colors z-20 group/handle ${
+                                isSelected || isResizingRight ? 'opacity-100 ring-1 ring-amber-400' : 'opacity-0 group-hover:opacity-100'
+                              } ${isResizingRight ? 'bg-cyan-500 ring-2 ring-cyan-300 shadow-[0_0_12px_rgba(6,182,212,0.8)]' : ''}`}
                               title="Drag to trim end time"
+                              whileHover={{ scaleX: 1.25 }}
+                              whileTap={{ scale: 0.95 }}
+                              animate={isResizingRight ? { scaleY: 1.05, width: 14 } : { scaleY: 1, width: 12 }}
+                              transition={{ type: 'spring', damping: 22, stiffness: 400 }}
                             >
-                              <div className="w-0.5 h-4 bg-white/90 rounded-full group-hover/handle:bg-white" />
-                            </div>
-                          </div>
+                              <div className={`w-0.5 h-4.5 rounded-full ${isResizingRight ? 'bg-white shadow-[0_0_6px_white]' : 'bg-white/90 group-hover/handle:bg-white'}`} />
+
+                              {/* Live Resizing Duration & Delta Badge on Right Handle */}
+                              <AnimatePresence>
+                                {isResizingRight && (
+                                  <motion.div
+                                    initial={{ opacity: 0, scale: 0.8, y: 8 }}
+                                    animate={{ opacity: 1, scale: 1, y: -26 }}
+                                    exit={{ opacity: 0, scale: 0.8, y: 4 }}
+                                    transition={{ type: 'spring', damping: 20, stiffness: 350 }}
+                                    className="absolute -top-7 right-0 px-2 py-0.5 bg-cyan-600 text-white font-mono text-[10px] font-bold rounded-md shadow-xl shadow-black/80 border border-cyan-400/50 whitespace-nowrap z-50 pointer-events-none flex items-center gap-1.5"
+                                  >
+                                    <span>Duration: {clip.duration.toFixed(2)}s</span>
+                                    <span className="text-cyan-200 text-[9px]">(End: {(clip.start + clip.duration).toFixed(2)}s)</span>
+                                  </motion.div>
+                                )}
+                              </AnimatePresence>
+                            </motion.div>
+                          </motion.div>
 
                           {/* CapCut Transition Split / Merge Connector Button between contiguous clips */}
                           {clipIdx < track.clips.length - 1 && (
@@ -2849,22 +2773,51 @@ export default function Timeline({
               </div>
             )}
 
-            {/* Playhead vertical red line */}
-            <div
+            {/* Playhead vertical red line with smooth Framer Motion glide */}
+            <motion.div
               id="timeline-playhead"
-              className="absolute top-0 bottom-0 w-[1.5px] bg-red-500 z-30 pointer-events-none shadow-[0_0_6px_rgba(239,68,68,0.7)]"
-              style={{ left: `${currentTime * zoom}px` }}
+              className="absolute top-0 bottom-0 w-[2px] bg-red-500 z-30 pointer-events-none shadow-[0_0_8px_rgba(239,68,68,0.85)]"
+              initial={false}
+              animate={{ left: `${currentTime * zoom}px` }}
+              transition={
+                isPlaying || isScrubbing
+                  ? { duration: 0, ease: 'linear' }
+                  : { type: 'spring', damping: 28, stiffness: 350, mass: 0.4 }
+              }
             >
               {/* CapCut Pro Downward Pentagon Playhead Head on Ruler */}
-              <div 
-                className="absolute top-0 -left-[5.5px] w-[12px] h-[15px] bg-red-500 flex items-center justify-center shadow-lg pointer-events-none"
+              <motion.div 
+                className="absolute top-0 -left-[6px] w-[14px] h-[17px] bg-red-500 flex items-center justify-center shadow-[0_2px_8px_rgba(239,68,68,0.6)] pointer-events-none rounded-t-xs"
                 style={{
-                  clipPath: 'polygon(0% 0%, 100% 0%, 100% 65%, 50% 100%, 0% 65%)'
+                  clipPath: 'polygon(0% 0%, 100% 0%, 100% 68%, 50% 100%, 0% 68%)'
                 }}
+                animate={{
+                  scale: isScrubbing ? 1.25 : 1,
+                  filter: isScrubbing ? 'drop-shadow(0 0 6px #ef4444)' : 'drop-shadow(0 0 2px rgba(239,68,68,0.5))'
+                }}
+                transition={{ type: 'spring', damping: 20, stiffness: 400 }}
               >
-                <div className="w-1 h-1 bg-white rounded-full opacity-90 -mt-1 shadow-xs" />
-              </div>
-            </div>
+                <div className="w-1.5 h-1.5 bg-white rounded-full opacity-95 -mt-1 shadow-xs ring-1 ring-red-600/50" />
+              </motion.div>
+
+              {/* Glowing vertical laser beam runner */}
+              <div className="absolute inset-0 bg-gradient-to-b from-red-400 via-red-500 to-red-600 opacity-90" />
+
+              {/* Floating Timecode Tooltip Pill with Framer Motion AnimatePresence during scrubbing */}
+              <AnimatePresence>
+                {isScrubbing && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -4, scale: 0.85 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -4, scale: 0.85 }}
+                    transition={{ duration: 0.12 }}
+                    className="absolute -top-7 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full bg-red-600 text-white font-mono text-[10px] font-bold shadow-lg shadow-red-950/60 whitespace-nowrap z-40 border border-red-400/40 pointer-events-none flex items-center gap-1"
+                  >
+                    <span>{formatTimeCode(currentTime, true)}</span>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.div>
 
           </div>
 
@@ -3101,24 +3054,6 @@ export default function Timeline({
                 </button>
               )}
 
-              {/* Quran Tilawat Ayah Subtitle Auto-Fix Action */}
-              {contextMenu.clip.type === ClipType.AUDIO && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setInspectorTargetClips([contextMenu.clip!.id]);
-                    const clipAyah = extractAyahNumberFromClip(contextMenu.clip!) || 1;
-                    setInspectorStartAyah(clipAyah);
-                    setShowQuranInspectorModal(true);
-                    setContextMenu(prev => ({ ...prev, isOpen: false }));
-                  }}
-                  className="w-full px-3 py-1.5 text-left flex items-center gap-2 hover:bg-amber-600 hover:text-white text-amber-200 transition font-bold"
-                >
-                  <Zap className="w-3.5 h-3.5 text-amber-400 fill-current" />
-                  <span>⚡ Fix & Align Ayah Subtitle Text (آیت ٹیکسٹ فکس)</span>
-                </button>
-              )}
-
               {contextMenu.clip.type === ClipType.VIDEO && onAutoSyncVideoToAyahs && (
                 <button
                   type="button"
@@ -3334,261 +3269,6 @@ export default function Timeline({
           }
         }}
       />
-
-      {/* ========================================================================= */}
-      {/* QURAN TILAWAT & AYAH SUBTITLE ALIGNMENT INSPECTOR & AUTO-FIX MODAL       */}
-      {/* ========================================================================= */}
-      {showQuranInspectorModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-fade-in">
-          <div className="bg-[#12121c] border border-amber-500/40 rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-            {/* Modal Header */}
-            <div className="px-5 py-4 border-b border-[#252538] flex items-center justify-between bg-gradient-to-r from-amber-950/40 via-[#181826] to-[#12121c]">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 text-lg shadow-inner">
-                  🕌
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                    <span>Quran Tilawat Alignment Detector & Subtitle Auto-Fixer</span>
-                    <span className="text-xs text-amber-400 font-urdu">(آیت آٹو سنک و ٹیکسٹ فکسر)</span>
-                  </h3>
-                  <p className="text-[11px] text-gray-400">
-                    Real-time audio scan detects missing or desynced Arabic & translation subtitle clips and auto-generates them.
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowQuranInspectorModal(false)}
-                className="p-1.5 rounded-lg bg-[#202030] hover:bg-[#2c2c42] text-gray-400 hover:text-white transition cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {/* Quick Status Pill Bar */}
-            <div className="px-5 py-3 bg-[#171724] border-b border-[#252538] flex flex-wrap items-center justify-between gap-2">
-              <div className="flex items-center gap-3">
-                <div className="flex items-center gap-1 text-xs">
-                  <span className="text-gray-400">Total Recitation Parts:</span>
-                  <span className="font-mono font-bold text-white bg-[#222234] px-2 py-0.5 rounded border border-[#33334a]">
-                    {quranSyncReport.totalAudioSegments}
-                  </span>
-                </div>
-                <div className="flex items-center gap-1 text-xs">
-                  <span className="text-gray-400">Synced:</span>
-                  <span className="font-mono font-bold text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-500/40">
-                    {quranSyncReport.syncedCount} ✓
-                  </span>
-                </div>
-                {quranSyncReport.missingTextCount > 0 && (
-                  <div className="flex items-center gap-1 text-xs">
-                    <span className="text-gray-400">Missing Subtitles:</span>
-                    <span className="font-mono font-bold text-red-400 bg-red-950/60 px-2 py-0.5 rounded border border-red-500/50 animate-pulse">
-                      {quranSyncReport.missingTextCount} ⚠️
-                    </span>
-                  </div>
-                )}
-                {quranSyncReport.outOfSyncCount > 0 && (
-                  <div className="flex items-center gap-1 text-xs">
-                    <span className="text-gray-400">Desynced:</span>
-                    <span className="font-mono font-bold text-amber-400 bg-amber-950/60 px-2 py-0.5 rounded border border-amber-500/40">
-                      {quranSyncReport.outOfSyncCount} ⚠️
-                    </span>
-                  </div>
-                )}
-              </div>
-
-              {inspectorTargetClips.length > 0 && (
-                <div className="text-[11px] text-amber-300 font-mono bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/30">
-                  Targeting {inspectorTargetClips.length} specific clip(s)
-                </div>
-              )}
-            </div>
-
-            {/* Config Controls */}
-            <div className="p-5 grid grid-cols-1 md:grid-cols-3 gap-3 border-b border-[#252538] bg-[#141420]">
-              {/* Surah Selector */}
-              <div>
-                <label className="block text-[11px] font-bold text-gray-300 mb-1 flex items-center justify-between">
-                  <span>Surah (سورۃ):</span>
-                  {quranSyncReport.detectedSurah && (
-                    <span className="text-[10px] text-amber-400 font-normal">Auto-detected</span>
-                  )}
-                </label>
-                <select
-                  value={inspectorSurah}
-                  onChange={(e) => setInspectorSurah(Number(e.target.value))}
-                  className="w-full bg-[#1e1e2d] border border-[#35354e] rounded-lg px-2.5 py-1.5 text-xs text-white focus:border-amber-400 focus:outline-hidden"
-                >
-                  {SURAHS.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Starting Ayah */}
-              <div>
-                <label className="block text-[11px] font-bold text-gray-300 mb-1 flex items-center justify-between">
-                  <span>Starting Ayah # (شروع آیت):</span>
-                  {quranSyncReport.detectedStartAyah && (
-                    <span className="text-[10px] text-amber-400 font-normal">Auto-detected</span>
-                  )}
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  max="286"
-                  value={inspectorStartAyah}
-                  onChange={(e) => setInspectorStartAyah(Math.max(1, Number(e.target.value)))}
-                  className="w-full bg-[#1e1e2d] border border-[#35354e] rounded-lg px-2.5 py-1.5 text-xs text-white font-mono focus:border-amber-400 focus:outline-hidden"
-                />
-              </div>
-
-              {/* Translation Language */}
-              <div>
-                <label className="block text-[11px] font-bold text-gray-300 mb-1">
-                  Translation Track (ترجمہ):
-                </label>
-                <select
-                  value={inspectorTranslationId}
-                  onChange={(e) => setInspectorTranslationId(e.target.value)}
-                  className="w-full bg-[#1e1e2d] border border-[#35354e] rounded-lg px-2.5 py-1.5 text-xs text-white focus:border-amber-400 focus:outline-hidden"
-                >
-                  {QURAN_TRANSLATION_OPTIONS.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.flag} {t.language} ({t.translator})
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            {/* Recitation Audio Segments List */}
-            <div className="flex-1 overflow-y-auto p-5 space-y-2 bg-[#0e0e16] min-h-[160px] max-h-[300px]">
-              <div className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2 flex items-center justify-between">
-                <span>Detected Audio Clips on Timeline ({quranSyncReport.items.length})</span>
-                <span className="text-[10px] text-gray-500 font-normal">Click any clip to fix individually</span>
-              </div>
-
-              {quranSyncReport.items.length === 0 ? (
-                <div className="p-6 text-center text-gray-400 text-xs bg-[#161622] rounded-xl border border-dashed border-[#333346]">
-                  <p>No audio clips detected on the timeline yet.</p>
-                  <p className="text-[11px] text-gray-500 mt-1">Import or place Quran Tilawat recitation audio on the timeline to inspect alignment.</p>
-                </div>
-              ) : (
-                quranSyncReport.items.map((item, idx) => {
-                  const clipAyah = item.ayahNumber || (inspectorStartAyah + idx);
-                  return (
-                    <div
-                      key={`qsync-item-${item.audioClipId}-${item.ayahNumber ?? idx}-${idx}`}
-                      className={`p-3 rounded-xl border flex items-center justify-between gap-3 transition ${
-                        item.status === 'missing_text'
-                          ? 'bg-red-950/30 border-red-500/40 hover:border-red-500/70'
-                          : item.status === 'out_of_sync'
-                          ? 'bg-amber-950/30 border-amber-500/40 hover:border-amber-500/70'
-                          : 'bg-[#151522] border-[#252538] hover:border-emerald-500/40'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3 overflow-hidden">
-                        <div className="w-6 h-6 rounded-md bg-[#222234] border border-[#35354e] flex items-center justify-center text-xs font-mono font-bold text-gray-300 shrink-0">
-                          {idx + 1}
-                        </div>
-                        <div className="truncate">
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-bold text-white truncate">
-                              {item.audioClipName}
-                            </span>
-                            <span className="px-1.5 py-0.2 rounded text-[9.5px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                              Ayah {clipAyah}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-2 text-[10px] text-gray-400 font-mono mt-0.5">
-                            <span>{formatTimeCode(item.audioStart)} → {formatTimeCode(item.audioEnd)}</span>
-                            <span>({(item.audioEnd - item.audioStart).toFixed(2)}s)</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Status and Action */}
-                      <div className="flex items-center gap-2 shrink-0">
-                        {item.status === 'missing_text' ? (
-                          <>
-                            <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-red-950 text-red-300 border border-red-500/60 flex items-center gap-1">
-                              <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />
-                              <span>No Subtitle</span>
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => handleExecuteFixText([item.audioClipId], inspectorSurah, clipAyah)}
-                              disabled={isFixingText}
-                              className="px-2 py-1 bg-red-600 hover:bg-red-500 text-white font-bold text-[10.5px] rounded-lg shadow-xs flex items-center gap-1 transition cursor-pointer disabled:opacity-50"
-                            >
-                              <Zap className="w-3 h-3 fill-current" />
-                              <span>Fix Ayah {clipAyah}</span>
-                            </button>
-                          </>
-                        ) : item.status === 'out_of_sync' ? (
-                          <>
-                            <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-950 text-amber-300 border border-amber-500/60">
-                              Shifted ({item.timeShiftSec}s)
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => handleExecuteFixText([item.audioClipId], inspectorSurah, clipAyah)}
-                              disabled={isFixingText}
-                              className="px-2 py-1 bg-amber-600 hover:bg-amber-500 text-black font-extrabold text-[10.5px] rounded-lg shadow-xs flex items-center gap-1 transition cursor-pointer disabled:opacity-50"
-                            >
-                              <Zap className="w-3 h-3 fill-current" />
-                              <span>Re-align</span>
-                            </button>
-                          </>
-                        ) : (
-                          <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-950/80 text-emerald-300 border border-emerald-500/40 flex items-center gap-1">
-                            <span>✓ Synced</span>
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-
-            {/* Modal Actions Footer */}
-            <div className="p-4 bg-[#141420] border-t border-[#252538] flex flex-wrap items-center justify-between gap-3">
-              <button
-                type="button"
-                onClick={() => setShowQuranInspectorModal(false)}
-                className="px-4 py-2 rounded-xl bg-[#222232] hover:bg-[#2d2d42] text-gray-300 font-semibold text-xs transition cursor-pointer"
-              >
-                Close (بند کریں)
-              </button>
-
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => handleExecuteFixText()}
-                  disabled={isFixingText || quranSyncReport.items.length === 0}
-                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 hover:from-amber-400 hover:to-amber-300 text-black font-extrabold text-xs shadow-lg shadow-amber-500/20 flex items-center gap-1.5 transition cursor-pointer disabled:opacity-50"
-                >
-                  <Zap className="w-4 h-4 fill-current" />
-                  <span>
-                    {isFixingText
-                      ? 'Aligning Subtitles...'
-                      : quranSyncReport.missingTextCount > 0
-                      ? `⚡ Auto-Fix ${quranSyncReport.missingTextCount} Missing Ayah Subtitles`
-                      : '⚡ Re-Sync & Generate All Subtitles'}
-                  </span>
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
     </div>
   );
 }

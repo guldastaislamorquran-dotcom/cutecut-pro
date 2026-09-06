@@ -2,7 +2,7 @@
   "name": "cutecut-pro",
   "productName": "CuteCut Pro",
   "private": true,
-  "version": "2.3.8",
+  "version": "2.3.9",
   "license": "MIT",
   "description": "CuteCut Pro is a powerful desktop video editing application featuring multi-track timeline management, real-time audio visualization, and precise Quranic audio-to-text synchronization.",
   "homepage": "https://github.com",
@@ -19,6 +19,7 @@
     "clean": "rm -rf dist dist-electron server.js",
     "lint": "tsc --noEmit",
     "test": "tsc --noEmit",
+    "test:all": "tsx scripts/runTests.ts",
     "electron:dev": "electron .",
     "electron:build": "electron-builder",
     "pack:win": "npm run build && electron-builder --win",
@@ -52,11 +53,27 @@
       "target": [
         "appimage",
         "deb",
-        "snap"
+        "snap",
+        "flatpak"
       ],
       "category": "AudioVideo",
       "icon": "build-resources/icon.png",
       "executableName": "cutecut-pro"
+    },
+    "flatpak": {
+      "runtime": "org.freedesktop.Platform",
+      "runtimeVersion": "24.08",
+      "sdk": "org.freedesktop.Sdk",
+      "finishArgs": [
+        "--socket=wayland",
+        "--socket=fallback-x11",
+        "--share=ipc",
+        "--share=network",
+        "--socket=pulseaudio",
+        "--device=all",
+        "--filesystem=home",
+        "--env=ELECTRON_OZONE_PLATFORM_HINT=auto"
+      ]
     },
     "snap": {
       "grade": "stable",
@@ -136,12 +153,14 @@
   "devDependencies": {
     "@capacitor/cli": "^8.5.1",
     "@types/express": "^4.17.21",
+    "@types/jsdom": "^30.0.0",
     "@types/node": "^22.14.0",
     "autoprefixer": "^10.4.21",
     "electron": "^43.4.0",
     "electron-builder": "^26.15.3",
     "electron-packager": "^17.1.2",
     "esbuild": "^0.25.0",
+    "jsdom": "^30.0.1",
     "png-to-ico": "^3.0.2",
     "png2icons": "^2.0.1",
     "sharp": "^0.35.3",
