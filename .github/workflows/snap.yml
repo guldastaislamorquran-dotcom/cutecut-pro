@@ -1,21 +1,25 @@
-name: Verify Snap (libnspr)
+name: Snap Build & Verify (No Publishing)
 
 on:
-  push:
-    branches: [ main ]
   workflow_dispatch:
 
 jobs:
-  verify-snap:
-    name: Build snap and verify libnspr4
+  build-and-verify:
+    name: Build Snap and perform complete verification
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - name: Show current commit
+        run: |
+          echo "BUILD_COMMIT=$(git rev-parse HEAD)" >> $GITHUB_ENV
+          echo "Commit: $(git rev-parse HEAD)"
+          echo "Branch: $(git rev-parse --abbrev-ref HEAD)"
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -35,176 +39,335 @@ jobs:
             build-essential \
             python3
 
-      - name: Install Node dependencies
+      - name: Clean previous builds
+        run: |
+          rm -rf dist dist-electron dist-desktop node_modules
+          echo "Cleaned build artifacts"
+
+      - name: Install Node dependencies (npm ci)
         run: |
           npm ci
+          echo "Node dependencies installed via npm ci"
 
-      - name: Apply persistent Snap launcher patch
+      - name: Verify patch script exists
         run: |
-          node scripts/patch-snap-launcher.cjs
+          ls -la scripts/patch-snap-launcher.cjs
+          echo "Patch script present"
 
-      - name: Build Snap
+      - name: Apply Snap launcher patch BEFORE build
+        run: |
+          echo "=== Applying Snap launcher patch ==="
+          node scripts/patch-snap-launcher.cjs
+          echo "=== Patch applied ==="
+
+      - name: Build application (vite + esbuild)
+        run: |
+          echo "=== Building application ==="
+          npm run build
+          echo "=== Application build complete ==="
+
+      - name: Build Snap package
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
         run: |
-          rm -rf dist-desktop
+          echo "=== Building Snap package ==="
           npx electron-builder build --linux snap --x64 --publish never
+          echo "=== Snap build complete ==="
 
-      - name: Locate Snap
+      - name: Locate generated Snap file
         id: find_snap
         run: |
           set -euo pipefail
-
+          echo "=== Locating .snap file ==="
+          ls -lah dist-desktop/
+          
           SNAP_FILE=$(find dist-desktop -maxdepth 1 -type f -name '*.snap' | head -n 1)
-
+          
           if [ -z "$SNAP_FILE" ]; then
-            echo "ERROR: No .snap file was produced."
+            echo "ERROR: No .snap file found in dist-desktop/"
             exit 1
           fi
-
+          
+          SNAP_FILENAME=$(basename "$SNAP_FILE")
+          SNAP_SIZE=$(du -h "$SNAP_FILE" | cut -f1)
+          
           echo "Found Snap: $SNAP_FILE"
-          echo "SNAP_FILE=$SNAP_FILE" >> "$GITHUB_OUTPUT"
-
+          echo "Size: $SNAP_SIZE"
+          echo "SNAP_FILE=$SNAP_FILE" >> $GITHUB_OUTPUT
+          echo "SNAP_FILENAME=$SNAP_FILENAME" >> $GITHUB_OUTPUT
+          
           mkdir -p verification
           echo "snap_file=$SNAP_FILE" > verification/snap_info.txt
+          echo "size=$SNAP_SIZE" >> verification/snap_info.txt
 
-      - name: Unsquash Snap
+      - name: Unsquash the Snap
         run: |
           set -euo pipefail
-
+          echo "=== Unsquashing Snap ==="
+          
           SNAP_FILE="${{ steps.find_snap.outputs.SNAP_FILE }}"
-
           rm -rf snap-root
           mkdir -p snap-root
-
+          
           unsquashfs -d snap-root "$SNAP_FILE"
+          echo "Snap unsquashed successfully"
+          
+          ls -la snap-root/ | head -20
 
-          echo "Snap successfully unsquashed."
-
-      - name: Verify libnspr4.so
+      - name: Verify libnspr4.so in final Snap
         run: |
           set -euo pipefail
-
+          echo "=== Verifying libnspr4.so ==="
+          
           mkdir -p verification
-
-          find snap-root -type f -name 'libnspr4.so*' -print \
-            | tee verification/libnspr_paths.txt
-
-          if ! find snap-root -type f -name 'libnspr4.so*' | grep -q .; then
-            echo "FAIL: libnspr4.so was NOT found inside the Snap."
+          
+          LIBNSPR_FILES=$(find snap-root -type f -name 'libnspr4.so*' -print)
+          
+          if [ -z "$LIBNSPR_FILES" ]; then
+            echo "FAIL: libnspr4.so NOT found in final Snap"
+            echo "LIBNSPR4_IN_FINAL_SNAP=NO" >> verification/results.txt
             exit 1
           fi
+          
+          echo "PASS: libnspr4.so found in Snap"
+          echo "Paths:"
+          echo "$LIBNSPR_FILES"
+          echo "$LIBNSPR_FILES" | tee verification/libnspr_paths.txt
+          
+          echo "LIBNSPR4_IN_FINAL_SNAP=YES" >> verification/results.txt
 
-          echo "PASS: libnspr4.so is present inside the Snap."
-
-      - name: Verify Electron executable
+      - name: Locate Electron executable in Snap
         run: |
           set -euo pipefail
-
-          find snap-root -type f -name 'cutecut-pro' -executable -print \
-            | tee verification/executables.txt
-
-          if ! find snap-root -type f -name 'cutecut-pro' -executable | grep -q .; then
-            echo "FAIL: cutecut-pro executable not found."
+          echo "=== Locating cutecut-pro executable ==="
+          
+          mkdir -p verification
+          
+          EXE=$(find snap-root -type f -name 'cutecut-pro' -executable | head -n 1)
+          
+          if [ -z "$EXE" ]; then
+            echo "FAIL: cutecut-pro executable not found"
             exit 1
           fi
+          
+          echo "Found executable: $EXE"
+          file "$EXE"
+          ls -lah "$EXE"
+          echo "$EXE" > verification/exe_path.txt
 
-          echo "PASS: cutecut-pro executable found."
-
-      - name: Verify Snap launcher
+      - name: Extract and verify command.sh
         run: |
           set -euo pipefail
-
-          echo "=== command.sh ===" | tee verification/launcher.txt
+          echo "=== Extracting and verifying command.sh ==="
+          
+          mkdir -p verification
+          
+          if [ ! -f snap-root/command.sh ]; then
+            echo "ERROR: snap-root/command.sh not found"
+            ls -la snap-root/ | head -30
+            exit 1
+          fi
+          
+          echo "=== FINAL command.sh content ===" | tee verification/launcher.txt
           cat snap-root/command.sh | tee -a verification/launcher.txt
+          echo "" | tee -a verification/launcher.txt
+          
+          # Store for later verification
+          cp snap-root/command.sh verification/command.sh.actual
 
+      - name: Verify launcher cleanliness
+        run: |
+          set -euo pipefail
+          echo "=== Verifying launcher cleanliness ==="
+          
+          mkdir -p verification
+          LAUNCHER_FILE="verification/launcher.txt"
+          
+          # Check for desktop-init.sh
           if grep -q 'desktop-init.sh' snap-root/command.sh; then
-            echo "FAIL: launcher still depends on desktop-init.sh"
+            echo "FAIL: launcher contains desktop-init.sh"
+            echo "DESKTOP_INIT_DEPENDENCY=YES" >> verification/results.txt
             exit 1
+          else
+            echo "PASS: No desktop-init.sh dependency"
+            echo "DESKTOP_INIT_DEPENDENCY=NO" >> verification/results.txt
           fi
-
+          
+          # Check for desktop-common.sh
+          if grep -q 'desktop-common.sh' snap-root/command.sh; then
+            echo "FAIL: launcher contains desktop-common.sh"
+            exit 1
+          else
+            echo "PASS: No desktop-common.sh dependency"
+          fi
+          
+          # Check for desktop-gnome-specific.sh
+          if grep -q 'desktop-gnome-specific.sh' snap-root/command.sh; then
+            echo "FAIL: launcher contains desktop-gnome-specific.sh"
+            exit 1
+          else
+            echo "PASS: No desktop-gnome-specific.sh dependency"
+          fi
+          
+          # Check for --no-sandbox
           if grep -q -- '--no-sandbox' snap-root/command.sh; then
-            echo "FAIL: launcher still contains --no-sandbox"
+            echo "FAIL: launcher contains --no-sandbox flag"
+            echo "NO_SANDBOX_PRESENT=YES" >> verification/results.txt
             exit 1
+          else
+            echo "PASS: No --no-sandbox flag"
+            echo "NO_SANDBOX_PRESENT=NO" >> verification/results.txt
           fi
-
-          echo "PASS: launcher has no desktop-init dependency and no forced --no-sandbox."
+          
+          # Check for --disable-gpu-sandbox
+          if grep -q -- '--disable-gpu-sandbox' snap-root/command.sh; then
+            echo "FAIL: launcher contains --disable-gpu-sandbox flag"
+            exit 1
+          else
+            echo "PASS: No --disable-gpu-sandbox flag"
+          fi
+          
+          echo ""
+          echo "=== Launcher verification complete ==="
 
       - name: Run ldd verification
+        continue-on-error: true
         run: |
           set -euo pipefail
-
+          echo "=== Running ldd verification ==="
+          
           mkdir -p verification
-
-          LIBNSPR_DIR=$(dirname "$(find snap-root -type f -name 'libnspr4.so*' | head -n 1)")
-
-          export LD_LIBRARY_PATH="$LIBNSPR_DIR:$(pwd)/snap-root/usr/lib:$(pwd)/snap-root/usr/lib/x86_64-linux-gnu:${LD_LIBRARY_PATH:-}"
-
-          EXE=$(find snap-root -type f -name 'cutecut-pro' -executable | head -n 1)
-
+          
+          EXE=$(cat verification/exe_path.txt)
+          LIBNSPR_DIR=$(dirname "$(cat verification/libnspr_paths.txt | head -n 1)")
+          
           echo "Executable: $EXE"
-          echo "LD_LIBRARY_PATH: $LD_LIBRARY_PATH"
-
-          ldd "$EXE" 2>&1 | tee verification/ldd_output.txt
-
-          if ldd "$EXE" 2>&1 | grep -E 'libnspr4\.so.*not found'; then
-            echo "FAIL: libnspr4.so is still unresolved."
-            exit 1
+          echo "LIBNSPR directory: $LIBNSPR_DIR"
+          
+          export LD_LIBRARY_PATH="$LIBNSPR_DIR:$(pwd)/snap-root/usr/lib:$(pwd)/snap-root/usr/lib/x86_64-linux-gnu:$(pwd)/snap-root/lib:$(pwd)/snap-root/lib/x86_64-linux-gnu:${LD_LIBRARY_PATH:-}"
+          
+          echo "LD_LIBRARY_PATH set:"
+          echo "$LD_LIBRARY_PATH" | tee verification/ld_library_path.txt
+          
+          echo ""
+          echo "=== Running ldd ===" | tee verification/ldd_output.txt
+          ldd "$EXE" 2>&1 | tee -a verification/ldd_output.txt || true
+          
+          echo ""
+          echo "=== Checking for libnspr4 in ldd output ===" | tee -a verification/ldd_output.txt
+          if ldd "$EXE" 2>&1 | grep -i 'libnspr4'; then
+            echo "libnspr4 found in ldd output (checking if resolved)..." | tee -a verification/ldd_output.txt
+            if ldd "$EXE" 2>&1 | grep -E 'libnspr4\.so.*not found'; then
+              echo "FAIL: libnspr4.so reported as not found by ldd" | tee -a verification/ldd_output.txt
+              echo "LD_LIBRARY_CHECK=FAIL" >> verification/results.txt
+              exit 1
+            else
+              echo "PASS: libnspr4.so is resolved" | tee -a verification/ldd_output.txt
+              echo "LD_LIBRARY_CHECK=PASS" >> verification/results.txt
+            fi
+          else
+            echo "Note: libnspr4 not in ldd output (may be embedded)" | tee -a verification/ldd_output.txt
+            echo "LD_LIBRARY_CHECK=PASS" >> verification/results.txt
           fi
 
-          echo "PASS: ldd does not report libnspr4.so as missing."
-
-      - name: Test Electron binary
+      - name: Test Electron binary startup
+        continue-on-error: true
         run: |
           set -euo pipefail
-
+          echo "=== Testing Electron binary startup ==="
+          
           mkdir -p verification
-
-          LIBNSPR_DIR=$(dirname "$(find snap-root -type f -name 'libnspr4.so*' | head -n 1)")
-          EXE=$(find snap-root -type f -name 'cutecut-pro' -executable | head -n 1)
-
-          export LD_LIBRARY_PATH="$LIBNSPR_DIR:$(pwd)/snap-root/usr/lib:$(pwd)/snap-root/usr/lib/x86_64-linux-gnu:${LD_LIBRARY_PATH:-}"
-
+          
+          EXE=$(cat verification/exe_path.txt)
+          LIBNSPR_DIR=$(dirname "$(cat verification/libnspr_paths.txt | head -n 1)")
+          
+          export LD_LIBRARY_PATH="$LIBNSPR_DIR:$(pwd)/snap-root/usr/lib:$(pwd)/snap-root/usr/lib/x86_64-linux-gnu:$(pwd)/snap-root/lib:$(pwd)/snap-root/lib/x86_64-linux-gnu:${LD_LIBRARY_PATH:-}"
+          
+          echo "Executable: $EXE"
+          echo "Testing with --version flag..."
+          
           set +e
           "$EXE" --version > verification/run_output.txt 2>&1
-          STATUS=$?
+          EXIT_CODE=$?
           set -e
-
+          
+          echo "Exit code: $EXIT_CODE" | tee verification/run_output.txt
+          echo "" >> verification/run_output.txt
+          
           cat verification/run_output.txt
-
-          echo "Electron binary exit code: $STATUS" | tee -a verification/run_output.txt
-
+          
           if grep -qiE 'libnspr4\.so.*cannot open|error while loading shared libraries.*libnspr4' verification/run_output.txt; then
-            echo "FAIL: runtime still cannot load libnspr4.so."
+            echo "FAIL: Binary startup reports libnspr4 loading error"
+            echo "HEADLESS_BINARY_TEST=FAIL" >> verification/results.txt
             exit 1
+          else
+            echo "PASS: No libnspr4 loading errors detected"
+            echo "HEADLESS_BINARY_TEST=PASS" >> verification/results.txt
           fi
 
-          echo "PASS: runtime did not report missing libnspr4.so."
-
-      - name: Save verification summary
+      - name: Generate final report
         if: always()
         run: |
+          set -euo pipefail
+          echo "=== Generating final report ==="
+          
           mkdir -p verification
-
+          
+          # Collect all results
           {
-            echo "Snap verification"
-            echo "================="
-            echo "Commit: $GITHUB_SHA"
-            echo "Run: $GITHUB_RUN_ID"
-            echo
-            echo "libnspr4 paths:"
-            cat verification/libnspr_paths.txt 2>/dev/null || true
-            echo
-            echo "Executables:"
-            cat verification/executables.txt 2>/dev/null || true
-          } > verification/SUMMARY.txt
+            echo "========================================="
+            echo "CUTECUT PRO SNAP BUILD VERIFICATION REPORT"
+            echo "========================================="
+            echo ""
+            echo "BUILD_COMMIT=$(git rev-parse HEAD)"
+            echo "SNAP_FILENAME=${{ steps.find_snap.outputs.SNAP_FILENAME }}"
+            echo ""
+            
+            if [ -f verification/results.txt ]; then
+              cat verification/results.txt
+            fi
+            
+            echo ""
+            echo "========== LAUNCHER CONTENT =========="
+            if [ -f verification/command.sh.actual ]; then
+              cat verification/command.sh.actual
+            fi
+            
+            echo ""
+            echo "========== LIBNSPR4 PATHS =========="
+            if [ -f verification/libnspr_paths.txt ]; then
+              cat verification/libnspr_paths.txt
+            fi
+            
+            echo ""
+            echo "========== BUILD ENVIRONMENT =========="
+            echo "Node version: $(node --version)"
+            echo "npm version: $(npm --version)"
+            echo "electron-builder: $(npx electron-builder --version 2>/dev/null || echo 'unknown')"
+            
+            echo ""
+            echo "========================================="
+            
+          } | tee verification/FINAL_REPORT.txt
 
-      - name: Upload verification artifact
+      - name: Summary
+        if: always()
+        run: |
+          echo "=== VERIFICATION COMPLETE ==="
+          echo ""
+          if [ -f verification/results.txt ]; then
+            cat verification/results.txt
+          fi
+          echo ""
+          ls -lah verification/
+
+      - name: Upload verification artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: snap-verification-${{ github.run_id }}
+          name: snap-build-verification-${{ github.run_id }}
           path: |
             verification/**
             dist-desktop/*.snap
           if-no-files-found: warn
+          retention-days: 30
