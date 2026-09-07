@@ -20,10 +20,11 @@
     "lint": "tsc --noEmit",
     "test": "tsc --noEmit",
     "test:all": "tsx scripts/runTests.ts",
+    "postinstall": "node scripts/patch-snap-launcher.cjs",
     "electron:dev": "electron .",
-    "electron:build": "electron-builder",
+    "electron:build": "node scripts/patch-snap-launcher.cjs && electron-builder",
     "pack:win": "npm run build && electron-builder --win",
-    "pack:linux": "npm run build && electron-builder --linux",
+    "pack:linux": "node scripts/patch-snap-launcher.cjs && npm run build && electron-builder --linux",
     "pack:mac": "npm run build && electron-builder --mac",
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build"

@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=CuteCut Pro
+Exec=electron-wrapper %U
+Terminal=false
+Type=Application
+Icon=com.cutecutpro.app
+StartupWMClass=CuteCut Pro
+Comment=CuteCut Pro is a powerful desktop video editing application featuring multi-track timeline management, real-time audio visualization, and precise Quranic audio-to-text synchronization.
+Categories=AudioVideo;
