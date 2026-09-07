@@ -43,6 +43,8 @@ jobs:
             snapd \
             build-essential \
             python3
+          sudo snap install snapcraft --classic
+          echo "/snap/bin" >> $GITHUB_PATH
 
       - name: Clean previous builds
         run: |
