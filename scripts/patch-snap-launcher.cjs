@@ -10,9 +10,27 @@ if (!fs.existsSync(targetPath)) {
 
 let content = fs.readFileSync(targetPath, 'utf8');
 
-// 1. Patch buildWithTemplate to write clean command.sh
+// 1. Patch buildWithTemplate to write clean command.sh and stage libnspr4 / libnss3
 const templateTarget = 'const templateDir = await (0, electronGet_1.downloadBuilderToolset)({ releaseName, filenameWithExt, checksums, githubOrgRepo: "electron-userland/electron-builder-binaries" });';
-const templatePatch = 'await (0, promises_1.writeFile)(path.join(templateDir, "command.sh"), \'#!/bin/bash -e\\nexec "$SNAP/cutecut-pro" "$@"\\n\', { mode: 0o755 });';
+const templatePatch = `await (0, promises_1.writeFile)(path.join(templateDir, "command.sh"), '#!/bin/bash -e\\nexec "$SNAP/cutecut-pro" "$@"\\n', { mode: 0o755 });
+        const fsSync = require('fs');
+        const sysLibDirs = ['/usr/lib/x86_64-linux-gnu', '/lib/x86_64-linux-gnu', '/usr/lib', '/lib'];
+        const prefixes = ['libnspr4', 'libplc4', 'libplds4', 'libnss3', 'libnssutil3', 'libsmime3', 'libsoftokn3'];
+        for (const sDir of sysLibDirs) {
+          if (fsSync.existsSync(sDir)) {
+            try {
+              for (const file of fsSync.readdirSync(sDir)) {
+                if (prefixes.some(p => file.startsWith(p))) {
+                  const sPath = path.join(sDir, file);
+                  const dPath = path.join(appOutDir, file);
+                  if (fsSync.statSync(sPath).isFile() && !fsSync.existsSync(dPath)) {
+                    fsSync.copyFileSync(sPath, dPath);
+                  }
+                }
+              }
+            } catch (_) {}
+          }
+        }`;
 
 if (!content.includes(templatePatch) && content.includes(templateTarget)) {
   content = content.replace(templateTarget, templateTarget + '\n        ' + templatePatch);
