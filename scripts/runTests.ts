@@ -7,6 +7,7 @@ import { runQariProviderTests } from '../src/services/qariProvider.test';
 import { runHybridAlignmentTests } from '../src/utils/__tests__/hybridAlignment.test';
 import { runAlignmentHardeningTests } from '../src/utils/__tests__/alignmentHardening.test';
 import { runAutoSegmentTemporalIntegrityTests } from '../src/utils/__tests__/autoSegmentTemporalIntegrity.test';
+import { runYasinStrictBenchmarkTests } from '../src/utils/__tests__/yasinStrictBenchmark.test';
 
 async function runTests() {
   console.log('=== RUNNING CANONICAL QURAN SCRIPTURE TESTS (PHASE 1) ===');
@@ -72,6 +73,13 @@ async function runTests() {
     console.log(r.passed ? '  ✓ [PASS]' : '  ✗ [FAIL]', r.name, r.details ? `-> ${r.details}` : '');
   }
 
+  console.log('\n=== RUNNING SURAH YASIN STRICT BENCHMARK & REAL-AUDIO VERIFICATION ===');
+  const yasinRes = runYasinStrictBenchmarkTests();
+  console.log(`Total Tests: ${yasinRes.total} | Passed: ${yasinRes.passed} | Failed: ${yasinRes.failed}`);
+  for (const r of yasinRes.results) {
+    console.log(r.passed ? '  ✓ [PASS]' : '  ✗ [FAIL]', r.name, r.details ? `-> ${r.details}` : '');
+  }
+
   if (
     quranRes.failed > 0 ||
     vadRes.failed > 0 ||
@@ -81,7 +89,8 @@ async function runTests() {
     qariRes.failed > 0 ||
     hybridRes.failed > 0 ||
     hardeningRes.failed > 0 ||
-    temporalRes.failed > 0
+    temporalRes.failed > 0 ||
+    yasinRes.failed > 0
   ) {
     console.error('One or more test suites failed!');
     process.exit(1);

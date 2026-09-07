@@ -944,12 +944,51 @@ export default function PreviewPlayer({
           }
 
           // Render background box overlay if specified
-          if (clip.textBackgroundColor && clip.textBackgroundColor !== 'transparent') {
+          if (clip.textBackgroundStyle && clip.textBackgroundStyle !== 'none' && clip.textBackgroundColor && clip.textBackgroundColor !== 'transparent') {
             const bgPad = clip.textBackgroundPadding ?? 8;
+            const bgRad = clip.textBackgroundRadius ?? 8;
+            const bgOpac = clip.textBackgroundOpacity ?? 0.6;
+            const bgBlur = clip.textBackgroundBlur ?? 0;
+            const bgStyle = clip.textBackgroundStyle;
+            
             ctx.save();
+            ctx.globalAlpha = Math.max(0, Math.min(1, ctx.globalAlpha * bgOpac));
+            
+            if (bgBlur > 0) {
+              ctx.filter = `blur(${bgBlur}px)`;
+            }
+            
             ctx.fillStyle = clip.textBackgroundColor;
             ctx.beginPath();
-            ctx.roundRect(boxLeft - bgPad, boxTop - bgPad, blockW + (bgPad * 2), blockH + (bgPad * 2), 8);
+            
+            if (bgStyle === 'strip') {
+              ctx.rect(0, boxTop - bgPad, canvas.width, blockH + (bgPad * 2));
+            } else if (bgStyle === 'glow') {
+              const cx = boxLeft + blockW / 2;
+              const cy = boxTop + blockH / 2;
+              const r = Math.max(blockW, blockH) / 2 + bgPad * 2;
+              const grd = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+              grd.addColorStop(0, clip.textBackgroundColor);
+              grd.addColorStop(1, 'transparent');
+              ctx.fillStyle = grd;
+              ctx.arc(cx, cy, r, 0, Math.PI * 2);
+            } else {
+              // 'box' or default
+              ctx.roundRect(boxLeft - bgPad, boxTop - bgPad, blockW + (bgPad * 2), blockH + (bgPad * 2), bgRad);
+            }
+            
+            ctx.fill();
+            ctx.restore();
+          } else if (clip.textBackgroundColor && clip.textBackgroundColor !== 'transparent' && clip.textBackgroundStyle !== 'none') {
+            // Legacy fallback if style isn't set but color is
+            const bgPad = clip.textBackgroundPadding ?? 8;
+            const bgRad = clip.textBackgroundRadius ?? 8;
+            const bgOpac = clip.textBackgroundOpacity ?? 0.6;
+            ctx.save();
+            ctx.globalAlpha = Math.max(0, Math.min(1, ctx.globalAlpha * bgOpac));
+            ctx.fillStyle = clip.textBackgroundColor;
+            ctx.beginPath();
+            ctx.roundRect(boxLeft - bgPad, boxTop - bgPad, blockW + (bgPad * 2), blockH + (bgPad * 2), bgRad);
             ctx.fill();
             ctx.restore();
           } else if (clip.textStyle === ('viral-reels' as any)) {

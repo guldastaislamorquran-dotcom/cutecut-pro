@@ -5,13 +5,8 @@ import { fileURLToPath } from 'url';
 import os from 'os';
 import crypto from 'crypto';
 
-const resolvedFilename = typeof __filename !== 'undefined'
-  ? __filename
-  : fileURLToPath(new Function('return import.meta.url')());
-
-const resolvedDirname = typeof __dirname !== 'undefined'
-  ? __dirname
-  : path.dirname(resolvedFilename);
+const resolvedFilename = __filename;
+const resolvedDirname = __dirname;
 
 // Network & Web Security bypasses for Quran API media access
 app.commandLine.appendSwitch('disable-web-security');

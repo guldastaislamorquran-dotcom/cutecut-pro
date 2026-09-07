@@ -36,6 +36,63 @@ export default function Inspector({
   onMergeClips,
 }: InspectorProps) {
   const [activeSubTab, setActiveSubTab] = useState<'capcut' | 'transform' | 'adjust' | 'speed' | 'chroma' | 'effects' | 'transitions' | 'ai' | 'keyframes'>('capcut');
+  const [savedPresets, setSavedPresets] = useState<any[]>(() => {
+    try {
+      const saved = localStorage.getItem('quran_text_presets');
+      // Ensure existing presets have an id and category if they don't
+      const parsed = saved ? JSON.parse(saved) : [];
+      return parsed.map((p: any, i: number) => ({
+        ...p,
+        id: p.id || `preset-${Date.now()}-${i}`,
+        category: p.category || 'Quranic'
+      }));
+    } catch(e) { return []; }
+  });
+  const [newPresetName, setNewPresetName] = useState('');
+  const [newPresetCategory, setNewPresetCategory] = useState('Quranic');
+  const [presetFilter, setPresetFilter] = useState('All');
+  const [isSavingPreset, setIsSavingPreset] = useState(false);
+
+  const handleSavePreset = () => {
+    if (!newPresetName.trim() || !selectedClip) return;
+    const newPreset = {
+      id: `preset-${Date.now()}`,
+      name: newPresetName.trim(),
+      category: newPresetCategory,
+      textAnimation: selectedClip.textAnimation || {},
+      textBackgroundStyle: selectedClip.textBackgroundStyle,
+      textBackgroundColor: selectedClip.textBackgroundColor,
+      textBackgroundOpacity: selectedClip.textBackgroundOpacity,
+      textBackgroundBlur: selectedClip.textBackgroundBlur,
+      textBackgroundPadding: selectedClip.textBackgroundPadding,
+      textBackgroundRadius: selectedClip.textBackgroundRadius,
+    };
+    const updated = [...savedPresets, newPreset];
+    setSavedPresets(updated);
+    localStorage.setItem('quran_text_presets', JSON.stringify(updated));
+    setNewPresetName('');
+    setIsSavingPreset(false);
+  };
+
+  const handleApplySavedPreset = (preset: any) => {
+    if (!selectedClip) return;
+    onUpdateClip(selectedClip.id, {
+      textAnimation: preset.textAnimation,
+      textBackgroundStyle: preset.textBackgroundStyle,
+      textBackgroundColor: preset.textBackgroundColor,
+      textBackgroundOpacity: preset.textBackgroundOpacity,
+      textBackgroundBlur: preset.textBackgroundBlur,
+      textBackgroundPadding: preset.textBackgroundPadding,
+      textBackgroundRadius: preset.textBackgroundRadius,
+    });
+  };
+
+  const handleDeleteSavedPreset = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    const updated = savedPresets.filter(p => p.id !== id);
+    setSavedPresets(updated);
+    localStorage.setItem('quran_text_presets', JSON.stringify(updated));
+  };
   const [filterCategory, setFilterCategory] = useState<'All' | 'Cinematic' | 'Retro' | 'B&W' | 'Stylized'>('All');
   const [filterSectionView, setFilterSectionView] = useState<'all' | 'wheels' | 'presets' | 'basic'>('all');
   const [aiTranscript, setAiTranscript] = useState('');
@@ -2682,6 +2739,104 @@ export default function Inspector({
               </div>
 
               {/* One-Click Presets */}
+              {/* Custom Saved Presets */}
+              <div className="space-y-2 pb-2 border-b border-gray-800">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] text-cyan-400 font-bold uppercase tracking-wide flex items-center gap-1">
+                    <Zap className="w-3 h-3" /> Saved Animations
+                  </span>
+                  <button
+                    onClick={() => setIsSavingPreset(!isSavingPreset)}
+                    className="text-[9px] bg-cyan-900/50 hover:bg-cyan-800 text-cyan-300 px-2 py-0.5 rounded flex items-center gap-1 border border-cyan-700/50 transition-colors"
+                  >
+                    <Plus className="w-3 h-3" /> Save Current
+                  </button>
+                </div>
+                
+                {isSavingPreset && (
+                  <div className="flex flex-col gap-1.5 bg-black/40 p-2 rounded border border-gray-800">
+                    <input
+                      type="text"
+                      placeholder="Preset Name (e.g. Cinematic Glow)"
+                      value={newPresetName}
+                      onChange={e => setNewPresetName(e.target.value)}
+                      className="w-full bg-transparent text-xs text-white px-2 py-1 outline-none border-b border-gray-600 focus:border-cyan-400"
+                      autoFocus
+                    />
+                    <div className="flex gap-1.5 items-center justify-between mt-1">
+                      <select 
+                        value={newPresetCategory}
+                        onChange={e => setNewPresetCategory(e.target.value)}
+                        className="bg-gray-800 text-[10px] text-gray-200 px-1 py-1 rounded outline-none border border-gray-700 flex-1"
+                      >
+                        <option value="Quranic">🕌 Quranic</option>
+                        <option value="Cinematic">🎬 Cinematic</option>
+                        <option value="Viral">🔥 Viral</option>
+                        <option value="Other">✨ Other</option>
+                      </select>
+                      <button
+                        onClick={handleSavePreset}
+                        className="text-[10px] bg-cyan-600 hover:bg-cyan-500 text-white px-3 py-1 rounded font-bold"
+                      >
+                        Save
+                      </button>
+                      <button
+                        onClick={() => setIsSavingPreset(false)}
+                        className="text-[10px] bg-gray-700 hover:bg-gray-600 text-white px-2 py-1 rounded"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {savedPresets.length > 0 && (
+                  <div className="flex items-center gap-1 overflow-x-auto custom-scrollbar pb-1">
+                    {['All', 'Quranic', 'Cinematic', 'Viral', 'Other'].map(cat => {
+                      const count = cat === 'All' ? savedPresets.length : savedPresets.filter(p => p.category === cat).length;
+                      if (count === 0 && cat !== 'All') return null;
+                      return (
+                        <button
+                          key={cat}
+                          onClick={() => setPresetFilter(cat)}
+                          className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase transition whitespace-nowrap ${presetFilter === cat ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/50' : 'bg-[#1a1a20] text-gray-400 border border-transparent hover:text-white'}`}
+                        >
+                          {cat}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {savedPresets.length > 0 ? (
+                  <div className="grid grid-cols-2 gap-1.5 max-h-[120px] overflow-y-auto pr-1 custom-scrollbar">
+                    {savedPresets.filter(p => presetFilter === 'All' || p.category === presetFilter).map((preset) => (
+                      <div key={preset.id} className="relative group">
+                        <button
+                          onClick={() => handleApplySavedPreset(preset)}
+                          className="w-full text-left bg-[#1a1a20] hover:bg-cyan-900/30 border border-gray-700 hover:border-cyan-500/50 rounded p-1.5 transition-colors flex flex-col justify-center shadow-sm"
+                        >
+                          <span className="text-[10px] text-gray-200 font-medium truncate w-full pr-4">{preset.name}</span>
+                          <span className="text-[8px] text-gray-500 font-mono mt-0.5 uppercase">{preset.category}</span>
+                        </button>
+                        <button
+                          onClick={(e) => handleDeleteSavedPreset(e, preset.id)}
+                          className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 hover:text-red-400 text-gray-500 p-1 transition-opacity bg-[#1a1a20] rounded"
+                          title="Delete preset"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ))}
+                    {savedPresets.filter(p => presetFilter === 'All' || p.category === presetFilter).length === 0 && (
+                      <div className="col-span-2 text-[10px] text-gray-500 italic text-center py-2">No presets in this category</div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="text-[10px] text-gray-500 italic text-center py-1">No saved presets yet</div>
+                )}
+              </div>
+
               <div className="space-y-1.5">
                 <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wide">Quick CapCut Presets</span>
                 <div className="grid grid-cols-2 gap-1.5">

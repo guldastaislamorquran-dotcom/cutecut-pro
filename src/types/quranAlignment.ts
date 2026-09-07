@@ -1,6 +1,13 @@
 export type AlignmentMode = 'full-ayah' | 'split-breaths' | 'cut-ayah' | 'hybrid';
 
-export type AlignmentMethodLabel = 'DIRECT' | 'REFINED' | 'INFERRED' | 'LOW-CONFIDENCE' | 'HYBRID-REFERENCE';
+export type AlignmentMethodLabel = 
+  | 'DIRECT' 
+  | 'REFINED' 
+  | 'INFERRED' 
+  | 'LOW-CONFIDENCE' 
+  | 'HYBRID-REFERENCE'
+  | 'ABSTAIN'
+  | 'NEED_REALIGNMENT';
 
 export interface QuranWordAlignment {
   wordIndex: number;
@@ -54,6 +61,23 @@ export interface QuranAlignmentDiagnostics {
   providerVsAcousticDeltaMs?: number;
   finalDecisionReason?: string;
   alignmentMode?: string;
+
+  // Strict Real-Audio Governance & Forensic Metrics
+  proportionalSplitUsed?: boolean;
+  interpolationUsed?: boolean;
+  legacyFallbackUsed?: boolean;
+  providerOverrideUsed?: boolean;
+  durationPriorUsed?: boolean;
+  sustainedVoicingRisk?: number;
+  boundaryStabilityMs?: number;
+  candidateMarginMs?: number;
+  validationStatus?: 'VALIDATED' | 'UNVALIDATED' | 'ABSTAIN';
+  rawStart?: number;
+  rawEnd?: number;
+  finalStart?: number;
+  finalEnd?: number;
+  correctionApplied?: boolean;
+  correctionReason?: string;
 }
 
 export interface QuranAlignmentSegment {

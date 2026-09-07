@@ -246,6 +246,24 @@ interface MediaPanelProps {
   quranEnglishLineHeight: number;
   setQuranEnglishLineHeight: (lh: number) => void;
   quranEnglishAlign: 'left' | 'center' | 'right';
+  quranAnimationIn?: any;
+  setQuranAnimationIn?: (v: any) => void;
+  quranAnimationOut?: any;
+  setQuranAnimationOut?: (v: any) => void;
+  quranAnimationDuration?: number;
+  setQuranAnimationDuration?: (v: number) => void;
+  quranBgStyle?: any;
+  setQuranBgStyle?: (v: any) => void;
+  quranBgColor?: string;
+  setQuranBgColor?: (v: string) => void;
+  quranBgOpacity?: number;
+  setQuranBgOpacity?: (v: number) => void;
+  quranBgBlur?: number;
+  setQuranBgBlur?: (v: number) => void;
+  quranBgPadding?: number;
+  setQuranBgPadding?: (v: number) => void;
+  quranBgRadius?: number;
+  setQuranBgRadius?: (v: number) => void;
   setQuranEnglishAlign: (a: 'left' | 'center' | 'right') => void;
   quranTranslation?: string;
   setQuranTranslation?: (t: string) => void;
@@ -338,6 +356,24 @@ export default function MediaPanel({
   quranEnglishLineHeight,
   setQuranEnglishLineHeight,
   quranEnglishAlign,
+  quranAnimationIn,
+  setQuranAnimationIn,
+  quranAnimationOut,
+  setQuranAnimationOut,
+  quranAnimationDuration,
+  setQuranAnimationDuration,
+  quranBgStyle,
+  setQuranBgStyle,
+  quranBgColor,
+  setQuranBgColor,
+  quranBgOpacity,
+  setQuranBgOpacity,
+  quranBgBlur,
+  setQuranBgBlur,
+  quranBgPadding,
+  setQuranBgPadding,
+  quranBgRadius,
+  setQuranBgRadius,
   setQuranEnglishAlign,
   quranTranslation = 'ur-jalandhry',
   setQuranTranslation,
@@ -385,6 +421,10 @@ export default function MediaPanel({
   const previewAudioRef = useRef<HTMLAudioElement | null>(null);
 
   // CapCut Audio Subtab & Filter category
+  const [videoCategory, setVideoCategory] = useState<string>('Islamic Stock');
+  const [imageCategory, setImageCategory] = useState<string>('Background');
+  const [textCategory, setTextCategory] = useState<string>('Templates');
+
   const [audioSubTab, setAudioSubTab] = useState<'music' | 'sfx' | 'record'>('music');
   const [audioCategory, setAudioCategory] = useState<string>('Trending');
 
@@ -1378,40 +1418,40 @@ export default function MediaPanel({
       {/* Content Area */}
       <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
         {activeTab === 'video' && (
-          <div className="space-y-4">
-            <h3 className="text-xs font-semibold text-gray-400 tracking-wider">STOCK VIDEO LIBRARY</h3>
-            <div className="grid grid-cols-1 gap-3">
-              {STOCK_VIDEOS.map((video) => (
+          <div className="flex flex-col h-full space-y-3">
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 custom-scrollbar shrink-0">
+              {['All', 'Islamic Stock', 'Green Screen', 'VFX & Loop', 'Cinematic', 'Abstract'].map((cat) => (
+                <button
+                  key={cat}
+                  onClick={() => setVideoCategory(cat)}
+                  className={`px-2.5 py-0.5 rounded-full text-[10px] font-medium uppercase whitespace-nowrap transition ${videoCategory === cat ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/40' : 'bg-[#202028] text-gray-400 hover:text-white border border-transparent'}`}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 flex-1 overflow-y-auto pr-1 custom-scrollbar content-start">
+              {STOCK_VIDEOS.filter(v => videoCategory === 'All' || v.category === videoCategory).map((video) => (
                 <div
                   key={video.id}
                   id={`stock-video-${video.id}`}
                   onClick={() => addPresetVideo(video)}
-                  className="group bg-[#202026] hover:bg-[#282830] rounded-lg p-2.5 flex items-center gap-3 transition cursor-pointer border border-[#2b2b3a] hover:border-cyan-500/40 shadow-sm"
+                  className="group bg-[#1e1e26] hover:bg-[#252532] border border-gray-800 hover:border-cyan-500/50 rounded-xl p-2 flex flex-col cursor-pointer transition relative shadow-sm h-28"
                 >
-                  <div className="w-14 h-14 bg-slate-800 rounded flex items-center justify-center text-2xl relative overflow-hidden shrink-0">
+                  <div className="w-full h-14 bg-slate-800 rounded-lg flex items-center justify-center text-2xl relative overflow-hidden shrink-0 mb-1.5 border border-white/5">
                     {video.thumbnail}
                     <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
                       <Play className="w-4 h-4 text-white fill-current animate-pulse" />
                     </div>
+                    <span className="absolute bottom-1 right-1 text-[8px] bg-black/60 px-1 rounded font-mono">{video.duration}s</span>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-semibold text-white truncate">{video.name}</p>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className="text-[10px] text-cyan-400 bg-cyan-950/40 px-1.5 py-0.5 rounded uppercase font-mono">{video.category}</span>
-                      <span className="text-[10px] text-gray-400 font-mono">{video.duration}s</span>
+                  <div className="flex-1 min-w-0 flex flex-col justify-between">
+                    <p className="text-[10px] font-semibold text-white line-clamp-1">{video.name}</p>
+                    <div className="flex items-center justify-between mt-1">
+                      <span className="text-[8px] text-cyan-400 uppercase font-mono bg-cyan-950/40 px-1 rounded truncate">{video.category}</span>
                     </div>
                   </div>
-                  <button
-                    id={`add-btn-${video.id}`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      addPresetVideo(video);
-                    }}
-                    className="p-1.5 rounded-md bg-[#2d2d38] hover:bg-cyan-500 hover:text-black transition"
-                    title="Add to Timeline"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                  </button>
                 </div>
               ))}
             </div>
@@ -1485,7 +1525,7 @@ export default function MediaPanel({
                     <button
                       key={cat}
                       onClick={() => setAudioCategory(cat)}
-                      className={`px-2.5 py-0.5 rounded-full text-[10px] font-medium whitespace-nowrap transition ${audioCategory === cat ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/40' : 'bg-[#202028] text-gray-400 hover:text-white border border-transparent'}`}
+                      className={`px-2.5 py-0.5 rounded-full text-[10px] font-medium uppercase whitespace-nowrap transition ${audioCategory === cat ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/40' : 'bg-[#202028] text-gray-400 hover:text-white border border-transparent'}`}
                     >
                       {cat}
                     </button>
@@ -1575,99 +1615,117 @@ export default function MediaPanel({
         )}
 
         {activeTab === 'text' && (
-          <div className="space-y-4">
-            {/* Top CapCut "Add text" Card with Plus Icon (from video at 0:08) */}
-            <div className="bg-gradient-to-br from-[#1e2028] to-[#161820] border border-cyan-500/20 rounded-xl p-3.5 relative overflow-hidden shadow">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h4 className="text-xs font-bold text-white tracking-wide">ADD TEXT</h4>
-                  <p className="text-[10px] text-gray-400 mt-0.5">Click + to insert default styled subtitle to track</p>
-                </div>
+          <div className="flex flex-col h-full space-y-3">
+            {/* Category Pills */}
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 custom-scrollbar shrink-0">
+              {['Templates', 'WordArt', 'Basic'].map((cat) => (
                 <button
-                  id="btn-add-default-text"
-                  onClick={addDefaultText}
-                  className="w-8 h-8 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-black flex items-center justify-center transition shadow-lg shadow-cyan-500/30"
-                  title="Add Default Text to Timeline"
+                  key={cat}
+                  onClick={() => setTextCategory(cat)}
+                  className={`px-2.5 py-0.5 rounded-full text-[10px] font-medium uppercase whitespace-nowrap transition ${textCategory === cat ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/40' : 'bg-[#202028] text-gray-400 hover:text-white border border-transparent'}`}
                 >
-                  <Plus className="w-4 h-4 font-bold" />
+                  {cat}
                 </button>
-              </div>
-              <div
-                onClick={addDefaultText}
-                className="mt-3 p-3 bg-black/40 rounded-lg border border-dashed border-gray-700 hover:border-cyan-500 cursor-pointer flex items-center justify-center transition"
-              >
-                <span className="text-sm font-semibold text-gray-200 tracking-wider">Default text</span>
-              </div>
+              ))}
             </div>
 
-            {/* CapCut Text Effects / Art Styles */}
-            <div>
-              <h3 className="text-xs font-semibold text-gray-400 tracking-wider mb-2">TEXT EFFECTS & ART PRESETS</h3>
-              <div className="grid grid-cols-2 gap-2">
-                {[
-                  { name: 'Gold Luxury', color: '#fbbf24', font: 'Playfair Display' },
-                  { name: 'Cyan Glow', color: '#22d3ee', font: 'Montserrat' },
-                  { name: 'Neon Purple', color: '#c084fc', font: 'Space Grotesk' },
-                  { name: 'Bold Minimal', color: '#ffffff', font: 'Inter' },
-                ].map((eff) => (
-                  <div
-                    key={eff.name}
-                    onClick={() => {
-                      onAddClip({
-                        name: eff.name,
-                        type: ClipType.TEXT,
-                        text: eff.name,
-                        fontSize: 48,
-                        color: eff.color,
-                        fontFamily: eff.font,
-                        textX: 50,
-                        textY: 50,
-                        duration: 5,
-                        sourceStart: 0,
-                        sourceDuration: 5,
-                        playbackRate: 1.0,
-                        volume: 1.0,
-                      });
-                    }}
-                    className="p-3 bg-[#1e1e26] hover:bg-[#262632] border border-gray-800 hover:border-cyan-500/40 rounded-lg cursor-pointer flex flex-col items-center justify-center text-center transition group"
-                  >
-                    <span className="text-sm font-bold truncate max-w-full" style={{ color: eff.color, fontFamily: eff.font }}>
-                      {eff.name}
-                    </span>
-                    <span className="text-[9px] text-gray-500 mt-1 opacity-0 group-hover:opacity-100 transition flex items-center gap-0.5 text-cyan-400">
-                      <Plus className="w-2.5 h-2.5" /> Add
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Standard Text Presets */}
-            <div>
-              <h3 className="text-xs font-semibold text-gray-400 tracking-wider mb-2">TEXT TEMPLATES</h3>
-              <div className="grid grid-cols-1 gap-2">
-                {TEXT_PRESETS.map((preset) => (
-                  <div
-                    key={preset.id}
-                    id={`text-preset-${preset.id}`}
-                    className="bg-[#202026] hover:bg-[#282830] rounded-lg p-2.5 flex items-center justify-between border border-transparent hover:border-gray-700 transition cursor-pointer"
-                  >
-                    <div className="flex-1 pr-3">
-                      <p className="text-[11px] font-medium text-gray-300">{preset.name}</p>
-                      <p className="text-xs font-bold mt-0.5 tracking-wide truncate" style={{ color: preset.color }}>
-                        {preset.text}
-                      </p>
+            <div className="flex-1 overflow-y-auto pr-1 custom-scrollbar space-y-4 content-start">
+              {textCategory === 'Basic' && (
+                <div className="bg-gradient-to-br from-[#1e2028] to-[#161820] border border-cyan-500/20 rounded-xl p-3.5 relative overflow-hidden shadow">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="text-xs font-bold text-white tracking-wide">ADD TEXT</h4>
+                      <p className="text-[10px] text-gray-400 mt-0.5">Click + to insert default styled subtitle to track</p>
                     </div>
                     <button
-                      id={`add-text-btn-${preset.id}`}
-                      onClick={() => addPresetText(preset)}
-                      className="p-1.5 rounded-md bg-[#2d2d38] hover:bg-cyan-500 hover:text-black transition"
+                      id="btn-add-default-text"
+                      onClick={addDefaultText}
+                      className="w-8 h-8 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-black flex items-center justify-center transition shadow-lg shadow-cyan-500/30"
+                      title="Add Default Text to Timeline"
                     >
-                      <Plus className="w-3.5 h-3.5" />
+                      <Plus className="w-4 h-4 font-bold" />
                     </button>
                   </div>
-                ))}
-              </div>
+                  <div
+                    onClick={addDefaultText}
+                    className="mt-3 p-3 bg-black/40 rounded-lg border border-dashed border-gray-700 hover:border-cyan-500 cursor-pointer flex items-center justify-center transition"
+                  >
+                    <span className="text-sm font-semibold text-gray-200 tracking-wider">Default text</span>
+                  </div>
+                </div>
+              )}
+
+              {textCategory === 'WordArt' && (
+                <div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { name: 'Gold Luxury', color: '#fbbf24', font: 'Playfair Display' },
+                      { name: 'Cyan Glow', color: '#22d3ee', font: 'Montserrat' },
+                      { name: 'Neon Purple', color: '#c084fc', font: 'Space Grotesk' },
+                      { name: 'Bold Minimal', color: '#ffffff', font: 'Inter' },
+                    ].map((eff) => (
+                      <div
+                        key={eff.name}
+                        onClick={() => {
+                          onAddClip({
+                            name: eff.name,
+                            type: ClipType.TEXT,
+                            text: eff.name,
+                            fontSize: 48,
+                            color: eff.color,
+                            fontFamily: eff.font,
+                            textX: 50,
+                            textY: 50,
+                            duration: 5,
+                            sourceStart: 0,
+                            sourceDuration: 5,
+                            playbackRate: 1.0,
+                            volume: 1.0,
+                          });
+                        }}
+                        className="p-3 bg-[#1e1e26] hover:bg-[#262632] border border-gray-800 hover:border-cyan-500/40 rounded-lg cursor-pointer flex flex-col items-center justify-center text-center transition group"
+                      >
+                        <span className="text-sm font-bold truncate max-w-full" style={{ color: eff.color, fontFamily: eff.font }}>
+                          {eff.name}
+                        </span>
+                        <span className="text-[9px] text-gray-500 mt-1 opacity-0 group-hover:opacity-100 transition flex items-center gap-0.5 text-cyan-400">
+                          <Plus className="w-2.5 h-2.5" /> Add
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {textCategory === 'Templates' && (
+                <div className="grid grid-cols-1 gap-2">
+                  {TEXT_PRESETS.map((preset) => (
+                    <div
+                      key={preset.id}
+                      id={`text-preset-${preset.id}`}
+                      onClick={() => addPresetText(preset)}
+                      className="bg-[#202026] hover:bg-[#282830] rounded-lg p-2.5 flex items-center justify-between border border-transparent hover:border-gray-700 transition cursor-pointer shadow-sm"
+                    >
+                      <div className="flex-1 pr-3">
+                        <p className="text-[11px] font-medium text-gray-300">{preset.name}</p>
+                        <p className="text-xs font-bold mt-0.5 tracking-wide truncate" style={{ color: preset.color }}>
+                          {preset.text}
+                        </p>
+                      </div>
+                      <button
+                        id={`add-text-btn-${preset.id}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          addPresetText(preset);
+                        }}
+                        className="p-1.5 rounded-md bg-[#2d2d38] hover:bg-cyan-500 hover:text-black transition"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -1862,105 +1920,89 @@ export default function MediaPanel({
         )}
 
         {activeTab === 'adjustment' && (
-          <div className="space-y-4">
-            <div className="bg-gradient-to-br from-[#1e2028] to-[#161820] border border-cyan-500/20 rounded-xl p-4 shadow">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h4 className="text-xs font-bold text-white tracking-wide">ADJUSTMENT LAYER</h4>
-                  <p className="text-[10px] text-gray-400 mt-0.5">Apply color grades and filters across multiple underlying tracks</p>
-                </div>
+          <div className="flex flex-col h-full space-y-3">
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 custom-scrollbar shrink-0">
+              {['Adjustment', 'LUTs', 'Color Grade'].map((cat) => (
                 <button
-                  onClick={addAdjustmentLayer}
-                  className="w-8 h-8 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-black flex items-center justify-center transition shadow-lg shadow-cyan-500/30"
-                  title="Add Adjustment Layer"
+                  key={cat}
+                  className={`px-2.5 py-0.5 rounded-full text-[10px] font-medium uppercase whitespace-nowrap transition ${cat === 'Adjustment' ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/40' : 'bg-[#202028] text-gray-400 hover:text-white border border-transparent'}`}
                 >
-                  <Plus className="w-4 h-4 font-bold" />
+                  {cat}
                 </button>
-              </div>
-              <div
-                onClick={addAdjustmentLayer}
-                className="mt-3 p-3 bg-black/40 rounded-lg border border-dashed border-gray-700 hover:border-cyan-500 cursor-pointer flex items-center justify-center transition"
-              >
-                <span className="text-sm font-semibold text-gray-200 tracking-wider">+ Add adjustment</span>
+              ))}
+            </div>
+
+            <div className="flex-1 overflow-y-auto pr-1 custom-scrollbar space-y-4 content-start">
+              <div className="bg-gradient-to-br from-[#1e2028] to-[#161820] border border-cyan-500/20 rounded-xl p-3.5 relative overflow-hidden shadow">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="text-xs font-bold text-white tracking-wide">ADJUSTMENT LAYER</h4>
+                    <p className="text-[10px] text-gray-400 mt-0.5">Apply color grades and filters across multiple underlying tracks</p>
+                  </div>
+                  <button
+                    onClick={addAdjustmentLayer}
+                    className="w-8 h-8 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-black flex items-center justify-center transition shadow-lg shadow-cyan-500/30"
+                    title="Add Adjustment Layer"
+                  >
+                    <Plus className="w-4 h-4 font-bold" />
+                  </button>
+                </div>
+                <div
+                  onClick={addAdjustmentLayer}
+                  className="mt-3 p-3 bg-black/40 rounded-lg border border-dashed border-gray-700 hover:border-cyan-500 cursor-pointer flex items-center justify-center transition"
+                >
+                  <span className="text-sm font-semibold text-gray-200 tracking-wider">+ Add adjustment</span>
+                </div>
               </div>
             </div>
           </div>
         )}
 
         {activeTab === 'image' && (
-          <div className="space-y-4">
-            <h3 className="text-xs font-semibold text-gray-400 tracking-wider">STOCK IMAGE LIBRARY</h3>
-            <div className="grid grid-cols-1 gap-3">
-              {STOCK_IMAGES.map((img) => (
+          <div className="flex flex-col h-full space-y-3">
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 custom-scrollbar shrink-0">
+              {['All', 'Islamic', 'Nature', 'Background', 'Space', 'Abstract'].map((cat) => (
+                <button
+                  key={cat}
+                  onClick={() => setImageCategory(cat)}
+                  className={`px-2.5 py-0.5 rounded-full text-[10px] font-medium uppercase whitespace-nowrap transition ${imageCategory === cat ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/40' : 'bg-[#202028] text-gray-400 hover:text-white border border-transparent'}`}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 flex-1 overflow-y-auto pr-1 custom-scrollbar content-start">
+              {STOCK_IMAGES.filter(img => imageCategory === 'All' || img.category === imageCategory).map((img) => (
                 <div
                   key={img.id}
                   id={`stock-img-${img.id}`}
                   onClick={() => addPresetImage(img)}
-                  className="group bg-[#202026] hover:bg-[#282830] rounded-lg p-2.5 flex items-center gap-3 transition cursor-pointer border border-[#2b2b3a] hover:border-cyan-500/40 shadow-sm"
+                  className="group bg-[#1e1e26] hover:bg-[#252532] border border-gray-800 hover:border-cyan-500/50 rounded-xl p-2 flex flex-col cursor-pointer transition relative shadow-sm h-28"
                 >
-                  <div className="w-14 h-14 bg-slate-800 rounded-lg flex items-center justify-center text-2xl relative overflow-hidden shrink-0 border border-white/5">
+                  <div className="w-full h-14 bg-slate-800 rounded-lg flex items-center justify-center text-2xl relative overflow-hidden shrink-0 mb-1.5 border border-white/5">
                     {img.url ? (
                       <img src={img.url} alt={img.name} className="w-full h-full object-cover rounded-lg" />
                     ) : (
                       img.thumbnail
                     )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-semibold text-white truncate">{img.name}</p>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className="text-[10px] text-cyan-400 bg-cyan-950/40 px-1.5 py-0.5 rounded uppercase font-mono">{img.category}</span>
-                      <span className="text-[10px] text-gray-400 font-mono">{img.duration}s</span>
+                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
+                      <Plus className="w-4 h-4 text-white animate-pulse" />
                     </div>
                   </div>
-                  <button
-                    id={`add-img-btn-${img.id}`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      addPresetImage(img);
-                    }}
-                    className="p-1.5 rounded-md bg-[#2d2d38] hover:bg-cyan-500 hover:text-black transition shrink-0"
-                    title="Add to Timeline"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                  </button>
+                  <div className="flex-1 min-w-0 flex flex-col justify-between">
+                    <p className="text-[10px] font-semibold text-white line-clamp-1">{img.name}</p>
+                    <div className="flex items-center justify-between mt-1">
+                      <span className="text-[8px] text-cyan-400 uppercase font-mono bg-cyan-950/40 px-1 rounded truncate">{img.category}</span>
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>
           </div>
         )}
 
-        {activeTab === 'text' && (
-          <div className="space-y-4">
-            <h3 className="text-xs font-semibold text-gray-400 tracking-wider">TEXT TEMPLATES</h3>
-            <div className="grid grid-cols-1 gap-3">
-              {TEXT_PRESETS.map((preset) => (
-                <div
-                  key={preset.id}
-                  id={`text-preset-${preset.id}`}
-                  onClick={() => addPresetText(preset)}
-                  className="bg-[#202026] hover:bg-[#282830] rounded-lg p-3 flex items-center justify-between border border-[#2b2b3a] hover:border-cyan-500/40 transition cursor-pointer shadow-sm"
-                >
-                  <div className="flex-1 pr-4">
-                    <p className="text-xs font-semibold text-gray-300">{preset.name}</p>
-                    <p className="text-sm font-bold mt-1 tracking-wide truncate" style={{ color: preset.color }}>
-                      {preset.text}
-                    </p>
-                  </div>
-                  <button
-                    id={`add-text-btn-${preset.id}`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      addPresetText(preset);
-                    }}
-                    className="p-1.5 rounded-md bg-[#2d2d38] hover:bg-cyan-500 hover:text-black transition"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+        
 
         {activeTab === 'upload' && (
           <div className="space-y-4">
@@ -3564,6 +3606,206 @@ export default function MediaPanel({
                 </div>
 
                 {/* BLOCK 6: MASTER APPLY ACTION BUTTON */}
+                {/* BLOCK 5.5: ANIMATIONS & KEYFRAMING */}
+                <div className="bg-[#121218] border border-cyan-500/30 rounded-xl p-3.5 space-y-3.5 mt-2 shadow-lg">
+                  <div className="flex items-center justify-between pb-1 border-b border-gray-800/80">
+                    <label className="text-xs font-extrabold text-cyan-400 uppercase tracking-wide flex items-center gap-1.5">
+                      <Zap className="w-3.5 h-3.5 text-cyan-400" />
+                      <span>ANIMATIONS & TRANSITIONS</span>
+                    </label>
+                  </div>
+                  
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">ENTRANCE ANIMATION</span>
+                      <span className="font-mono text-cyan-400 font-bold text-[10px] uppercase truncate max-w-[120px]">{quranAnimationIn}</span>
+                    </div>
+                    <select
+                      value={quranAnimationIn}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (setQuranAnimationIn) setQuranAnimationIn(val);
+                        onApplyQuranStyles({ animationIn: val });
+                      }}
+                      className="w-full bg-[#0a0a0c] border border-cyan-900/50 rounded-lg text-white text-xs px-3 py-2.5 focus:outline-none focus:border-cyan-500 transition-colors shadow-inner"
+                    >
+                      <option value="none">None (Instant)</option>
+                      <option value="fade">Fade In</option>
+                      <option value="pop">Scale Pop</option>
+                      <option value="slide-up">Slide Up</option>
+                      <option value="slide-down">Slide Down</option>
+                      <option value="slide-left">Slide Left</option>
+                      <option value="slide-right">Slide Right</option>
+                      <option value="typewriter">Typewriter Effect</option>
+                      <option value="zoom-in">Zoom In Blur</option>
+                      <option value="bounce">Bounce</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">TRANSITION SPEED</span>
+                      <span className="font-mono text-cyan-400 font-bold text-[10px] uppercase">{quranAnimationDuration?.toFixed(1)}s</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0.1"
+                      max="2.0"
+                      step="0.1"
+                      value={quranAnimationDuration}
+                      onChange={(e) => {
+                        const val = parseFloat(e.target.value);
+                        if (setQuranAnimationDuration) setQuranAnimationDuration(val);
+                        onApplyQuranStyles({ animationDuration: val });
+                      }}
+                      className="w-full h-1.5 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-cyan-500"
+                    />
+                  </div>
+                </div>
+
+                {/* BLOCK 5.6: TEXT BACKGROUND OVERLAY */}
+                <div className="bg-[#121218] border border-fuchsia-500/30 rounded-xl p-3.5 space-y-3.5 mt-2 shadow-lg">
+                  <div className="flex items-center justify-between pb-1 border-b border-gray-800/80">
+                    <label className="text-xs font-extrabold text-fuchsia-400 uppercase tracking-wide flex items-center gap-1.5">
+                      <Layers className="w-3.5 h-3.5 text-fuchsia-400" />
+                      <span>TEXT BACKGROUND OVERLAY</span>
+                    </label>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">BACKGROUND STYLE</span>
+                      <span className="font-mono text-fuchsia-400 font-bold text-[10px] uppercase truncate max-w-[120px]">{quranBgStyle}</span>
+                    </div>
+                    <select
+                      value={quranBgStyle}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (setQuranBgStyle) setQuranBgStyle(val);
+                        onApplyQuranStyles({ bgStyle: val });
+                      }}
+                      className="w-full bg-[#0a0a0c] border border-fuchsia-900/50 rounded-lg text-white text-xs px-3 py-2.5 focus:outline-none focus:border-fuchsia-500 transition-colors shadow-inner"
+                    >
+                      <option value="none">None (Clear Text)</option>
+                      <option value="box">Rounded Padding Box</option>
+                      <option value="strip">Full-Width Strip (Cinema)</option>
+                      <option value="glow">Subtle Radial Glow</option>
+                    </select>
+                  </div>
+
+                  {quranBgStyle !== 'none' && (
+                    <>
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">OVERLAY COLOR</span>
+                          <span className="font-mono text-fuchsia-400 font-bold text-[10px] uppercase">{quranBgColor}</span>
+                        </div>
+                        <div className="flex gap-2">
+                          <input
+                            type="color"
+                            value={quranBgColor || '#000000'}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (setQuranBgColor) setQuranBgColor(val);
+                              onApplyQuranStyles({ bgColor: val });
+                            }}
+                            className="w-10 h-10 rounded border-none bg-transparent cursor-pointer p-0"
+                          />
+                          <input
+                            type="text"
+                            value={quranBgColor || '#000000'}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (setQuranBgColor) setQuranBgColor(val);
+                              onApplyQuranStyles({ bgColor: val });
+                            }}
+                            className="flex-1 bg-[#0a0a0c] border border-fuchsia-900/50 rounded-lg text-white text-xs px-3 focus:outline-none focus:border-fuchsia-500 font-mono"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">OPACITY (TRANSPARENCY)</span>
+                          <span className="font-mono text-fuchsia-400 font-bold text-[10px] uppercase">{Math.round((quranBgOpacity || 0) * 100)}%</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="0"
+                          max="1.0"
+                          step="0.05"
+                          value={quranBgOpacity}
+                          onChange={(e) => {
+                            const val = parseFloat(e.target.value);
+                            if (setQuranBgOpacity) setQuranBgOpacity(val);
+                            onApplyQuranStyles({ bgOpacity: val });
+                          }}
+                          className="w-full h-1.5 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-fuchsia-500"
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">BACKDROP BLUR</span>
+                          <span className="font-mono text-fuchsia-400 font-bold text-[10px] uppercase">{quranBgBlur}px</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="0"
+                          max="20"
+                          step="1"
+                          value={quranBgBlur}
+                          onChange={(e) => {
+                            const val = parseFloat(e.target.value);
+                            if (setQuranBgBlur) setQuranBgBlur(val);
+                            onApplyQuranStyles({ bgBlur: val });
+                          }}
+                          className="w-full h-1.5 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-fuchsia-500"
+                        />
+                      </div>
+                      
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">PADDING</span>
+                          <span className="font-mono text-fuchsia-400 font-bold text-[10px] uppercase">{quranBgPadding}px</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="0"
+                          max="60"
+                          step="2"
+                          value={quranBgPadding}
+                          onChange={(e) => {
+                            const val = parseFloat(e.target.value);
+                            if (setQuranBgPadding) setQuranBgPadding(val);
+                            onApplyQuranStyles({ bgPadding: val });
+                          }}
+                          className="w-full h-1.5 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-fuchsia-500"
+                        />
+                      </div>
+                      
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">BORDER RADIUS</span>
+                          <span className="font-mono text-fuchsia-400 font-bold text-[10px] uppercase">{quranBgRadius}px</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="0"
+                          max="60"
+                          step="2"
+                          value={quranBgRadius}
+                          onChange={(e) => {
+                            const val = parseFloat(e.target.value);
+                            if (setQuranBgRadius) setQuranBgRadius(val);
+                            onApplyQuranStyles({ bgRadius: val });
+                          }}
+                          className="w-full h-1.5 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-fuchsia-500"
+                        />
+                      </div>
+                    </>
+                  )}
+                </div>
                 <button
                   type="button"
                   id="btn-apply-style-all-quran-clips"

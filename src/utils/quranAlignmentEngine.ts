@@ -32,10 +32,15 @@ export type {
 };
 
 import { ReferenceTransform } from './referenceTransform';
-
-
-
-
+import {
+  STRICT_REAL_AUDIO,
+  ALLOW_PROPORTIONAL_SPLIT,
+  ALLOW_INTERPOLATION,
+  ALLOW_LEGACY_FALLBACK,
+  ALLOW_PROVIDER_OVERRIDE,
+  REQUIRE_ACOUSTIC_OR_INDEPENDENT_ALIGNMENT,
+  ABSTAIN_ON_LOW_EVIDENCE
+} from '../config/alignmentConfig';
 
 export interface QuranAlignmentEngineOptions {
   mode?: AlignmentMode;
@@ -59,6 +64,15 @@ export interface QuranAlignmentEngineOptions {
   ayahDigitType?: string;
   ayahSymbolPosition?: string;
   provider?: 'gemini-server' | 'acoustic-viterbi' | 'auto';
+
+  // Strict Real-Audio Governance Options
+  strictRealAudio?: boolean;
+  allowProportionalSplit?: boolean;
+  allowInterpolation?: boolean;
+  allowLegacyFallback?: boolean;
+  allowProviderOverride?: boolean;
+  requireAcousticOrIndependentAlignment?: boolean;
+  abstainOnLowEvidence?: boolean;
 }
 
 export interface AcousticVoiceFrame {
@@ -820,21 +834,38 @@ export function evaluateAyahSegmentCost(
 
   // 1. Acoustic Audio Match Score (Voice presence vs silence)
   let voiceCoverage = 0;
+  let activeDuration = 0;
+  let numObs = 0;
+  let maxInternalPause = 0;
+  let totalInternalPause = 0;
+
   if (observations.length > 0) {
-    let activeDuration = 0;
-    for (const obs of observations) {
+    const activeObs = observations.filter(o => o.start >= startTime - 0.08 && o.end <= endTime + 0.08);
+    numObs = activeObs.length;
+    const sortedActive = [...activeObs].sort((a, b) => a.start - b.start);
+
+    for (let j = 0; j < sortedActive.length; j++) {
+      const obs = sortedActive[j];
       const overlapStart = Math.max(startTime, obs.start);
       const overlapEnd = Math.min(endTime, obs.end);
       if (overlapEnd > overlapStart) {
         activeDuration += (overlapEnd - overlapStart);
       }
+      if (j < sortedActive.length - 1) {
+        const gap = sortedActive[j + 1].start - obs.end;
+        if (gap > 0) {
+          totalInternalPause += gap;
+          if (gap > maxInternalPause) maxInternalPause = gap;
+        }
+      }
     }
     voiceCoverage = Math.min(100, Math.round((activeDuration / duration) * 100));
   } else {
+    activeDuration = duration;
     voiceCoverage = 75; // Baseline when raw observations are not pre-split
   }
 
-  // 2. Phonetic Text Matching Score
+  // 2. Phonetic Text Matching Score & Multi-Observation Syllable Pace Modeling
   let textScore = 0;
   if (recognizedWords && recognizedWords.length > 0) {
     // Check if recognized words in [startTime, endTime] match the Quranic Ayah text
@@ -850,17 +881,33 @@ export function evaluateAyahSegmentCost(
       warnings.push('No recognized phonetic words in this audio segment');
     }
   } else {
-    // Syllable duration ratio fitness curve
-    const ratio = duration / targetDuration;
-    if (ratio >= 0.7 && ratio <= 1.4) {
-      textScore = 95 - Math.abs(1.0 - ratio) * 40;
-    } else if (ratio >= 0.4 && ratio <= 2.2) {
-      textScore = Math.max(45, 75 - Math.abs(1.0 - ratio) * 35);
+    // Multi-observation aware Syllable duration ratio fitness curve
+    // Evaluates NET speech duration (active phonation) against target speech duration
+    const netRatio = activeDuration / targetDuration;
+    let netScore = 50;
+    if (netRatio >= 0.7 && netRatio <= 1.4) {
+      netScore = Math.max(70, 100 - Math.abs(1.0 - netRatio) * 50);
+    } else if (netRatio >= 0.45 && netRatio <= 2.2) {
+      netScore = Math.max(35, 75 - Math.abs(1.0 - netRatio) * 35);
     } else {
-      textScore = Math.max(15, 40 - Math.abs(1.0 - ratio) * 20);
-      if (ratio < 0.4) warnings.push(`Recitation segment unusually brief (${duration.toFixed(1)}s vs expected ${targetDuration.toFixed(1)}s)`);
-      if (ratio > 2.2) warnings.push(`Recitation segment unusually prolonged (${duration.toFixed(1)}s vs expected ${targetDuration.toFixed(1)}s)`);
+      netScore = Math.max(10, 35 - Math.abs(1.0 - netRatio) * 20);
+      if (netRatio < 0.45) warnings.push(`Recitation segment unusually brief (${activeDuration.toFixed(1)}s vs expected ${targetDuration.toFixed(1)}s)`);
+      if (netRatio > 2.2) warnings.push(`Recitation segment unusually prolonged (${activeDuration.toFixed(1)}s vs expected ${targetDuration.toFixed(1)}s)`);
     }
+
+    // Gross duration fitness (incorporating natural intra-ayah breath pauses)
+    const expectedGross = targetDuration + Math.max(0, numObs - 1) * 0.8;
+    const grossRatio = duration / expectedGross;
+    let grossScore = 50;
+    if (grossRatio >= 0.7 && grossRatio <= 1.4) {
+      grossScore = Math.max(70, 100 - Math.abs(1.0 - grossRatio) * 50);
+    } else if (grossRatio >= 0.45 && grossRatio <= 2.2) {
+      grossScore = Math.max(30, 70 - Math.abs(1.0 - grossRatio) * 35);
+    } else {
+      grossScore = Math.max(10, 30 - Math.abs(1.0 - grossRatio) * 20);
+    }
+
+    textScore = netScore * 0.6 + grossScore * 0.4;
   }
 
   // 3. Boundary Sharpness Score with dynamic forensics
@@ -889,15 +936,15 @@ export function evaluateAyahSegmentCost(
     warnings.push('Acoustic boundary between verses has low sharpness or continuous breath');
   }
 
-  // Calculate duration prior score dynamically (Madd/elongation-aware)
+  // Calculate duration prior score dynamically (Net-speech and Madd/elongation-aware)
   let durationPriorScore = 50;
-  const ratio = duration / targetDuration;
-  if (ratio >= 0.7 && ratio <= 1.3) {
-    durationPriorScore = Math.max(70, 100 - Math.abs(1.0 - ratio) * 100);
-  } else if (ratio >= 0.4 && ratio <= 2.0) {
-    durationPriorScore = Math.max(30, 70 - Math.abs(1.0 - ratio) * 50);
+  const netRatioPrior = activeDuration / targetDuration;
+  if (netRatioPrior >= 0.7 && netRatioPrior <= 1.35) {
+    durationPriorScore = Math.max(70, 100 - Math.abs(1.0 - netRatioPrior) * 60);
+  } else if (netRatioPrior >= 0.45 && netRatioPrior <= 2.0) {
+    durationPriorScore = Math.max(30, 70 - Math.abs(1.0 - netRatioPrior) * 40);
   } else {
-    durationPriorScore = Math.max(10, 30 - Math.abs(1.0 - ratio) * 20);
+    durationPriorScore = Math.max(10, 30 - Math.abs(1.0 - netRatioPrior) * 20);
   }
   durationPriorScore = Number(durationPriorScore.toFixed(1));
 
@@ -923,18 +970,20 @@ export function evaluateAyahSegmentCost(
     selectedCandidateReason = 'High confidence acoustic onset/offset';
   }
 
-  // 4. Reference Prior Evidence (Phase 5B)
+  // 4. Reference Prior Evidence (Phase 5B - Soft acoustic anchor)
   let referenceEvidence = 0;
-  if (referencePrior && referenceTransform) {
-    const expectedStart = (referenceTransform.offsetMs + referencePrior.expectedStartMs * referenceTransform.tempoScale) / 1000;
-    const expectedEnd = (referenceTransform.offsetMs + referencePrior.expectedEndMs * referenceTransform.tempoScale) / 1000;
+  if (referencePrior) {
+    const scale = referenceTransform?.tempoScale ?? 1.0;
+    const offset = (referenceTransform?.offsetMs ?? 0) / 1000;
+    const expectedStart = offset + (referencePrior.expectedStartMs / 1000) * scale;
+    const expectedEnd = offset + (referencePrior.expectedEndMs / 1000) * scale;
     
-    // Proximity to expected boundaries (decay function)
+    // Proximity to expected boundaries (Gaussian decay)
     const startDelta = Math.abs(startTime - expectedStart);
     const endDelta = Math.abs(endTime - expectedEnd);
     
-    const startProximity = Math.exp(-startDelta * 3.0); // Sharp decay
-    const endProximity = Math.exp(-endDelta * 3.0);
+    const startProximity = Math.exp(-0.5 * (startDelta / 1.5) * (startDelta / 1.5));
+    const endProximity = Math.exp(-0.5 * (endDelta / 1.5) * (endDelta / 1.5));
     
     referenceEvidence = Number(((startProximity * 50) + (endProximity * 50)).toFixed(1));
   }
@@ -943,41 +992,43 @@ export function evaluateAyahSegmentCost(
   const audioMatchScore = Number((voiceCoverage * 0.5 + finalBoundaryScore * 0.5).toFixed(1));
   const phoneticTextScore = Number(textScore.toFixed(1));
   
-  // Incorporate silence absorption penalty if previous verse stretches into silent pause
+  // Intra-ayah pauses vs Dead silence absorption penalty:
+  // Internal Waqf/breath pauses between clauses (up to 2.5s) are physically normal and NOT penalized.
+  // Leading/trailing dead silence stretching outside speech observations or excessive internal pauses are penalized.
   let silenceAbsorptionPenalty = 0;
-  let totalSilenceInSegment = 0;
   if (observations.length > 0) {
-    const activeObs = observations.filter(o => o.start >= startTime - 0.1 && o.end <= endTime + 0.1);
+    const activeObs = observations.filter(o => o.start >= startTime - 0.08 && o.end <= endTime + 0.08);
     if (activeObs.length > 0) {
       const sortedActive = [...activeObs].sort((a, b) => a.start - b.start);
-      // Gap before first
-      const firstGap = sortedActive[0].start - startTime;
-      if (firstGap > 0.5) totalSilenceInSegment += firstGap;
-      // Internal gaps
-      for (let j = 0; j < sortedActive.length - 1; j++) {
-        const gap = sortedActive[j+1].start - sortedActive[j].end;
-        if (gap > 0.5) totalSilenceInSegment += gap;
-      }
-      // Gap after last
-      const lastGap = endTime - sortedActive[sortedActive.length - 1].end;
-      if (lastGap > 0.5) totalSilenceInSegment += lastGap;
+      const leadingGap = Math.max(0, sortedActive[0].start - startTime);
+      const trailingGap = Math.max(0, endTime - sortedActive[sortedActive.length - 1].end);
+      
+      if (leadingGap > 0.6) silenceAbsorptionPenalty += (leadingGap - 0.6) * 20.0;
+      if (trailingGap > 0.6) silenceAbsorptionPenalty += (trailingGap - 0.6) * 20.0;
+      if (maxInternalPause > 2.5) silenceAbsorptionPenalty += (maxInternalPause - 2.5) * 25.0;
+      if (totalInternalPause > 5.5) silenceAbsorptionPenalty += (totalInternalPause - 5.5) * 12.0;
     } else {
-      totalSilenceInSegment = duration;
+      silenceAbsorptionPenalty = 50;
     }
   }
   
-  if (totalSilenceInSegment > 1.5) {
-    const silenceRatio = totalSilenceInSegment / duration;
-    if (silenceRatio > 0.15) {
-      silenceAbsorptionPenalty = Math.min(45, (totalSilenceInSegment - 1.5) * 6.0);
-    }
-  }
-  
-  // Hybrid Weighting: Reference prior helps resolve ambiguity but acoustic evidence remains authoritative
-  const referenceWeight = referenceEvidence > 0 ? 0.2 : 0;
-  const acousticWeight = 1.0 - referenceWeight;
+  // Hybrid Weighting: Acoustic evidence remains authoritative.
+  const hasStrongAcoustic = finalBoundaryScore >= 70 || audioMatchScore >= 70;
+  const effectiveDurationWeight = hasStrongAcoustic ? 0.06 : 0.10;
+  const effectiveBoundaryWeight = hasStrongAcoustic ? 0.16 : 0.12;
 
-  const baseScore = (audioMatchScore * 0.35 + phoneticTextScore * 0.4 + finalBoundaryScore * 0.1 + durationPriorScore * 0.1 + transitionScore * 0.05) * acousticWeight + (referenceEvidence * referenceWeight);
+  const effectiveRefWeight = ALLOW_PROVIDER_OVERRIDE
+    ? (referenceEvidence > 0 ? 0.25 : 0)
+    : (referenceEvidence > 0 ? 0.15 : 0);
+  const acousticWeight = 1.0 - effectiveRefWeight;
+
+  const baseScore = (
+    audioMatchScore * 0.35 +
+    phoneticTextScore * 0.35 +
+    finalBoundaryScore * effectiveBoundaryWeight +
+    durationPriorScore * effectiveDurationWeight +
+    transitionScore * 0.05
+  ) * acousticWeight + (referenceEvidence * effectiveRefWeight);
   const totalScore = Number(Math.max(0, baseScore - silenceAbsorptionPenalty).toFixed(1));
 
   return {
@@ -1014,6 +1065,11 @@ export function runViterbiSequenceAlignment(
     confidenceThreshold?: number;
     referencePriors?: ReferencePrior[];
     referenceTransform?: { offsetMs: number; tempoScale: number };
+    strictRealAudio?: boolean;
+    allowProportionalSplit?: boolean;
+    allowInterpolation?: boolean;
+    allowLegacyFallback?: boolean;
+    allowProviderOverride?: boolean;
   }
 ): Array<{
   startTime: number;
@@ -1038,17 +1094,56 @@ export function runViterbiSequenceAlignment(
   durationPriorScore?: number;
   finalBoundaryScore?: number;
   selectedCandidateReason?: string;
+  proportionalSplitUsed?: boolean;
+  interpolationUsed?: boolean;
+  legacyFallbackUsed?: boolean;
+  providerOverrideUsed?: boolean;
+  validationStatus?: 'VALIDATED' | 'UNVALIDATED' | 'ABSTAIN';
+  boundaryStabilityMs?: number;
+  candidateMarginMs?: number;
+  sustainedVoicingRisk?: number;
 }> {
   const N = models.length;
   if (N === 0) return [];
+
+  const isStrict = options?.strictRealAudio === true || options?.allowProportionalSplit === false;
 
   // Deduplicate and sort candidates by time
   const sortedCandidates = [...candidates]
     .filter((c, idx, arr) => idx === 0 || Math.abs(c.time - arr[idx - 1].time) > 0.05)
     .sort((a, b) => a.time - b.time);
 
-  // If candidate pool is too sparse, synthesize intermediate anchor points
+  // If candidate pool is too sparse, synthesize intermediate anchor points (legacy mode only)
   if (sortedCandidates.length < N + 1) {
+    if (isStrict) {
+      // STRICT REAL-AUDIO GOVERNANCE:
+      // When candidate pool is too sparse for N verses, synthesizing intermediate anchor points
+      // via proportional phonetic weighting is STRICTLY FORBIDDEN.
+      // Must ABSTAIN rather than manufacture proportional timestamps.
+      return models.map((m, idx) => ({
+        startTime: 0,
+        endTime: 0,
+        score: 0,
+        audioMatchScore: 0,
+        phoneticTextScore: 0,
+        boundaryScore: 0,
+        transitionScore: 0,
+        referenceEvidence: 0,
+        confidence: 0,
+        alignmentMethod: 'ABSTAIN' as const,
+        isDirectlyObserved: false,
+        warnings: ['STRICT_REAL_AUDIO: Insufficient acoustic boundary candidates for verse count (S < V). Proportional synthesis is strictly forbidden. Abstained.'],
+        proportionalSplitUsed: false,
+        interpolationUsed: false,
+        legacyFallbackUsed: false,
+        providerOverrideUsed: false,
+        validationStatus: 'ABSTAIN' as const,
+        boundaryStabilityMs: 0,
+        candidateMarginMs: 0,
+        sustainedVoicingRisk: 0,
+      }));
+    }
+
     const totalPhonetic = models.reduce((acc, m) => acc + m.totalPhoneticWeight, 0) || 1;
     let cumW = 0;
     const startT = sortedCandidates[0]?.time || 0.15;
@@ -1144,31 +1239,67 @@ export function runViterbiSequenceAlignment(
 
           if (dur < minDur) continue;
 
+          // If reference prior exists, bound search to observations within +/- 15s of prior
+          if (options?.referencePriors?.[i]) {
+            const priorT = options.referencePriors[i].expectedStartMs / 1000;
+            if (Math.abs(sTime - priorT) > 20.0) continue;
+          }
+
           // Previous verse must end at some prevEndM < startM
-          // Bound lookup search to most recent 12 observations for O(1) transitions
-          const minPrevEndM = Math.max(i - 1, startM - 12);
+          // Bound lookup search to most recent 10 observations
+          const minPrevEndM = Math.max(i - 1, startM - 10);
+          let bestPrevScore = -Infinity;
+          let bestPrevEndM = -1;
+
           for (let prevEndM = startM - 1; prevEndM >= minPrevEndM; prevEndM--) {
             if (dpObs[i - 1][prevEndM] === -Infinity) continue;
 
-            const evalResult = evaluateAyahSegmentCost(
-              model,
-              sTime,
-              eTime,
-              globalTempoFactor,
-              { time: sTime, boundaryScore: 95, onsetStrength: 1.0, silenceDurationMs: 500, valleyDepthDb: -40, type: 'speech-onset' },
-              { time: eTime, boundaryScore: 95, onsetStrength: 0.8, silenceDurationMs: 500, valleyDepthDb: -40, type: 'speech-offset' },
-              observations,
-              options?.recognizedWords,
-              options?.referencePriors?.[i],
-              options?.referenceTransform
-            );
-
-            const score = dpObs[i - 1][prevEndM] + evalResult.totalScore;
-            if (score > dpObs[i][endM]) {
-              dpObs[i][endM] = score;
-              parentObs[i][endM] = prevEndM;
-              startObs[i][endM] = startM;
+            // Orphaned observation penalty:
+            // Continuous Quran recitation contains no unassigned speech.
+            // Dropping speech observations between verses is penalized.
+            const skippedObsCount = (startM - 1) - prevEndM;
+            let skippedPenalty = 0;
+            if (skippedObsCount > 0) {
+              for (let k = prevEndM + 1; k < startM; k++) {
+                skippedPenalty += 50 + observations[k].duration * 25;
+              }
             }
+
+            // Inter-verse silence transition boost:
+            // Standard inter-verse breath pauses (0.35s - 3.5s) are physically expected
+            const interVersePause = observations[startM].start - observations[prevEndM].end;
+            let pauseBonus = 0;
+            if (interVersePause >= 0.35 && interVersePause <= 3.5) {
+              pauseBonus = 10;
+            }
+
+            const candidateScore = dpObs[i - 1][prevEndM] - skippedPenalty + pauseBonus;
+            if (candidateScore > bestPrevScore) {
+              bestPrevScore = candidateScore;
+              bestPrevEndM = prevEndM;
+            }
+          }
+
+          if (bestPrevScore === -Infinity) continue;
+
+          const evalResult = evaluateAyahSegmentCost(
+            model,
+            sTime,
+            eTime,
+            globalTempoFactor,
+            { time: sTime, boundaryScore: 95, onsetStrength: 1.0, silenceDurationMs: 500, valleyDepthDb: -40, type: 'speech-onset' },
+            { time: eTime, boundaryScore: 95, onsetStrength: 0.8, silenceDurationMs: 500, valleyDepthDb: -40, type: 'speech-offset' },
+            observations,
+            options?.recognizedWords,
+            options?.referencePriors?.[i],
+            options?.referenceTransform
+          );
+
+          const score = bestPrevScore + evalResult.totalScore;
+          if (score > dpObs[i][endM]) {
+            dpObs[i][endM] = score;
+            parentObs[i][endM] = bestPrevEndM;
+            startObs[i][endM] = startM;
           }
         }
       }
@@ -1358,7 +1489,36 @@ export function runViterbiSequenceAlignment(
   // Backtrack optimal boundary path
   const boundaryIndices: number[] = new Array(N + 1);
   if (maxFinalScore === -Infinity || parent[N - 1][bestFinalK] === -1) {
-    // Acoustic proportional anchor fallback when path is broken
+    if (isStrict) {
+      // STRICT REAL-AUDIO GOVERNANCE:
+      // When Viterbi optimal path breaks or cannot resolve valid acoustic sequence,
+      // falling back to proportional anchor distribution is STRICTLY FORBIDDEN.
+      // System MUST abstain rather than manufacture synthetic proportional boundaries.
+      return models.map((m, idx) => ({
+        startTime: 0,
+        endTime: 0,
+        score: 0,
+        audioMatchScore: 0,
+        phoneticTextScore: 0,
+        boundaryScore: 0,
+        transitionScore: 0,
+        referenceEvidence: 0,
+        confidence: 0,
+        alignmentMethod: 'ABSTAIN' as const,
+        isDirectlyObserved: false,
+        warnings: ['STRICT_REAL_AUDIO: Viterbi optimal path broken or incomplete. Proportional anchor fallback strictly forbidden. Abstained.'],
+        proportionalSplitUsed: false,
+        interpolationUsed: false,
+        legacyFallbackUsed: false,
+        providerOverrideUsed: false,
+        validationStatus: 'ABSTAIN' as const,
+        boundaryStabilityMs: 0,
+        candidateMarginMs: 0,
+        sustainedVoicingRisk: 0,
+      }));
+    }
+
+    // Acoustic proportional anchor fallback when path is broken (legacy mode only)
     let currentK = 0;
     boundaryIndices[0] = 0;
     const totalW = models.reduce((acc, m) => acc + m.totalPhoneticWeight, 0) || 1;
@@ -1565,8 +1725,133 @@ export function runQuranAlignmentEngine(
     totalAudioDuration = Math.max(totalAudioDuration, segs[segs.length - 1].end);
   }
 
+  const isStrict = options.strictRealAudio === true || options.allowProportionalSplit === false;
+
+  // STRICT REAL-AUDIO FIREWALL: S < V (Continuous recitation across multiple verses)
+  // When discrete acoustic segments are fewer than the number of verses, proportional division
+  // is strictly forbidden in strict real-audio mode. The system must ABSTAIN.
+  if (isStrict && options.acousticSegments && options.acousticSegments.length < totalVerses) {
+    return verses.map((v, i) => ({
+      ayahIndex: i,
+      wordIndex: 0,
+      startTime: 0,
+      endTime: 0,
+      isWaqfPause: false,
+      confidenceScore: 0,
+      verse_key: v.verse_key,
+      text_arabic: v.text_uthmani || v.text_arabic || '',
+      text_english: v.translation || v.text_english || '',
+      pauseType: 'ayah-boundary' as const,
+      isRepetition: false,
+      isLowConfidence: true,
+      subPhraseIndex: 1,
+      totalSubPhrases: 1,
+      words: [],
+      diagnostics: {
+        ayahNumber: i + 1,
+        predictedStart: 0,
+        predictedEnd: 0,
+        duration: 0,
+        startEvidence: 'inferred',
+        endEvidence: 'inferred',
+        acousticScore: 0,
+        boundaryScore: 0,
+        transitionScore: 0,
+        durationPriorScore: 0,
+        recognitionScore: 0,
+        globalScore: 0,
+        confidence: 0,
+        alignmentMethod: 'ABSTAIN' as const,
+        warnings: [`STRICT_REAL_AUDIO: S < V (${options.acousticSegments!.length} acoustic blocks < ${totalVerses} verses). Proportional splitting forbidden. Abstained.`],
+        proportionalSplitUsed: false,
+        interpolationUsed: false,
+        legacyFallbackUsed: false,
+        providerOverrideUsed: false,
+        durationPriorUsed: false,
+        sustainedVoicingRisk: 0,
+        boundaryStabilityMs: 0,
+        candidateMarginMs: 0,
+        validationStatus: 'ABSTAIN' as const,
+        rawStart: 0,
+        rawEnd: 0,
+        finalStart: 0,
+        finalEnd: 0,
+        correctionApplied: false,
+        correctionReason: 'S < V: Insufficient acoustic segments for verse count without proportional splitting',
+        verseKey: v.verse_key,
+        matchedAudioRange: { start: 0, end: 0, duration: 0 },
+        audioMatchScore: 0,
+        phoneticTextScore: 0,
+        globalAlignmentScore: 0,
+        isDirectlyObserved: false,
+        isLowConfidence: true
+      }
+    }));
+  }
+
   // Fallback candidate generation if no acoustic observations exist
   if (candidates.length === 0) {
+    if (isStrict) {
+      // STRICT REAL-AUDIO MODE: Zero acoustic observations means system must ABSTAIN
+      // rather than manufacturing proportional synthetic boundaries.
+      return verses.map((v, i) => ({
+        ayahIndex: i,
+        wordIndex: 0,
+        startTime: 0,
+        endTime: 0,
+        isWaqfPause: false,
+        confidenceScore: 0,
+        verse_key: v.verse_key,
+        text_arabic: v.text_uthmani || v.text_arabic || '',
+        text_english: v.translation || v.text_english || '',
+        pauseType: 'ayah-boundary' as const,
+        isRepetition: false,
+        isLowConfidence: true,
+        subPhraseIndex: 1,
+        totalSubPhrases: 1,
+        words: [],
+        diagnostics: {
+          ayahNumber: i + 1,
+          predictedStart: 0,
+          predictedEnd: 0,
+          duration: 0,
+          startEvidence: 'inferred',
+          endEvidence: 'inferred',
+          acousticScore: 0,
+          boundaryScore: 0,
+          transitionScore: 0,
+          durationPriorScore: 0,
+          recognitionScore: 0,
+          globalScore: 0,
+          confidence: 0,
+          alignmentMethod: 'ABSTAIN' as const,
+          warnings: ['STRICT_REAL_AUDIO: Zero acoustic observations/candidates provided. Abstained rather than generating duration-proportional candidates.'],
+          proportionalSplitUsed: false,
+          interpolationUsed: false,
+          legacyFallbackUsed: false,
+          providerOverrideUsed: false,
+          durationPriorUsed: false,
+          sustainedVoicingRisk: 0,
+          boundaryStabilityMs: 0,
+          candidateMarginMs: 0,
+          validationStatus: 'ABSTAIN' as const,
+          rawStart: 0,
+          rawEnd: 0,
+          finalStart: 0,
+          finalEnd: 0,
+          correctionApplied: false,
+          correctionReason: 'Abstained due to zero acoustic observations',
+          verseKey: v.verse_key,
+          matchedAudioRange: { start: 0, end: 0, duration: 0 },
+          audioMatchScore: 0,
+          phoneticTextScore: 0,
+          globalAlignmentScore: 0,
+          isDirectlyObserved: false,
+          isLowConfidence: true
+        }
+      }));
+    }
+
     let cursor = startOffset;
     candidates.push({
       time: startOffset,
@@ -1605,12 +1890,21 @@ export function runQuranAlignmentEngine(
       recognizedWords: options.recognizedWords,
       confidenceThreshold,
       referencePriors: options.referencePriors,
-      referenceTransform: transform ? { offsetMs: transform['offsetMs'], tempoScale: transform['tempoScale'] } : undefined
+      referenceTransform: transform ? { offsetMs: transform['offsetMs'], tempoScale: transform['tempoScale'] } : undefined,
+      strictRealAudio: isStrict,
+      allowProportionalSplit: options.allowProportionalSplit ?? ALLOW_PROPORTIONAL_SPLIT,
+      allowInterpolation: options.allowInterpolation ?? ALLOW_INTERPOLATION,
+      allowLegacyFallback: options.allowLegacyFallback ?? ALLOW_LEGACY_FALLBACK,
+      allowProviderOverride: options.allowProviderOverride ?? ALLOW_PROVIDER_OVERRIDE,
     }
   );
 
-  // 3.5 Local Boundary Refinement (±1500 ms)
+  // 3.5 Local Boundary Refinement (Multi-pass search + Madd protection)
   const refinedResults = viterbiResults.map((res, i) => {
+    if (res.alignmentMethod === 'ABSTAIN') {
+      return res;
+    }
+
     const model = phoneticModels[i];
     const localRefined = refineBoundaryLocally(
       res.startTime,
@@ -1628,6 +1922,11 @@ export function runQuranAlignmentEngine(
       startTime: localRefined.startTime,
       endTime: localRefined.endTime,
       boundaryScore: localRefined.boundaryScore,
+      candidateMarginMs: localRefined.candidateMarginMs,
+      boundaryStabilityMs: localRefined.boundaryStabilityMs,
+      sustainedVoicingRisk: localRefined.sustainedVoicingRisk,
+      validationStatus: localRefined.validationStatus,
+      selectedCandidateReason: localRefined.selectedReason,
       warnings: [...res.warnings, ...localRefined.warnings]
     };
   });
@@ -1638,6 +1937,67 @@ export function runQuranAlignmentEngine(
   for (let i = 0; i < totalVerses; i++) {
     const v = verses[i];
     const aligned = refinedResults[i];
+
+    if (aligned.alignmentMethod === 'ABSTAIN') {
+      rawSegments.push({
+        ayahIndex: i,
+        wordIndex: 0,
+        startTime: 0,
+        endTime: 0,
+        isWaqfPause: false,
+        confidenceScore: 0,
+        verse_key: v.verse_key,
+        text_arabic: v.text_uthmani || v.text_arabic || '',
+        text_english: v.translation || v.text_english || '',
+        pauseType: 'ayah-boundary' as const,
+        isRepetition: false,
+        isLowConfidence: true,
+        subPhraseIndex: 1,
+        totalSubPhrases: 1,
+        words: [],
+        diagnostics: {
+          ayahNumber: i + 1,
+          predictedStart: 0,
+          predictedEnd: 0,
+          duration: 0,
+          startEvidence: 'inferred',
+          endEvidence: 'inferred',
+          acousticScore: 0,
+          boundaryScore: 0,
+          transitionScore: 0,
+          durationPriorScore: 0,
+          recognitionScore: 0,
+          globalScore: 0,
+          confidence: 0,
+          alignmentMethod: 'ABSTAIN' as const,
+          warnings: aligned.warnings,
+          proportionalSplitUsed: false,
+          interpolationUsed: false,
+          legacyFallbackUsed: false,
+          providerOverrideUsed: false,
+          durationPriorUsed: false,
+          sustainedVoicingRisk: 0,
+          boundaryStabilityMs: 0,
+          candidateMarginMs: 0,
+          validationStatus: 'ABSTAIN' as const,
+          rawStart: 0,
+          rawEnd: 0,
+          finalStart: 0,
+          finalEnd: 0,
+          correctionApplied: false,
+          correctionReason: 'Abstained due to insufficient acoustic boundaries',
+          verseKey: v.verse_key,
+          matchedAudioRange: { start: 0, end: 0, duration: 0 },
+          audioMatchScore: 0,
+          phoneticTextScore: 0,
+          globalAlignmentScore: 0,
+          isDirectlyObserved: false,
+          isLowConfidence: true
+        }
+      });
+      continue;
+    }
+
     const model = phoneticModels[i];
 
     // Word-level alignment
@@ -1722,6 +2082,23 @@ export function runQuranAlignmentEngine(
             finalBoundaryScore: aligned.finalBoundaryScore,
             selectedCandidateReason: aligned.selectedCandidateReason,
             
+            // Strict Real-Audio Governance Diagnostics
+            proportionalSplitUsed: false,
+            interpolationUsed: false,
+            legacyFallbackUsed: false,
+            providerOverrideUsed: false,
+            durationPriorUsed: aligned.durationPriorScore !== undefined && aligned.durationPriorScore > 0,
+            sustainedVoicingRisk: aligned.sustainedVoicingRisk ?? 0,
+            boundaryStabilityMs: aligned.boundaryStabilityMs ?? 0,
+            candidateMarginMs: aligned.candidateMarginMs ?? 0,
+            validationStatus: aligned.validationStatus ?? (aligned.confidence >= 60 ? 'VALIDATED' : 'UNVALIDATED'),
+            rawStart: sp.startTime,
+            rawEnd: sp.endTime,
+            finalStart: sp.startTime,
+            finalEnd: sp.endTime,
+            correctionApplied: false,
+            correctionReason: undefined,
+
             // Legacy mappings
             verseKey: v.verse_key,
             matchedAudioRange: { start: sp.startTime, end: sp.endTime, duration: Number((sp.endTime - sp.startTime).toFixed(2)) },
@@ -1785,6 +2162,23 @@ export function runQuranAlignmentEngine(
           finalBoundaryScore: aligned.finalBoundaryScore,
           selectedCandidateReason: aligned.selectedCandidateReason,
           
+          // Strict Real-Audio Governance Diagnostics
+          proportionalSplitUsed: false,
+          interpolationUsed: false,
+          legacyFallbackUsed: false,
+          providerOverrideUsed: false,
+          durationPriorUsed: aligned.durationPriorScore !== undefined && aligned.durationPriorScore > 0,
+          sustainedVoicingRisk: aligned.sustainedVoicingRisk ?? 0,
+          boundaryStabilityMs: aligned.boundaryStabilityMs ?? 0,
+          candidateMarginMs: aligned.candidateMarginMs ?? 0,
+          validationStatus: aligned.validationStatus ?? (aligned.confidence >= 60 ? 'VALIDATED' : 'UNVALIDATED'),
+          rawStart: aligned.startTime,
+          rawEnd: aligned.endTime,
+          finalStart: aligned.startTime,
+          finalEnd: aligned.endTime,
+          correctionApplied: false,
+          correctionReason: undefined,
+
           // Legacy mappings
           verseKey: v.verse_key,
           matchedAudioRange: { start: aligned.startTime, end: aligned.endTime, duration: Number((aligned.endTime - aligned.startTime).toFixed(2)) },
@@ -1912,8 +2306,9 @@ function splitIntoWaqfSubPhrases(
 }
 
 /**
- * Locally refines a predicted Ayah boundary by examining acoustic candidates in a ±1500ms window.
- * Evaluates combinations of start and end candidates against sequence context.
+ * Locally refines a predicted Ayah boundary by examining acoustic candidates in multi-pass windows
+ * (±250ms, ±500ms, ±1000ms, ±2000ms).
+ * Evaluates combinations of start and end candidates against acoustic evidence and Tajweed Madd/Ghunnah continuity.
  */
 function refineBoundaryLocally(
   predictedStart: number,
@@ -1924,18 +2319,25 @@ function refineBoundaryLocally(
   prevAyahEnd: number,
   nextAyahStart: number,
   recognizedWords?: Array<{ word: string; start: number; end: number; confidence?: number }>
-): { startTime: number; endTime: number; boundaryScore: number; warnings: string[] } {
-  const windowSec = 1.5;
+): {
+  startTime: number;
+  endTime: number;
+  boundaryScore: number;
+  warnings: string[];
+  candidateMarginMs: number;
+  boundaryStabilityMs: number;
+  sustainedVoicingRisk: number;
+  validationStatus: 'VALIDATED' | 'UNVALIDATED' | 'ABSTAIN';
+  selectedReason: string;
+} {
   const warnings: string[] = [];
 
   // 1. Silent Pause Boundary Snapping (Breathing Pause Correction)
-  // If the unrefined boundary lands inside a silent gap, snap start/end to exclude the silence gap.
   let refinedStart = predictedStart;
   let refinedEnd = predictedEnd;
   let snappedStart = false;
   let snappedEnd = false;
 
-  // Check if predictedStart falls within a silent gap
   const silenceAtStart = getSilenceAtTime(predictedStart, observations);
   if (silenceAtStart.inSilence && silenceAtStart.durationMs >= 800) {
     refinedStart = silenceAtStart.silenceEnd;
@@ -1943,7 +2345,6 @@ function refineBoundaryLocally(
     warnings.push(`Start boundary snapped to speech onset at ${refinedStart.toFixed(2)}s to exclude ${silenceAtStart.durationMs.toFixed(0)}ms silence`);
   }
 
-  // Check if predictedEnd falls within a silent gap
   const silenceAtEnd = getSilenceAtTime(predictedEnd, observations);
   if (silenceAtEnd.inSilence && silenceAtEnd.durationMs >= 800) {
     refinedEnd = silenceAtEnd.silenceStart;
@@ -1951,7 +2352,6 @@ function refineBoundaryLocally(
     warnings.push(`End boundary snapped to speech offset at ${refinedEnd.toFixed(2)}s to exclude ${silenceAtEnd.durationMs.toFixed(0)}ms silence`);
   }
 
-  // Ensure snapping produced a valid duration before applying it
   if (snappedStart || snappedEnd) {
     if (refinedEnd > refinedStart + 0.5) {
       const startCand = candidates.find(c => Math.abs(c.time - refinedStart) < 0.25) || { boundaryScore: 90 };
@@ -1962,83 +2362,140 @@ function refineBoundaryLocally(
         startTime: Number(refinedStart.toFixed(2)),
         endTime: Number(refinedEnd.toFixed(2)),
         boundaryScore: snapBoundaryScore,
-        warnings
+        warnings,
+        candidateMarginMs: 50,
+        boundaryStabilityMs: 0,
+        sustainedVoicingRisk: 0,
+        validationStatus: 'VALIDATED',
+        selectedReason: 'Snapped to verified acoustic breathing silence gap'
       };
     } else {
       warnings.push('Local silent-snapping failed: minimum duration constraint violated. Reverting to candidate search.');
     }
   }
 
-  // 2. Candidate-Combination Search Loop (Fallback/Standard Local Search)
-  // Find start candidates near predicted start
-  const startCands = candidates.filter(
-    c => c.time >= Math.max(prevAyahEnd, predictedStart - windowSec) && 
-         c.time <= predictedStart + windowSec &&
-         (c.type === 'speech-onset' || c.type === 'acoustic-dip')
-  );
+  // 2. Multi-Pass Candidate Search (±250ms, ±500ms, ±1000ms, ±2000ms)
+  const searchRadii = [0.25, 0.5, 1.0, 2.0];
+  const passBestEnds: number[] = [];
 
-  // Find end candidates near predicted end
-  const endCands = candidates.filter(
-    c => c.time >= predictedEnd - windowSec && 
-         c.time <= Math.min(nextAyahStart, predictedEnd + windowSec) &&
-         (c.type === 'speech-offset' || c.type === 'terminal-pause' || c.type === 'acoustic-dip')
-  );
+  let globalBestStart = predictedStart;
+  let globalBestEnd = predictedEnd;
+  let globalBestScore = -Infinity;
+  let globalSecondScore = -Infinity;
+  let globalBestCandScore = 50;
+  let globalSustainedVoicingRisk = 0;
 
-  if (startCands.length === 0 && endCands.length === 0) {
-    return { startTime: predictedStart, endTime: predictedEnd, boundaryScore: 50, warnings: ['No local acoustic boundary candidates found'] };
-  }
+  for (const radius of searchRadii) {
+    const maxEndLimit = nextAyahStart > predictedEnd + 0.05 ? nextAyahStart - 0.05 : predictedEnd + radius;
+    const minStartLimit = prevAyahEnd < predictedStart - 0.05 ? prevAyahEnd + 0.05 : predictedStart - radius;
 
-  // Ensure we at least evaluate the predicted boundaries
-  if (!startCands.some(c => Math.abs(c.time - predictedStart) < 0.1)) {
-    startCands.push({ time: predictedStart, silenceDurationMs: 0, valleyDepthDb: -30, onsetStrength: 0.5, boundaryScore: 50, type: 'acoustic-dip' });
-  }
-  if (!endCands.some(c => Math.abs(c.time - predictedEnd) < 0.1)) {
-    endCands.push({ time: predictedEnd, silenceDurationMs: 0, valleyDepthDb: -30, onsetStrength: 0.5, boundaryScore: 50, type: 'acoustic-dip' });
-  }
+    const startCands = candidates.filter(
+      c => c.time >= Math.max(minStartLimit, predictedStart - radius) && 
+           c.time <= predictedStart + radius &&
+           c.type !== 'speech-offset' &&
+           (c.type === 'speech-onset' || c.type === 'acoustic-dip' || c.type === 'terminal-pause')
+    );
 
-  let bestStart = predictedStart;
-  let bestEnd = predictedEnd;
-  let bestScore = -Infinity;
-  let bestCandScore = 50;
+    const endCands = candidates.filter(
+      c => c.time >= predictedEnd - radius && 
+           c.time <= Math.min(maxEndLimit, predictedEnd + radius) &&
+           c.type !== 'speech-onset' &&
+           (c.type === 'speech-offset' || c.type === 'terminal-pause' || c.type === 'acoustic-dip')
+    );
 
-  for (const sc of startCands) {
-    for (const ec of endCands) {
-      if (ec.time <= sc.time + 0.5) continue; // Minimum duration constraint
+    if (!startCands.some(c => Math.abs(c.time - predictedStart) < 0.05)) {
+      startCands.push({ time: predictedStart, silenceDurationMs: 0, valleyDepthDb: -30, onsetStrength: 0.5, boundaryScore: 50, type: 'acoustic-dip' });
+    }
+    if (!endCands.some(c => Math.abs(c.time - predictedEnd) < 0.05)) {
+      endCands.push({ time: predictedEnd, silenceDurationMs: 0, valleyDepthDb: -30, onsetStrength: 0.5, boundaryScore: 50, type: 'acoustic-dip' });
+    }
 
-      const evalScore = evaluateAyahSegmentCost(
-        model,
-        sc.time,
-        ec.time,
-        1.0, // Assuming global tempo is roughly 1.0 for local evaluation
-        sc,
-        ec,
-        observations,
-        recognizedWords
-      );
+    let passBestEnd = predictedEnd;
+    let passMaxScore = -Infinity;
 
-      // Add a slight penalty for deviating from the Viterbi path, to prefer the global optimum unless local evidence is much stronger
-      const deviationPenalty = (Math.abs(sc.time - predictedStart) + Math.abs(ec.time - predictedEnd)) * 5.0;
-      
-      const localScore = evalScore.totalScore - deviationPenalty;
+    for (const sc of startCands) {
+      for (const ec of endCands) {
+        if (ec.time <= sc.time + 0.4) continue;
 
-      if (localScore > bestScore) {
-        bestScore = localScore;
-        bestStart = sc.time;
-        bestEnd = ec.time;
-        bestCandScore = evalScore.boundaryScore;
+        // Protection of sustained Madd/Ghunnah vowels:
+        // Detect if candidate cuts through continuous active voicing without energy drop
+        let voicingRisk = 0;
+        const matchingObs = observations.find(o => ec.time >= o.start && ec.time <= o.end);
+        if (matchingObs) {
+          const distFromStart = ec.time - matchingObs.start;
+          const distFromEnd = matchingObs.end - ec.time;
+          if (distFromStart > 0.25 && distFromEnd > 0.25 && ec.silenceDurationMs < 80) {
+            voicingRisk = 25; // Severe penalty for cutting mid-vowel (Madd/Ghunnah)
+          }
+        }
+
+        const evalScore = evaluateAyahSegmentCost(
+          model,
+          sc.time,
+          ec.time,
+          1.0,
+          sc,
+          ec,
+          observations,
+          recognizedWords
+        );
+
+        // Acoustic evidence takes precedence:
+        // If candidate has real acoustic boundary evidence (boundaryScore >= 70 or speech-offset),
+        // deviation penalty from duration-prior path MUST be zero!
+        const hasAcousticEvidence = (ec.type === 'speech-offset' || ec.boundaryScore >= 70 || ec.silenceDurationMs >= 150);
+        const deviationPenalty = hasAcousticEvidence ? 0 : (Math.abs(sc.time - predictedStart) + Math.abs(ec.time - predictedEnd)) * 2.0;
+
+        const candidateScore = evalScore.totalScore - deviationPenalty - voicingRisk;
+
+        if (candidateScore > passMaxScore) {
+          passMaxScore = candidateScore;
+          passBestEnd = ec.time;
+        }
+
+        if (candidateScore > globalBestScore) {
+          globalSecondScore = globalBestScore;
+          globalBestScore = candidateScore;
+          globalBestStart = sc.time;
+          globalBestEnd = ec.time;
+          globalBestCandScore = evalScore.boundaryScore;
+          globalSustainedVoicingRisk = voicingRisk;
+        } else if (candidateScore > globalSecondScore) {
+          globalSecondScore = candidateScore;
+        }
       }
     }
+
+    passBestEnds.push(passBestEnd);
   }
 
-  if (Math.abs(bestStart - predictedStart) > 0.1 || Math.abs(bestEnd - predictedEnd) > 0.1) {
-    warnings.push(`Boundary locally refined (Start: ${predictedStart.toFixed(2)}->${bestStart.toFixed(2)}, End: ${predictedEnd.toFixed(2)}->${bestEnd.toFixed(2)})`);
+  // Calculate boundary stability across the multi-pass search windows
+  const minEnd = Math.min(...passBestEnds);
+  const maxEnd = Math.max(...passBestEnds);
+  const boundaryStabilityMs = Math.round((maxEnd - minEnd) * 1000);
+
+  // Candidate margin between top choice and runner-up
+  const candidateMarginScore = globalSecondScore > -Infinity ? Math.max(0, globalBestScore - globalSecondScore) : 25;
+  const candidateMarginMs = Math.round(candidateMarginScore * 10);
+
+  if (Math.abs(globalBestStart - predictedStart) > 0.1 || Math.abs(globalBestEnd - predictedEnd) > 0.1) {
+    warnings.push(`Boundary locally refined (Start: ${predictedStart.toFixed(2)}->${globalBestStart.toFixed(2)}, End: ${predictedEnd.toFixed(2)}->${globalBestEnd.toFixed(2)})`);
   }
+
+  const isStable = boundaryStabilityMs <= 350;
+  const hasAdequateEvidence = globalBestCandScore >= 60;
+  const validationStatus = (isStable && hasAdequateEvidence) ? 'VALIDATED' : (hasAdequateEvidence ? 'UNVALIDATED' : 'ABSTAIN');
 
   return {
-    startTime: bestStart,
-    endTime: bestEnd,
-    boundaryScore: bestCandScore,
-    warnings
+    startTime: globalBestStart,
+    endTime: globalBestEnd,
+    boundaryScore: globalBestCandScore,
+    warnings,
+    candidateMarginMs,
+    boundaryStabilityMs,
+    sustainedVoicingRisk: globalSustainedVoicingRisk,
+    validationStatus,
+    selectedReason: `Multi-pass candidate search (Stability: ${boundaryStabilityMs}ms, Margin: ${candidateMarginMs}ms, Score: ${globalBestCandScore})`
   };
 }
 
@@ -2090,8 +2547,21 @@ export function enforceGlobalTimelineConsistency(
     }
     let curEnd = Math.max(curStart + 0.1, Number(result[idx].endTime.toFixed(2)));
 
+    const initialRawStart = result[idx].diagnostics?.rawStart ?? result[idx].startTime;
+    const initialRawEnd = result[idx].diagnostics?.rawEnd ?? result[idx].endTime;
+    const isCorrected = Math.abs(curStart - initialRawStart) > 0.05 || Math.abs(curEnd - initialRawEnd) > 0.05;
+
     result[idx].startTime = curStart;
     result[idx].endTime = curEnd;
+
+    if (result[idx].diagnostics) {
+      result[idx].diagnostics.finalStart = curStart;
+      result[idx].diagnostics.finalEnd = curEnd;
+      if (isCorrected) {
+        result[idx].diagnostics.correctionApplied = true;
+        result[idx].diagnostics.correctionReason = 'Monotonic non-overlapping boundary constraint';
+      }
+    }
 
     // Also sanitize internal word tokens if present
     if (result[idx].words && result[idx].words.length > 0) {

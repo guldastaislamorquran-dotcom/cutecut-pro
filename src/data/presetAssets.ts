@@ -2,66 +2,102 @@ import { PresetMedia } from '../types';
 
 export const STOCK_VIDEOS: PresetMedia[] = [
   {
-    id: 'stock-makkah-madinah',
+    id: 'vid-makkah',
     name: 'Makkah/Madinah Ambient Loops',
     type: 'video',
     url: 'https://vjs.zencdn.net/v/oceans.mp4',
     duration: 15,
-    thumbnail: '🕌',
+    thumbnail: '🕋',
     category: 'Islamic Stock'
   },
   {
-    id: 'stock-clouds-slow',
+    id: 'vid-clouds',
     name: 'Slow Floating Clouds Video',
     type: 'video',
     url: 'https://vjs.zencdn.net/v/oceans.mp4',
-    duration: 12,
+    duration: 20,
     thumbnail: '☁️',
     category: 'Islamic Stock'
   },
   {
-    id: 'stock-starry-night',
-    name: 'Starry Night Sky Timelapses',
+    id: 'vid-quran-reading',
+    name: 'Quran Reading Close Up',
     type: 'video',
-    url: 'https://media.w3.org/2010/05/sintel/trailer.mp4',
-    duration: 14,
-    thumbnail: '🌌',
+    url: 'https://vjs.zencdn.net/v/oceans.mp4',
+    duration: 12,
+    thumbnail: '📖',
     category: 'Islamic Stock'
   },
   {
-    id: 'stock-green-screen',
-    name: 'Chroma Key Dino (Green Screen)',
+    id: 'vid-green-screen-sub',
+    name: 'Subscribe Button Green Screen',
     type: 'video',
-    url: 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4',
-    duration: 10,
-    thumbnail: '🦖',
+    url: 'https://vjs.zencdn.net/v/oceans.mp4',
+    duration: 5,
+    thumbnail: '🟩',
     category: 'Green Screen'
   },
   {
-    id: 'stock-neon-city',
-    name: 'Cyberpunk Retro Grid',
+    id: 'vid-green-screen-birds',
+    name: 'Flying Birds Green Screen',
     type: 'video',
-    url: 'https://media.w3.org/2010/05/sintel/trailer.mp4',
-    duration: 12,
-    thumbnail: '🌆',
+    url: 'https://vjs.zencdn.net/v/oceans.mp4',
+    duration: 10,
+    thumbnail: '🦅',
+    category: 'Green Screen'
+  },
+  {
+    id: 'vid-vfx-dust',
+    name: 'Gold Dust Particles Loop',
+    type: 'video',
+    url: 'https://vjs.zencdn.net/v/oceans.mp4',
+    duration: 8,
+    thumbnail: '✨',
     category: 'VFX & Loop'
   },
   {
-    id: 'stock-nature',
-    name: 'Cinematic Mountain Forest',
+    id: 'vid-vfx-light-leak',
+    name: 'Warm Light Leaks Overlay',
     type: 'video',
     url: 'https://vjs.zencdn.net/v/oceans.mp4',
-    duration: 15,
+    duration: 10,
+    thumbnail: '☀️',
+    category: 'VFX & Loop'
+  },
+  {
+    id: 'vid-cinematic-drone',
+    name: 'Cinematic Mountains Drone Shot',
+    type: 'video',
+    url: 'https://vjs.zencdn.net/v/oceans.mp4',
+    duration: 25,
+    thumbnail: '🚁',
+    category: 'Cinematic'
+  },
+  {
+    id: 'vid-cinematic-forest',
+    name: 'Dark Forest Cinematic Walk',
+    type: 'video',
+    url: 'https://vjs.zencdn.net/v/oceans.mp4',
+    duration: 18,
     thumbnail: '🌲',
     category: 'Cinematic'
   },
   {
-    id: 'stock-abstract',
-    name: 'Fluid Dynamic Color Wave',
+    id: 'vid-abstract-fluid',
+    name: 'Fluid Gradient Loop',
     type: 'video',
-    url: 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4',
-    duration: 8,
-    thumbnail: '🎨',
+    url: 'https://vjs.zencdn.net/v/oceans.mp4',
+    duration: 12,
+    thumbnail: '🔮',
+    category: 'Abstract'
+  },
+  {
+    id: 'vid-abstract-neon',
+    name: 'Neon Grid Retro Loop',
+    type: 'video',
+    url: 'https://vjs.zencdn.net/v/oceans.mp4',
+    duration: 15,
+    thumbnail: '🌌',
     category: 'Abstract'
   }
 ];
@@ -149,7 +185,25 @@ export const STOCK_IMAGES: PresetMedia[] = [
     url: 'https://images.unsplash.com/photo-1609599006353-e629aaabfeae?auto=format&fit=crop&w=1200&q=80',
     duration: 10,
     thumbnail: '📖',
-    category: 'Quran'
+    category: 'Islamic'
+  },
+  {
+    id: 'img-cinematic-mountains',
+    name: 'Cinematic Foggy Mountain Range',
+    type: 'image',
+    url: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=1200&q=80',
+    duration: 10,
+    thumbnail: '🏔️',
+    category: 'Nature'
+  },
+  {
+    id: 'img-nature-river',
+    name: 'Peaceful River Stream',
+    type: 'image',
+    url: 'https://images.unsplash.com/photo-1433086966358-54859d0ed716?auto=format&fit=crop&w=1200&q=80',
+    duration: 10,
+    thumbnail: '🏞️',
+    category: 'Nature'
   },
   {
     id: 'img-sunset-clouds',
@@ -158,6 +212,15 @@ export const STOCK_IMAGES: PresetMedia[] = [
     url: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1200&q=80',
     duration: 10,
     thumbnail: '🌅',
+    category: 'Background'
+  },
+  {
+    id: 'img-dark-gradient',
+    name: 'Dark Moody Gradient Background',
+    type: 'image',
+    url: 'https://images.unsplash.com/photo-1557683311-eac922347aa1?auto=format&fit=crop&w=1200&q=80',
+    duration: 10,
+    thumbnail: '⬛',
     category: 'Background'
   },
   {
@@ -170,13 +233,22 @@ export const STOCK_IMAGES: PresetMedia[] = [
     category: 'Space'
   },
   {
-    id: 'img-cinematic-mountains',
-    name: 'Cinematic Foggy Mountain Range',
+    id: 'img-nebula',
+    name: 'Deep Space Nebula Colors',
     type: 'image',
-    url: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=1200&q=80',
+    url: 'https://images.unsplash.com/photo-1462331940025-496dfbfc7564?auto=format&fit=crop&w=1200&q=80',
     duration: 10,
-    thumbnail: '🏔️',
-    category: 'Nature'
+    thumbnail: '🔭',
+    category: 'Space'
+  },
+  {
+    id: 'img-abstract-geom',
+    name: 'Abstract 3D Geometric Shapes',
+    type: 'image',
+    url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=1200&q=80',
+    duration: 10,
+    thumbnail: '🧊',
+    category: 'Abstract'
   }
 ];
 

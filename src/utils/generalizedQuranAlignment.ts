@@ -19,6 +19,13 @@
 
 import { FormattedQuranVerse, getCanonicalSurahVerses } from '../data/canonicalQuran';
 import { normalizeArabicForComparison, computeLevenshteinDistance } from './acousticShadowPrototype';
+import {
+  STRICT_REAL_AUDIO,
+  ALLOW_PROPORTIONAL_SPLIT,
+  ALLOW_INTERPOLATION,
+  ALLOW_LEGACY_FALLBACK,
+  ALLOW_PROVIDER_OVERRIDE
+} from '../config/alignmentConfig';
 
 export type AlignmentExecutionMode = 'legacy' | 'phase4-shadow' | 'phase4-acoustic';
 
@@ -27,7 +34,8 @@ export type WordTimingProvenance =
   | 'vad-derived'
   | 'dp-derived'
   | 'interpolated'
-  | 'legacy-fallback';
+  | 'legacy-fallback'
+  | 'abstain';
 
 /**
  * 1. Traceable Canonical Quran Token
@@ -442,12 +450,19 @@ export function solveMonotonicTrellis(
       const seqContinuity = isRepetition ? 0.70 : 1.0;
       const pauseEvidence = 0.90;
 
+      // Adaptive duration-prior influence:
+      // Strong acoustic/boundary evidence -> lower duration weight (0.05) to let acoustic evidence drive alignment
+      // Weak acoustic evidence -> higher duration weight (0.20) for fallback stability
+      const acousticStrength = (acousticScore + boundaryScore) / 2;
+      const durWeight = acousticStrength >= 0.70 ? 0.05 : 0.20;
+      const boundaryWeight = acousticStrength >= 0.70 ? 0.30 : 0.15;
+
       // Mathematically bounded composite score
       const composite = Number(
         (0.35 * textScore +
-         0.20 * boundaryScore +
+         boundaryWeight * boundaryScore +
          0.15 * acousticScore +
-         0.15 * durScore +
+         durWeight * durScore +
          0.10 * seqContinuity +
          0.05 * pauseEvidence
         ).toFixed(3)
@@ -532,12 +547,19 @@ export function solveMonotonicTrellis(
  * - Unobserved/skipped tokens are interpolated between adjacent anchors
  * - Tracks exact provenance for every word timestamp
  */
+export interface RefineBoundariesOptions {
+  strictRealAudio?: boolean;
+  allowInterpolation?: boolean;
+}
+
 export function refineBoundariesAndGenerateWords(
   canonicalTokens: CanonicalQuranToken[],
   anchors: Map<number, TrellisAlignmentAnchor>,
   vadBoundaries: number[] = [],
-  totalAudioDuration: number = 0
+  totalAudioDuration: number = 0,
+  options?: RefineBoundariesOptions
 ): GeneralizedWordAlignment[] {
+  const isStrict = options?.strictRealAudio === true || (options?.allowInterpolation === false);
   const words: GeneralizedWordAlignment[] = [];
   const N = canonicalTokens.length;
   if (N === 0) return words;
@@ -655,7 +677,7 @@ export function refineBoundariesAndGenerateWords(
         tempBounds[g] = {
           start: Number(gStart.toFixed(3)),
           end: Number(gEnd.toFixed(3)),
-          provenance: 'interpolated'
+          provenance: isStrict ? 'abstain' : 'interpolated'
         };
       }
       lastKnownEnd = currentCursor;
@@ -670,6 +692,17 @@ export function refineBoundariesAndGenerateWords(
 
     const confidence: AlignmentScoreBreakdown = anchor
       ? anchor.scoreBreakdown
+      : isStrict
+      ? {
+          textMatchScore: 0.0,
+          acousticEvidenceScore: 0.0,
+          boundaryEvidenceScore: 0.0,
+          durationEvidenceScore: 0.0,
+          sequenceContinuityScore: 0.0,
+          pauseEvidenceScore: 0.0,
+          compositeScore: 0.0,
+          modelReportedConfidence: 0.0
+        }
       : {
           textMatchScore: 0.0,
           acousticEvidenceScore: 0.3,

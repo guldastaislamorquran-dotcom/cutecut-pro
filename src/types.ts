@@ -91,7 +91,11 @@ export interface Clip {
   textStrokeWidth?: number; // 0 to 20 px
   textStrokeColor?: string;
   textBackgroundColor?: string; // e.g. '#000000', '#ffffff', 'transparent'
+  textBackgroundOpacity?: number; // 0.0 to 1.0 (default: 0)
   textBackgroundPadding?: number; // 0 to 40 px
+  textBackgroundRadius?: number; // 0 to 40 px
+  textBackgroundBlur?: number; // 0 to 20 px
+  textBackgroundStyle?: 'none' | 'box' | 'strip' | 'glow';
   confidenceScore?: number; // Tasmeea alignment confidence match ratio (0-100%)
   textAnimation?: TextAnimationConfig;
   linkedClipId?: string; // Two-Track Anchor Lock: Links Arabic clip and Translation clip together on timeline

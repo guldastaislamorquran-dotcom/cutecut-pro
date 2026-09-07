@@ -24,6 +24,14 @@ export type {
   ColorGrading
 };
 
+import {
+  STRICT_REAL_AUDIO,
+  ALLOW_PROPORTIONAL_SPLIT,
+  ALLOW_INTERPOLATION,
+  ALLOW_LEGACY_FALLBACK,
+  ALLOW_PROVIDER_OVERRIDE
+} from '../config/alignmentConfig';
+
 export {
   detectAcousticSilenceFrames,
   classifyAudioPause,
@@ -1619,6 +1627,25 @@ export function splitTranslationByClauses(
   return result;
 }
 
+export interface AcousticSegment {
+  start: number;
+  end: number;
+}
+
+export interface AssignAcousticSegmentsOptions {
+  strictRealAudio?: boolean;
+  allowProportionalSplit?: boolean;
+}
+
+export type AssignAcousticSegmentsResult = Array<Array<AcousticSegment>> & {
+  status: 'SUCCESS' | 'ABSTAIN' | 'NEED_REALIGNMENT';
+  proportionalSplitCount: number;
+  interpolationCount: number;
+  legacyFallbackCount: number;
+  providerOverrideCount: number;
+  reason?: string;
+};
+
 /**
  * Assigns acoustic speech segments (including internal breathing pauses / Waqf breaks)
  * to verses based on verse weights, strictly respecting acoustic speech boundaries
@@ -1627,17 +1654,35 @@ export function splitTranslationByClauses(
 export function assignAcousticSegmentsToVerses(
   segments: Array<{ start: number; end: number }>,
   versesCount: number,
-  weights: number[]
-): Array<Array<{ start: number; end: number }>> {
-  if (!segments || segments.length === 0 || versesCount <= 0) return [];
+  weights: number[],
+  options?: AssignAcousticSegmentsOptions
+): AssignAcousticSegmentsResult {
+  const isStrict = options?.strictRealAudio ?? (STRICT_REAL_AUDIO && !(options?.allowProportionalSplit ?? ALLOW_PROPORTIONAL_SPLIT));
+
+  if (!segments || segments.length === 0 || versesCount <= 0) {
+    const empty: any = [];
+    empty.status = 'ABSTAIN';
+    empty.proportionalSplitCount = 0;
+    empty.interpolationCount = 0;
+    empty.legacyFallbackCount = 0;
+    empty.providerOverrideCount = 0;
+    empty.reason = 'Missing segments or invalid verse count';
+    return empty;
+  }
 
   const S = segments.length;
   const V = versesCount;
-  const result: Array<Array<{ start: number; end: number }>> = Array.from({ length: V }, () => []);
+  const safeWeights = weights && weights.length === V ? weights : Array.from({ length: V }, () => 1);
+  const result: any = Array.from({ length: V }, () => []);
+  result.status = 'SUCCESS';
+  result.proportionalSplitCount = 0;
+  result.interpolationCount = 0;
+  result.legacyFallbackCount = 0;
+  result.providerOverrideCount = 0;
 
   const segDurations = segments.map(s => Math.max(0.05, s.end - s.start));
   const totalSpeechDur = segDurations.reduce((a, b) => a + b, 0) || 1;
-  const totalWeight = weights.reduce((a, b) => a + (b || 1), 0) || 1;
+  const totalWeight = safeWeights.reduce((a, b) => a + (b || 1), 0) || 1;
 
   if (S === V) {
     // Exact 1-to-1 match between acoustic speech segments and verses!
@@ -1702,7 +1747,22 @@ export function assignAcousticSegmentsToVerses(
       }
     }
   } else {
-    // S < V: Fewer acoustic segments than verses (multiple short verses in 1 breath)
+    // S < V: Fewer acoustic segments than verses (continuous recitation across verse boundaries)
+    if (isStrict) {
+      // STRICT REAL-AUDIO MODE:
+      // Proportional splitting, mathematical subdivision, and duration guessing are STRICTLY FORBIDDEN.
+      // System MUST abstain and require independent acoustic/phonetic alignment rather than guessing.
+      result.status = 'ABSTAIN';
+      result.proportionalSplitCount = 0;
+      result.interpolationCount = 0;
+      result.legacyFallbackCount = 0;
+      result.providerOverrideCount = 0;
+      result.reason = 'S < V: Insufficient acoustic speech blocks for verses. Proportional splitting is strictly forbidden in real-audio mode. Abstaining rather than guessing timeline.';
+      return result;
+    }
+
+    // Non-strict legacy path (if explicitly enabled)
+    result.proportionalSplitCount = V - S;
     const targetCumDur: number[] = [];
     let cumW = 0;
     for (let v = 0; v < V; v++) {
@@ -1927,6 +1987,20 @@ export function splitVerseAcrossBreaths(
   return result;
 }
 
+export interface FitAcousticSegmentsOptions {
+  strictRealAudio?: boolean;
+  allowProportionalSplit?: boolean;
+}
+
+export type FitAcousticSegmentsResult = Array<{ start: number; end: number }> & {
+  status: 'SUCCESS' | 'ABSTAIN' | 'NEED_REALIGNMENT';
+  proportionalSplitCount: number;
+  interpolationCount: number;
+  legacyFallbackCount: number;
+  providerOverrideCount: number;
+  reason?: string;
+};
+
 /**
  * Fits raw acoustic voice activity segments 1-to-1 to total verses,
  * merging tiny gaps or splitting long segments so EVERY verse gets its own segment.
@@ -1935,13 +2009,32 @@ export function splitVerseAcrossBreaths(
 export function fitAcousticSegmentsToVerses(
   rawSegments: Array<{ start: number; end: number }>,
   totalVerses: number,
-  weights?: number[]
-): Array<{ start: number; end: number }> {
-  if (!rawSegments || rawSegments.length === 0 || totalVerses <= 0) return [];
+  weights?: number[],
+  options?: FitAcousticSegmentsOptions
+): FitAcousticSegmentsResult {
+  const isStrict = options?.strictRealAudio === true;
+
+  if (!rawSegments || rawSegments.length === 0 || totalVerses <= 0) {
+    const empty: any = [];
+    empty.status = 'ABSTAIN';
+    empty.proportionalSplitCount = 0;
+    empty.interpolationCount = 0;
+    empty.legacyFallbackCount = 0;
+    empty.providerOverrideCount = 0;
+    empty.reason = 'Missing segments or invalid verse count';
+    return empty;
+  }
+
   if (totalVerses === 1) {
     const minStart = Math.max(0, rawSegments[0].start);
     const maxEnd = Math.max(minStart + 0.5, rawSegments[rawSegments.length - 1].end);
-    return [{ start: Number(minStart.toFixed(2)), end: Number(maxEnd.toFixed(2)) }];
+    const single: any = [{ start: Number(minStart.toFixed(2)), end: Number(maxEnd.toFixed(2)) }];
+    single.status = 'SUCCESS';
+    single.proportionalSplitCount = 0;
+    single.interpolationCount = 0;
+    single.legacyFallbackCount = 0;
+    single.providerOverrideCount = 0;
+    return single;
   }
 
   // Sanitize initial inputs
@@ -1977,35 +2070,51 @@ export function fitAcousticSegmentsToVerses(
     segments.splice(mergeIdx, 2, merged);
   }
 
-  // CASE 2: Fewer acoustic segments than verses -> Split longest segment
-  while (segments.length < totalVerses) {
-    let maxDur = -1;
-    let splitIdx = 0;
+  // CASE 2: Fewer acoustic segments than verses (S < V)
+  if (segments.length < totalVerses) {
+    if (isStrict) {
+      // STRICT REAL-AUDIO MODE: S < V
+      // Midpoint cutting or proportional subdivision is STRICTLY FORBIDDEN.
+      const abstainResult: any = [];
+      abstainResult.status = 'ABSTAIN';
+      abstainResult.proportionalSplitCount = 0;
+      abstainResult.interpolationCount = 0;
+      abstainResult.legacyFallbackCount = 0;
+      abstainResult.providerOverrideCount = 0;
+      abstainResult.reason = 'S < V: Insufficient acoustic segments for verses. Midpoint / proportional splitting is strictly forbidden in real-audio mode.';
+      return abstainResult;
+    }
 
-    for (let i = 0; i < segments.length; i++) {
-      const dur = segments[i].end - segments[i].start;
-      if (dur > maxDur) {
-        maxDur = dur;
-        splitIdx = i;
+    // Legacy fallback (non-strict video editor cut tool)
+    while (segments.length < totalVerses) {
+      let maxDur = -1;
+      let splitIdx = 0;
+
+      for (let i = 0; i < segments.length; i++) {
+        const dur = segments[i].end - segments[i].start;
+        if (dur > maxDur) {
+          maxDur = dur;
+          splitIdx = i;
+        }
       }
+
+      const segToSplit = segments[splitIdx];
+      const totalDur = segToSplit.end - segToSplit.start;
+      const midPoint = segToSplit.start + totalDur / 2;
+      const gapPad = Math.min(0.12, Math.max(0.02, totalDur * 0.05));
+
+      const leftSeg = { start: segToSplit.start, end: Math.max(segToSplit.start + 0.2, midPoint - gapPad) };
+      const rightSeg = { start: Math.min(segToSplit.end - 0.2, midPoint + gapPad), end: segToSplit.end };
+
+      if (rightSeg.start < leftSeg.end) {
+        rightSeg.start = leftSeg.end + 0.05;
+      }
+      if (rightSeg.end <= rightSeg.start) {
+        rightSeg.end = rightSeg.start + 0.3;
+      }
+
+      segments.splice(splitIdx, 1, leftSeg, rightSeg);
     }
-
-    const segToSplit = segments[splitIdx];
-    const totalDur = segToSplit.end - segToSplit.start;
-    const midPoint = segToSplit.start + totalDur / 2;
-    const gapPad = Math.min(0.12, Math.max(0.02, totalDur * 0.05));
-
-    const leftSeg = { start: segToSplit.start, end: Math.max(segToSplit.start + 0.2, midPoint - gapPad) };
-    const rightSeg = { start: Math.min(segToSplit.end - 0.2, midPoint + gapPad), end: segToSplit.end };
-
-    if (rightSeg.start < leftSeg.end) {
-      rightSeg.start = leftSeg.end + 0.05;
-    }
-    if (rightSeg.end <= rightSeg.start) {
-      rightSeg.end = rightSeg.start + 0.3;
-    }
-
-    segments.splice(splitIdx, 1, leftSeg, rightSeg);
   }
 
   // Strict forward-pass to enforce monotonic ordering, non-overlap, and positive durations
@@ -2018,7 +2127,24 @@ export function fitAcousticSegmentsToVerses(
     segments[i] = { start: sStart, end: sEnd };
   }
 
-  return segments;
+  const finalResult: any = segments;
+  finalResult.status = 'SUCCESS';
+  finalResult.proportionalSplitCount = 0;
+  finalResult.interpolationCount = 0;
+  finalResult.legacyFallbackCount = 0;
+  finalResult.providerOverrideCount = 0;
+  return finalResult;
+}
+
+/**
+ * Strict variant of fitAcousticSegmentsToVerses that mandates STRICT_REAL_AUDIO = true.
+ */
+export function fitAcousticSegmentsStrict(
+  rawSegments: Array<{ start: number; end: number }>,
+  totalVerses: number,
+  weights?: number[]
+): FitAcousticSegmentsResult {
+  return fitAcousticSegmentsToVerses(rawSegments, totalVerses, weights, { strictRealAudio: true });
 }
 
 /**

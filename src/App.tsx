@@ -351,7 +351,14 @@ export default function App() {
         textWrap: isAr ? quranArabicWrap : quranEnglishWrap,
         textMaxWidth: isAr ? quranArabicMaxWidth : quranEnglishMaxWidth,
         textLineHeight: isAr ? quranArabicLineHeight : quranEnglishLineHeight,
-        textAlignment: isAr ? quranArabicAlign : quranEnglishAlign
+        textAlignment: isAr ? quranArabicAlign : quranEnglishAlign,
+        textBackgroundColor: quranBgColor,
+        textBackgroundOpacity: quranBgOpacity,
+        textBackgroundPadding: quranBgPadding,
+        textBackgroundRadius: quranBgRadius,
+        textBackgroundBlur: quranBgBlur,
+        textBackgroundStyle: quranBgStyle,
+        textAnimation: { inAnimation: quranAnimationIn, outAnimation: quranAnimationOut, inDuration: quranAnimationDuration, outDuration: quranAnimationDuration }
       };
 
       if (isAr) {
@@ -1394,6 +1401,19 @@ export default function App() {
   const [quranEnglishMaxWidth, setQuranEnglishMaxWidth] = useState<number>(85);
   const [quranEnglishLineHeight, setQuranEnglishLineHeight] = useState<number>(1.3);
   const [quranEnglishAlign, setQuranEnglishAlign] = useState<'left' | 'center' | 'right'>('center');
+  // Global Quran Animations
+  const [quranAnimationIn, setQuranAnimationIn] = useState<any>('fade');
+  const [quranAnimationOut, setQuranAnimationOut] = useState<any>('fade');
+  const [quranAnimationDuration, setQuranAnimationDuration] = useState<number>(0.5);
+
+  // Global Quran Background Overlay
+  const [quranBgStyle, setQuranBgStyle] = useState<any>('none');
+  const [quranBgColor, setQuranBgColor] = useState<string>('#000000');
+  const [quranBgOpacity, setQuranBgOpacity] = useState<number>(0.5);
+  const [quranBgBlur, setQuranBgBlur] = useState<number>(0);
+  const [quranBgPadding, setQuranBgPadding] = useState<number>(12);
+  const [quranBgRadius, setQuranBgRadius] = useState<number>(8);
+
 
   // Synchronously update styles of all existing Quran clips on the timeline
   const applyQuranStylesToTimeline = (customParams?: {
@@ -1420,6 +1440,15 @@ export default function App() {
     englishMaxWidth?: number;
     englishLineHeight?: number;
     englishAlign?: 'left' | 'center' | 'right';
+    animationIn?: any;
+    animationOut?: any;
+    animationDuration?: number;
+    bgStyle?: any;
+    bgColor?: string;
+    bgOpacity?: number;
+    bgBlur?: number;
+    bgPadding?: number;
+    bgRadius?: number;
   }) => {
     const arFont = customParams?.arabicFont !== undefined ? customParams.arabicFont : quranArabicFont;
     const arSize = customParams?.arabicSize !== undefined ? customParams.arabicSize : quranArabicSize;
@@ -1446,6 +1475,15 @@ export default function App() {
     const enMaxW = customParams?.englishMaxWidth !== undefined ? customParams.englishMaxWidth : quranEnglishMaxWidth;
     const enLH = customParams?.englishLineHeight !== undefined ? customParams.englishLineHeight : quranEnglishLineHeight;
     const enAlign = customParams?.englishAlign !== undefined ? customParams.englishAlign : quranEnglishAlign;
+    const animIn = customParams?.animationIn !== undefined ? customParams.animationIn : quranAnimationIn;
+    const animOut = customParams?.animationOut !== undefined ? customParams.animationOut : quranAnimationOut;
+    const animDur = customParams?.animationDuration !== undefined ? customParams.animationDuration : quranAnimationDuration;
+    const bgS = customParams?.bgStyle !== undefined ? customParams.bgStyle : quranBgStyle;
+    const bgC = customParams?.bgColor !== undefined ? customParams.bgColor : quranBgColor;
+    const bgO = customParams?.bgOpacity !== undefined ? customParams.bgOpacity : quranBgOpacity;
+    const bgB = customParams?.bgBlur !== undefined ? customParams.bgBlur : quranBgBlur;
+    const bgP = customParams?.bgPadding !== undefined ? customParams.bgPadding : quranBgPadding;
+    const bgR = customParams?.bgRadius !== undefined ? customParams.bgRadius : quranBgRadius;
 
     const formatArabicText = (clipText: string, clipName?: string) => {
       if (clipName && (clipName.includes("Ta'awwuz") || clipName.includes("Tasmiyah"))) {
@@ -1493,7 +1531,14 @@ export default function App() {
             textWrap: arWrap,
             textMaxWidth: arMaxW,
             textLineHeight: arLH,
-            textAlignment: arAlign
+            textAlignment: arAlign,
+            textBackgroundColor: bgC,
+            textBackgroundOpacity: bgO,
+            textBackgroundPadding: bgP,
+            textBackgroundRadius: bgR,
+            textBackgroundBlur: bgB,
+            textBackgroundStyle: bgS,
+            textAnimation: { inAnimation: animIn, outAnimation: animOut, inDuration: animDur, outDuration: animDur }
           }))
         };
       }
@@ -1512,7 +1557,14 @@ export default function App() {
             textWrap: enWrap,
             textMaxWidth: enMaxW,
             textLineHeight: enLH,
-            textAlignment: enAlign
+            textAlignment: enAlign,
+            textBackgroundColor: bgC,
+            textBackgroundOpacity: bgO,
+            textBackgroundPadding: bgP,
+            textBackgroundRadius: bgR,
+            textBackgroundBlur: bgB,
+            textBackgroundStyle: bgS,
+            textAnimation: { inAnimation: animIn, outAnimation: animOut, inDuration: animDur, outDuration: animDur }
           }))
         };
       }
@@ -1544,7 +1596,14 @@ export default function App() {
                 textWrap: arWrap,
                 textMaxWidth: arMaxW,
                 textLineHeight: arLH,
-                textAlignment: arAlign
+                textAlignment: arAlign,
+            textBackgroundColor: bgC,
+            textBackgroundOpacity: bgO,
+            textBackgroundPadding: bgP,
+            textBackgroundRadius: bgR,
+            textBackgroundBlur: bgB,
+            textBackgroundStyle: bgS,
+            textAnimation: { inAnimation: animIn, outAnimation: animOut, inDuration: animDur, outDuration: animDur }
               };
             } else if (isEnglishClip) {
               return {
@@ -1558,7 +1617,14 @@ export default function App() {
                 textWrap: enWrap,
                 textMaxWidth: enMaxW,
                 textLineHeight: enLH,
-                textAlignment: enAlign
+                textAlignment: enAlign,
+            textBackgroundColor: bgC,
+            textBackgroundOpacity: bgO,
+            textBackgroundPadding: bgP,
+            textBackgroundRadius: bgR,
+            textBackgroundBlur: bgB,
+            textBackgroundStyle: bgS,
+            textAnimation: { inAnimation: animIn, outAnimation: animOut, inDuration: animDur, outDuration: animDur }
               };
             }
             return clip;
@@ -4095,16 +4161,8 @@ export default function App() {
           const reportJson = JSON.stringify({ surah, startAyah, mode: alignMode, diagnostics: diagnosticsReport }, null, 2);
           console.log("[Quran AI Diagnostic Report]\n", reportJson);
           
-          const blob = new Blob([reportJson], { type: 'application/json' });
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = `quran_alignment_diagnostics_surah${surah}_${Date.now()}.json`;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          URL.revokeObjectURL(url);
-          addLog(`[System] Exported detailed diagnostic report as JSON.`, 75);
+          // JSON diagnostic file download is disabled. 
+          // console.log("[System] Detailed diagnostic report generation skipped.");
         }
       } catch (e) {
         console.warn("[System] Failed to export diagnostic report", e);
@@ -5243,6 +5301,24 @@ export default function App() {
               setQuranEnglishLineHeight={setQuranEnglishLineHeight}
               quranEnglishAlign={quranEnglishAlign}
               setQuranEnglishAlign={setQuranEnglishAlign}
+            quranAnimationIn={quranAnimationIn}
+            setQuranAnimationIn={setQuranAnimationIn}
+            quranAnimationOut={quranAnimationOut}
+            setQuranAnimationOut={setQuranAnimationOut}
+            quranAnimationDuration={quranAnimationDuration}
+            setQuranAnimationDuration={setQuranAnimationDuration}
+            quranBgStyle={quranBgStyle}
+            setQuranBgStyle={setQuranBgStyle}
+            quranBgColor={quranBgColor}
+            setQuranBgColor={setQuranBgColor}
+            quranBgOpacity={quranBgOpacity}
+            setQuranBgOpacity={setQuranBgOpacity}
+            quranBgBlur={quranBgBlur}
+            setQuranBgBlur={setQuranBgBlur}
+            quranBgPadding={quranBgPadding}
+            setQuranBgPadding={setQuranBgPadding}
+            quranBgRadius={quranBgRadius}
+            setQuranBgRadius={setQuranBgRadius}
               quranTranslation={quranTranslation}
               setQuranTranslation={setQuranTranslation}
               quranIntroMode={quranIntroMode}
@@ -5741,6 +5817,24 @@ export default function App() {
             setQuranEnglishLineHeight={setQuranEnglishLineHeight}
             quranEnglishAlign={quranEnglishAlign}
             setQuranEnglishAlign={setQuranEnglishAlign}
+            quranAnimationIn={quranAnimationIn}
+            setQuranAnimationIn={setQuranAnimationIn}
+            quranAnimationOut={quranAnimationOut}
+            setQuranAnimationOut={setQuranAnimationOut}
+            quranAnimationDuration={quranAnimationDuration}
+            setQuranAnimationDuration={setQuranAnimationDuration}
+            quranBgStyle={quranBgStyle}
+            setQuranBgStyle={setQuranBgStyle}
+            quranBgColor={quranBgColor}
+            setQuranBgColor={setQuranBgColor}
+            quranBgOpacity={quranBgOpacity}
+            setQuranBgOpacity={setQuranBgOpacity}
+            quranBgBlur={quranBgBlur}
+            setQuranBgBlur={setQuranBgBlur}
+            quranBgPadding={quranBgPadding}
+            setQuranBgPadding={setQuranBgPadding}
+            quranBgRadius={quranBgRadius}
+            setQuranBgRadius={setQuranBgRadius}
             quranTranslation={quranTranslation}
             setQuranTranslation={setQuranTranslation}
             quranIntroMode={quranIntroMode}

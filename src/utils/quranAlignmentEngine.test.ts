@@ -169,7 +169,8 @@ export function runAllQuranAlignmentTests(): {
     const aligned = runQuranAlignmentEngine(verses, {
       acousticSegments,
       audioDuration: 7.0,
-      edgePaddingMs: 0
+      edgePaddingMs: 0,
+      allowProportionalSplit: true
     });
 
     // Syllabic Viterbi anchors each verse continuously across the single breath
