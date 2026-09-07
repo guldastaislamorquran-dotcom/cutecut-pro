@@ -81,6 +81,21 @@
       "confinement": "strict",
       "base": "core22",
       "summary": "Professional Multi-Track Video Editor",
+      "stagePackages": [
+        "libnspr4",
+        "libnss3",
+        "libasound2",
+        "libatk1.0-0",
+        "libatk-bridge2.0-0",
+        "libcups2",
+        "libdrm2",
+        "libgtk-3-0",
+        "libgbm1",
+        "libxshmfence1",
+        "libxss1",
+        "libsecret-1-0",
+        "shared-mime-info"
+      ],
       "plugs": [
         "desktop",
         "desktop-legacy",
