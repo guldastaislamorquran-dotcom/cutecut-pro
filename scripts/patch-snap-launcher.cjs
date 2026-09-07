@@ -39,5 +39,11 @@ if (content.includes('const snapArgs = ["snap"')) {
   console.log('Successfully patched snap subcommand to pack in coreLegacy.js.');
 }
 
+// 4. Force destructive mode so snapcraft doesn't require LXD
+if (content.includes('const isDestructiveMode = process.env.SNAP_DESTRUCTIVE_MODE === "true";')) {
+  content = content.replace('const isDestructiveMode = process.env.SNAP_DESTRUCTIVE_MODE === "true";', 'const isDestructiveMode = true;');
+  console.log('Successfully forced destructive mode in coreLegacy.js.');
+}
+
 fs.writeFileSync(targetPath, content, 'utf8');
 console.log('Successfully patched coreLegacy.js for self-contained snap launcher.');

@@ -93,9 +93,10 @@ EOF
       - name: Build Snap package
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
+          SNAP_DESTRUCTIVE_MODE: "true"
         run: |
           echo "=== Building Snap package ==="
-          npx electron-builder build --linux snap --x64 --publish never
+          npx electron-builder build --linux --snap --x64 -c.linux.target=snap --publish never
           echo "=== Snap build complete ==="
 
       - name: Locate generated Snap file
