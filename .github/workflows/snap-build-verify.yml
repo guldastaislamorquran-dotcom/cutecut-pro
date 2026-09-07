@@ -50,12 +50,12 @@ jobs:
 
       - name: Install Node dependencies
         run: |
-          npm install --include=optional --no-audit
-          npm rebuild @tailwindcss/oxide esbuild rollup lightningcss || true
-          # Verification and fallback installation of platform-specific native binaries
-          node -e "try { require('@tailwindcss/oxide'); console.log('oxide ready'); } catch(e) { console.log('Fetching platform-specific tailwind oxide...'); require('child_process').execSync('npm install --no-save --no-audit @tailwindcss/oxide-linux-x64-gnu'); }"
-          node -e "try { require('lightningcss'); console.log('lightningcss ready'); } catch(e) { console.log('Fetching platform-specific lightningcss...'); require('child_process').execSync('npm install --no-save --no-audit lightningcss-linux-x64-gnu'); }"
-          echo "Node dependencies and native bindings fully resolved"
+          npm ci --include=optional --no-audit
+          echo "Verifying Tailwind Oxide native binding loading..."
+          node -e "require('@tailwindcss/oxide'); console.log('Tailwind Oxide verified successfully!');"
+          echo "Verifying lightningcss native binding loading..."
+          node -e "require('lightningcss'); console.log('Lightningcss verified successfully!');"
+          echo "Node dependencies and native bindings verified successfully"
 
       - name: Verify patch script exists
         run: |
