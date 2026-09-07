@@ -85,7 +85,7 @@ jobs:
           SNAP_DESTRUCTIVE_MODE: "true"
         run: |
           echo "=== Building Snap package ==="
-          npx electron-builder build --linux --snap --x64 -c.linux.target=snap --publish never
+          npx electron-builder build --linux snap --x64 --publish never
           echo "=== Snap build complete ==="
 
       - name: Locate generated Snap file

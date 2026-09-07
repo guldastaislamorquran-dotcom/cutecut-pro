@@ -45,5 +45,12 @@ if (content.includes('const isDestructiveMode = process.env.SNAP_DESTRUCTIVE_MOD
   console.log('Successfully forced destructive mode in coreLegacy.js.');
 }
 
+// 5. Enable reliable template app build for snap
+const templateCondition = 'this.isUseTemplateApp = this.options.useTemplateApp !== false && (arch === builder_util_1.Arch.x64 || arch === builder_util_1.Arch.armv7l) && buildPackages.length === 0 && stageMatchesDefaults;';
+if (content.includes(templateCondition)) {
+  content = content.replace(templateCondition, 'this.isUseTemplateApp = this.options.useTemplateApp !== false && (arch === builder_util_1.Arch.x64 || arch === builder_util_1.Arch.armv7l);');
+  console.log('Successfully enabled template app build in coreLegacy.js.');
+}
+
 fs.writeFileSync(targetPath, content, 'utf8');
 console.log('Successfully patched coreLegacy.js for self-contained snap launcher.');
