@@ -26,9 +26,10 @@ jobs:
           echo "Branch: $(git rev-parse --abbrev-ref HEAD)"
 
       - name: Setup Node.js
+        # Upgraded to Node.js 22 to satisfy engine requirements of Tailwind Oxide & jsdom
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '22'
           cache: npm
 
       - name: Install system dependencies
