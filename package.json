@@ -80,6 +80,7 @@
       "confinement": "strict",
       "base": "core22",
       "summary": "Professional Multi-Track Video Editor",
+      "topLevelLayout": "strict",
       "plugs": [
         "desktop",
         "desktop-legacy",
