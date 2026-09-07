@@ -33,5 +33,11 @@ if (content.includes(targetFunc)) {
   console.warn('Warning: Could not find function buildCommandShContent to patch.');
 }
 
+// 3. Patch snap subcommand to pack for modern snapcraft (v8+)
+if (content.includes('const snapArgs = ["snap"')) {
+  content = content.replace('const snapArgs = ["snap"', 'const snapArgs = ["pack"');
+  console.log('Successfully patched snap subcommand to pack in coreLegacy.js.');
+}
+
 fs.writeFileSync(targetPath, content, 'utf8');
 console.log('Successfully patched coreLegacy.js for self-contained snap launcher.');

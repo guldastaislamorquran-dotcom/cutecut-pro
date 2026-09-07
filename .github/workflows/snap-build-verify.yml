@@ -44,6 +44,19 @@ jobs:
             build-essential \
             python3
           sudo snap install snapcraft --classic
+          sudo tee /usr/local/bin/snapcraft << 'EOF'
+#!/bin/bash
+ARGS=()
+for arg in "$@"; do
+  if [ "$arg" = "snap" ]; then
+    ARGS+=("pack")
+  else
+    ARGS+=("$arg")
+  fi
+done
+exec /snap/bin/snapcraft "${ARGS[@]}"
+EOF
+          sudo chmod +x /usr/local/bin/snapcraft
           echo "/snap/bin" >> $GITHUB_PATH
 
       - name: Clean previous builds
