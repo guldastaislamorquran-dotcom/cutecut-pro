@@ -1,6 +1,10 @@
 name: Snap Build & Verify (No Publishing)
 
 on:
+  push:
+    branches:
+      - main
+      - master
   workflow_dispatch:
 
 jobs:
