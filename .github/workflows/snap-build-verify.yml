@@ -48,10 +48,14 @@ jobs:
           rm -rf dist dist-electron dist-desktop node_modules
           echo "Cleaned build artifacts"
 
-      - name: Install Node dependencies (npm ci)
+      - name: Install Node dependencies
         run: |
-          npm ci
-          echo "Node dependencies installed via npm ci"
+          npm install --include=optional --no-audit
+          npm rebuild @tailwindcss/oxide esbuild rollup lightningcss || true
+          # Verification and fallback installation of platform-specific native binaries
+          node -e "try { require('@tailwindcss/oxide'); console.log('oxide ready'); } catch(e) { console.log('Fetching platform-specific tailwind oxide...'); require('child_process').execSync('npm install --no-save --no-audit @tailwindcss/oxide-linux-x64-gnu'); }"
+          node -e "try { require('lightningcss'); console.log('lightningcss ready'); } catch(e) { console.log('Fetching platform-specific lightningcss...'); require('child_process').execSync('npm install --no-save --no-audit lightningcss-linux-x64-gnu'); }"
+          echo "Node dependencies and native bindings fully resolved"
 
       - name: Verify patch script exists
         run: |
