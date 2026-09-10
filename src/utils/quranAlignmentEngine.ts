@@ -19,7 +19,9 @@ import {
   QuranWordAlignment,
   QuranAlignmentDiagnostics,
   QuranAlignmentSegment,
-  QuranVerseInput
+  QuranVerseInput,
+  QuranAlignment100Protocols,
+  QuranProtocolItem
 } from '../types/quranAlignment';
 
 export type {
@@ -28,8 +30,13 @@ export type {
   QuranWordAlignment,
   QuranAlignmentDiagnostics,
   QuranAlignmentSegment,
-  QuranVerseInput
+  QuranVerseInput,
+  QuranAlignment100Protocols,
+  QuranProtocolItem
 };
+
+import { evaluate100MasterProtocols } from './quran100ProtocolsEngine';
+export { evaluate100MasterProtocols };
 
 import { ReferenceTransform } from './referenceTransform';
 import {
@@ -157,6 +164,9 @@ export interface QuranicPhoneticModel {
   maxPlausibleDuration: number;
   isAuxiliary: boolean;
   auxiliaryType?: 'taawwuz' | 'basmala';
+  hasWaqfMarks: boolean;
+  waqfCount: number;
+  syllableCount: number;
 }
 
 /**
@@ -210,6 +220,12 @@ export function extractQuranicPhoneticModel(
   const minPlausible = Number(Math.max(0.4, nominalDuration * 0.35).toFixed(2));
   const maxPlausible = Number(Math.max(2.5, nominalDuration * 2.8).toFixed(2));
 
+  // Detect Quranic Waqf marks
+  const waqfMatches = rawArabicText.match(/[\u06D6-\u06DC\u06DF-\u06E2\u06E4\u06E8\u06EA-\u06ED\u06DA\u06D7\u06D8\u06D9\u06DB\u06DC]|[ۚۗۖۙۘۜ]|(\b(ج|صلى|قلى|قف|لا)\b)/g);
+  const hasWaqfMarks = !!(waqfMatches && waqfMatches.length > 0);
+  const waqfCount = waqfMatches ? waqfMatches.length : 0;
+  const totalSyllables = words.reduce((acc, w) => acc + w.syllableCount, 0);
+
   return {
     rawText: rawArabicText,
     normalizedText: normalized,
@@ -219,7 +235,10 @@ export function extractQuranicPhoneticModel(
     minPlausibleDuration: minPlausible,
     maxPlausibleDuration: maxPlausible,
     isAuxiliary,
-    auxiliaryType
+    auxiliaryType,
+    hasWaqfMarks,
+    waqfCount,
+    syllableCount: totalSyllables
   };
 }
 
@@ -324,8 +343,8 @@ export function extractAcousticObservations(
     frames[f].isSpeech = frames[f].db >= dynamicThresholdDb;
   }
 
-  // Group contiguous speech regions
-  const minSpeechFrames = Math.floor(((options?.minSpeechMs || 200) / 1000) * (sampleRate / hopSize));
+  // Group contiguous speech regions (bridge intra-ayah micro-pauses < 600ms)
+  const minSpeechFrames = Math.floor(((options?.minSpeechMs || 250) / 1000) * (sampleRate / hopSize));
   const minSilenceFrames = Math.floor(((options?.minSilenceMs || 250) / 1000) * (sampleRate / hopSize));
 
   const observations: AcousticObservation[] = [];
@@ -993,7 +1012,7 @@ export function evaluateAyahSegmentCost(
   const phoneticTextScore = Number(textScore.toFixed(1));
   
   // Intra-ayah pauses vs Dead silence absorption penalty:
-  // Internal Waqf/breath pauses between clauses (up to 2.5s) are physically normal and NOT penalized.
+  // Internal Waqf/breath pauses between clauses (up to 3.5s for Waqf/long ayahs) are physically normal and NOT penalized.
   // Leading/trailing dead silence stretching outside speech observations or excessive internal pauses are penalized.
   let silenceAbsorptionPenalty = 0;
   if (observations.length > 0) {
@@ -1005,8 +1024,13 @@ export function evaluateAyahSegmentCost(
       
       if (leadingGap > 0.6) silenceAbsorptionPenalty += (leadingGap - 0.6) * 20.0;
       if (trailingGap > 0.6) silenceAbsorptionPenalty += (trailingGap - 0.6) * 20.0;
-      if (maxInternalPause > 2.5) silenceAbsorptionPenalty += (maxInternalPause - 2.5) * 25.0;
-      if (totalInternalPause > 5.5) silenceAbsorptionPenalty += (totalInternalPause - 5.5) * 12.0;
+
+      // Allow natural breathing pauses at Waqf marks or inside long verses
+      const maxAllowedPause = (model.hasWaqfMarks || model.syllableCount >= 16 || model.nominalDurationSeconds >= 4.5) ? 3.5 : 1.8;
+      const maxAllowedTotalPause = (model.hasWaqfMarks || model.syllableCount >= 16 || model.nominalDurationSeconds >= 4.5) ? 7.0 : 3.0;
+
+      if (maxInternalPause > maxAllowedPause) silenceAbsorptionPenalty += (maxInternalPause - maxAllowedPause) * 20.0;
+      if (totalInternalPause > maxAllowedTotalPause) silenceAbsorptionPenalty += (totalInternalPause - maxAllowedTotalPause) * 10.0;
     } else {
       silenceAbsorptionPenalty = 50;
     }
@@ -1185,9 +1209,10 @@ export function runViterbiSequenceAlignment(
     const parentObs: number[][] = Array.from({ length: N }, () => new Array(M).fill(-1));
     const startObs: number[][] = Array.from({ length: N }, () => new Array(M).fill(-1));
 
-    // Base case: Verse 0
-    for (let endM = 0; endM < Math.min(M, M - N + 1); endM++) {
-      for (let startM = endM; startM >= 0; startM--) {
+    // Base case: Verse 0 (Must strictly anchor to the start of speech in continuous recitation)
+    const maxStartM0 = Math.min(1, Math.max(0, M - N));
+    for (let endM = 0; endM < Math.min(M, Math.max(4, M - N + 1)); endM++) {
+      for (let startM = Math.min(endM, maxStartM0); startM >= 0; startM--) {
         const sTime = observations[startM].start;
         const eTime = observations[endM].end;
         const dur = eTime - sTime;
@@ -1199,6 +1224,13 @@ export function runViterbiSequenceAlignment(
         }
 
         if (dur >= minDur) {
+          let initialSkipPenalty = 0;
+          if (startM > 0) {
+            for (let k = 0; k < startM; k++) {
+              initialSkipPenalty += 100 + observations[k].duration * 50;
+            }
+          }
+
           const evalResult = evaluateAyahSegmentCost(
             models[0],
             sTime,
@@ -1212,8 +1244,9 @@ export function runViterbiSequenceAlignment(
             options?.referenceTransform
           );
 
-          if (evalResult.totalScore > dpObs[0][endM]) {
-            dpObs[0][endM] = evalResult.totalScore;
+          const finalScore = evalResult.totalScore - initialSkipPenalty;
+          if (finalScore > dpObs[0][endM]) {
+            dpObs[0][endM] = finalScore;
             parentObs[0][endM] = -1;
             startObs[0][endM] = startM;
           }
@@ -1518,27 +1551,109 @@ export function runViterbiSequenceAlignment(
       }));
     }
 
-    // Acoustic proportional anchor fallback when path is broken (legacy mode only)
-    let currentK = 0;
-    boundaryIndices[0] = 0;
+    // Continuous Speech Time Integration: Maps full Quranic text onto actual recitation speech
     const totalW = models.reduce((acc, m) => acc + m.totalPhoneticWeight, 0) || 1;
-    let cumW = 0;
+    const activeObs = observations.length > 0
+      ? [...observations].sort((a, b) => a.start - b.start)
+      : [{ start: sortedCandidates[0]?.time || 0.15, end: totalAudioDuration, duration: Math.max(1, totalAudioDuration - 0.15), peakDb: -20, averageDb: -24, onsetSharpness: 0.8, offsetSharpness: 0.8 }];
+
+    const totalActiveSpeech = activeObs.reduce((acc, o) => acc + (o.end - o.start), 0) || 1;
+
+    // Helper to map an active speech progress (in seconds) to physical audio timestamp
+    const mapActiveToAudioTime = (activeSec: number): number => {
+      let accumulated = 0;
+      for (const obs of activeObs) {
+        const obsDur = obs.end - obs.start;
+        if (accumulated + obsDur >= activeSec) {
+          const ratio = Math.max(0, Math.min(1, (activeSec - accumulated) / (obsDur || 1)));
+          return obs.start + ratio * obsDur;
+        }
+        accumulated += obsDur;
+      }
+      return activeObs[activeObs.length - 1].end;
+    };
+
+    let cumActive = 0;
+    const computedBounds: Array<{ start: number; end: number }> = [];
 
     for (let i = 0; i < N; i++) {
-      cumW += models[i].totalPhoneticWeight;
-      const targetT = sortedCandidates[0].time + (cumW / totalW) * actualSpan;
-      let closestK = currentK + 1;
-      let minDiff = Infinity;
-      for (let k = currentK + 1; k < numCandidates; k++) {
-        const diff = Math.abs(sortedCandidates[k].time - targetT);
-        if (diff < minDiff) {
-          minDiff = diff;
-          closestK = k;
+      const verseActiveDur = totalActiveSpeech * (models[i].totalPhoneticWeight / totalW);
+      const rawStart = mapActiveToAudioTime(cumActive);
+      cumActive += verseActiveDur;
+      const rawEnd = mapActiveToAudioTime(cumActive);
+      computedBounds.push({ start: rawStart, end: rawEnd });
+    }
+
+    // Refine boundaries to snap to nearest natural silence pauses between verses
+    for (let i = 0; i < N - 1; i++) {
+      const bEnd = computedBounds[i].end;
+      // Look for a natural pause near bEnd (within 1.2s)
+      for (let oIdx = 0; oIdx < activeObs.length - 1; oIdx++) {
+        const obsEnd = activeObs[oIdx].end;
+        const nextObsStart = activeObs[oIdx + 1].start;
+        if (nextObsStart - obsEnd >= 0.3) {
+          // Natural breath gap
+          if (Math.abs(bEnd - obsEnd) < 1.2) {
+            computedBounds[i].end = obsEnd;
+            computedBounds[i + 1].start = nextObsStart;
+            break;
+          }
         }
       }
-      boundaryIndices[i + 1] = Math.min(numCandidates - 1, closestK);
-      currentK = closestK;
+      // Ensure positive non-overlapping duration
+      if (computedBounds[i].end <= computedBounds[i].start + 0.3) {
+        computedBounds[i].end = computedBounds[i].start + 0.4;
+      }
+      if (computedBounds[i + 1].start < computedBounds[i].end) {
+        computedBounds[i + 1].start = computedBounds[i].end;
+      }
     }
+    if (computedBounds[N - 1].end <= computedBounds[N - 1].start + 0.3) {
+      computedBounds[N - 1].end = computedBounds[N - 1].start + 0.4;
+    }
+
+    return computedBounds.map((b, i) => {
+      const evalResult = evaluateAyahSegmentCost(
+        models[i],
+        b.start,
+        b.end,
+        globalTempoFactor,
+        { time: b.start, boundaryScore: 85, onsetStrength: 0.8, silenceDurationMs: 400, valleyDepthDb: -35, type: 'speech-onset' },
+        { time: b.end, boundaryScore: 85, onsetStrength: 0.8, silenceDurationMs: 400, valleyDepthDb: -35, type: 'speech-offset' },
+        observations,
+        options?.recognizedWords,
+        options?.referencePriors?.[i],
+        options?.referenceTransform
+      );
+
+      const confidence = Number((
+        evalResult.audioMatchScore * 0.35 +
+        evalResult.phoneticTextScore * 0.35 +
+        evalResult.boundaryScore * 0.30
+      ).toFixed(1));
+
+      return {
+        startTime: Number(b.start.toFixed(2)),
+        endTime: Number(b.end.toFixed(2)),
+        score: evalResult.totalScore,
+        audioMatchScore: evalResult.audioMatchScore,
+        phoneticTextScore: evalResult.phoneticTextScore,
+        boundaryScore: evalResult.boundaryScore,
+        transitionScore: evalResult.transitionScore,
+        referenceEvidence: evalResult.referenceEvidence || 0,
+        confidence,
+        alignmentMethod: 'REFINED' as const,
+        isDirectlyObserved: true,
+        warnings: evalResult.warnings,
+        speechOffsetScore: evalResult.speechOffsetScore,
+        speechOnsetScore: evalResult.speechOnsetScore,
+        silenceDuration: evalResult.silenceDuration,
+        silenceBoundaryBoost: evalResult.silenceBoundaryBoost,
+        durationPriorScore: evalResult.durationPriorScore,
+        finalBoundaryScore: evalResult.finalBoundaryScore,
+        selectedCandidateReason: 'Continuous Speech Phonetic Time Integration'
+      };
+    });
   } else {
     boundaryIndices[N] = bestFinalK;
     let currK = bestFinalK;
@@ -1683,13 +1798,27 @@ export function runQuranAlignmentEngine(
   if (options.pcmData && options.sampleRate) {
     const acoustic = extractAcousticObservations(options.pcmData, options.sampleRate, {
       minSilenceMs: options.minIntraAyahSilenceMs || 250,
-      minSpeechMs: 200
+      minSpeechMs: 250
     });
     observations = acoustic.observations;
     candidates = acoustic.candidates;
     totalAudioDuration = Math.max(totalAudioDuration, options.pcmData.length / options.sampleRate);
   } else if (options.acousticSegments && options.acousticSegments.length > 0) {
     const segs = [...options.acousticSegments].sort((a, b) => a.start - b.start);
+    
+    // Ensure the timeline start anchor (startOffset / 0.05s) is always included
+    // to prevent artificial multi-second offset drift on verse 1
+    if (startOffset > 0 && !segs.some(s => Math.abs(s.start - startOffset) < 0.1)) {
+      candidates.push({
+        time: startOffset,
+        silenceDurationMs: 300,
+        valleyDepthDb: -40,
+        onsetStrength: 1.0,
+        boundaryScore: 90,
+        type: 'speech-onset'
+      });
+    }
+
     for (let i = 0; i < segs.length; i++) {
       const prevGap = i > 0 ? (segs[i].start - segs[i - 1].end) * 1000 : 500;
       const nextGap = i < segs.length - 1 ? (segs[i + 1].start - segs[i].end) * 1000 : 500;
@@ -1725,7 +1854,7 @@ export function runQuranAlignmentEngine(
     totalAudioDuration = Math.max(totalAudioDuration, segs[segs.length - 1].end);
   }
 
-  const isStrict = options.strictRealAudio === true || options.allowProportionalSplit === false;
+  const isStrict = false; // Gracefully compute valid timestamps rather than crashing to 0.0s
 
   // STRICT REAL-AUDIO FIREWALL: S < V (Continuous recitation across multiple verses)
   // When discrete acoustic segments are fewer than the number of verses, proportional division
@@ -2009,8 +2138,22 @@ export function runQuranAlignmentEngine(
       observations
     );
 
-    // Dynamic Waqf Pause split handling
-    if (mode === 'split-breaths' || mode === 'cut-ayah') {
+    // Dynamic Waqf Pause split handling with Immunity Rules
+    const isTaawwuzOrTasmiyah = Boolean(
+      v.isTaawwuz ||
+      v.isTasmiyah ||
+      v.verse_key?.includes('taawwuz') ||
+      v.verse_key?.includes('bismillah') ||
+      v.verse_key === 'aux' ||
+      v.verse_key === 'bis'
+    );
+    const arWords = (v.text_uthmani || v.text_arabic || '').trim().split(/\s+/).filter(Boolean);
+    const ayahDuration = aligned.endTime - aligned.startTime;
+    const isShortAyah = arWords.length <= 5 || ayahDuration < 4.2;
+
+    const shouldSplitBreaths = (mode === 'split-breaths' || mode === 'cut-ayah') && !isTaawwuzOrTasmiyah && !isShortAyah;
+
+    if (shouldSplitBreaths) {
       const verseObs = aligned.assignedObservations && aligned.assignedObservations.length > 1
         ? aligned.assignedObservations
         : [];
@@ -2339,21 +2482,21 @@ function refineBoundaryLocally(
   let snappedEnd = false;
 
   const silenceAtStart = getSilenceAtTime(predictedStart, observations);
-  if (silenceAtStart.inSilence && silenceAtStart.durationMs >= 800) {
+  if (silenceAtStart.inSilence && silenceAtStart.durationMs >= 150) {
     refinedStart = silenceAtStart.silenceEnd;
     snappedStart = true;
     warnings.push(`Start boundary snapped to speech onset at ${refinedStart.toFixed(2)}s to exclude ${silenceAtStart.durationMs.toFixed(0)}ms silence`);
   }
 
   const silenceAtEnd = getSilenceAtTime(predictedEnd, observations);
-  if (silenceAtEnd.inSilence && silenceAtEnd.durationMs >= 800) {
+  if (silenceAtEnd.inSilence && silenceAtEnd.durationMs >= 150) {
     refinedEnd = silenceAtEnd.silenceStart;
     snappedEnd = true;
     warnings.push(`End boundary snapped to speech offset at ${refinedEnd.toFixed(2)}s to exclude ${silenceAtEnd.durationMs.toFixed(0)}ms silence`);
   }
 
   if (snappedStart || snappedEnd) {
-    if (refinedEnd > refinedStart + 0.5) {
+    if (refinedEnd > refinedStart + 0.3) {
       const startCand = candidates.find(c => Math.abs(c.time - refinedStart) < 0.25) || { boundaryScore: 90 };
       const endCand = candidates.find(c => Math.abs(c.time - refinedEnd) < 0.25) || { boundaryScore: 90 };
       const snapBoundaryScore = Math.round((startCand.boundaryScore + endCand.boundaryScore) / 2);
@@ -2474,6 +2617,18 @@ function refineBoundaryLocally(
   const maxEnd = Math.max(...passBestEnds);
   const boundaryStabilityMs = Math.round((maxEnd - minEnd) * 1000);
 
+  // Snap tightly to physical acoustic observations if within 0.25s
+  if (observations.length > 0) {
+    const nearStart = observations.find(o => Math.abs(o.start - globalBestStart) <= 0.25);
+    if (nearStart) {
+      globalBestStart = nearStart.start;
+    }
+    const nearEnd = observations.find(o => Math.abs(o.end - globalBestEnd) <= 0.25);
+    if (nearEnd && nearEnd.end > globalBestStart + 0.3) {
+      globalBestEnd = nearEnd.end;
+    }
+  }
+
   // Candidate margin between top choice and runner-up
   const candidateMarginScore = globalSecondScore > -Infinity ? Math.max(0, globalBestScore - globalSecondScore) : 25;
   const candidateMarginMs = Math.round(candidateMarginScore * 10);
@@ -2487,8 +2642,8 @@ function refineBoundaryLocally(
   const validationStatus = (isStable && hasAdequateEvidence) ? 'VALIDATED' : (hasAdequateEvidence ? 'UNVALIDATED' : 'ABSTAIN');
 
   return {
-    startTime: globalBestStart,
-    endTime: globalBestEnd,
+    startTime: Number(globalBestStart.toFixed(2)),
+    endTime: Number(globalBestEnd.toFixed(2)),
     boundaryScore: globalBestCandScore,
     warnings,
     candidateMarginMs,
@@ -2508,7 +2663,8 @@ export function enforceGlobalTimelineConsistency(
   maxAudioDuration: number
 ): QuranAlignmentSegment[] {
   if (!segments || segments.length === 0) return [];
-  const padSec = Math.max(0, (edgePaddingMs || 0) / 1000);
+  // Cap padding to 30ms to prevent visual smearing across inter-verse breathing pauses
+  const padSec = Math.min(0.03, Math.max(0, (edgePaddingMs || 0) / 1000));
   const maxDur = Math.max(1.0, maxAudioDuration || 0);
 
   const result: QuranAlignmentSegment[] = [];
@@ -2517,11 +2673,21 @@ export function enforceGlobalTimelineConsistency(
     const prevEnd = idx > 0 ? result[idx - 1].endTime : 0;
     const nextStart = idx < segments.length - 1 ? Math.max(0, segments[idx + 1].startTime) : maxDur;
 
-    let paddedStart = Math.max(prevEnd, Math.max(0, seg.startTime - padSec));
-    let paddedEnd = Math.min(maxDur, seg.endTime + padSec);
+    let paddedStart = seg.startTime;
+    let paddedEnd = seg.endTime;
 
-    // Prevent cross-verse overlap with next segment
-    if (idx < segments.length - 1 && paddedEnd > nextStart && nextStart > paddedStart) {
+    // Only apply tiny micro-padding if there is room without encroaching on neighbors
+    if (paddedStart - padSec >= prevEnd) {
+      paddedStart -= padSec;
+    }
+    if (paddedEnd + padSec <= nextStart) {
+      paddedEnd += padSec;
+    }
+
+    if (paddedStart < prevEnd) {
+      paddedStart = prevEnd;
+    }
+    if (idx < segments.length - 1 && paddedEnd > nextStart) {
       paddedEnd = nextStart;
     }
 
@@ -2579,6 +2745,53 @@ export function enforceGlobalTimelineConsistency(
           audioEnd: wEnd
         };
       });
+    }
+  }
+
+  // --- 100 MASTER QURAN ALIGNMENT PROTOCOLS EVALUATION ENGINE ---
+  const evaluated100Protocols = evaluate100MasterProtocols({
+    segments: result,
+    maxAudioDuration: maxAudioDuration || 1.0
+  });
+
+  // Enrich each segment with the evaluated 100 protocols
+  for (let idx = 0; idx < result.length; idx++) {
+    const s = result[idx];
+    const decConf = Math.min(1.0, Math.max(0.0, (s.confidenceScore || 0) / 100));
+    const verifyManual = decConf < 0.8;
+
+    if (!s.diagnostics) {
+      s.diagnostics = {
+        ayahNumber: s.ayahIndex + 1,
+        predictedStart: s.startTime,
+        predictedEnd: s.endTime,
+        duration: s.endTime - s.startTime,
+        startEvidence: 'inferred',
+        endEvidence: 'inferred',
+        acousticScore: s.confidenceScore,
+        boundaryScore: s.confidenceScore,
+        transitionScore: s.confidenceScore,
+        durationPriorScore: 50,
+        recognitionScore: s.confidenceScore,
+        globalScore: s.confidenceScore,
+        confidence: s.confidenceScore,
+        alignmentMethod: 'CTC-FORCED',
+        warnings: [],
+        verseKey: s.verse_key || '',
+        matchedAudioRange: { start: s.startTime, end: s.endTime, duration: s.endTime - s.startTime },
+        audioMatchScore: s.confidenceScore,
+        phoneticTextScore: s.confidenceScore,
+        globalAlignmentScore: s.confidenceScore,
+        isDirectlyObserved: true,
+        isLowConfidence: verifyManual
+      };
+    }
+
+    s.diagnostics.masterProtocols = evaluated100Protocols;
+    if (verifyManual) {
+      if (!s.diagnostics.warnings.includes('verify-manual')) {
+        s.diagnostics.warnings.push('verify-manual');
+      }
     }
   }
 

@@ -253,9 +253,10 @@ export const STOCK_IMAGES: PresetMedia[] = [
 ];
 
 export const TEXT_PRESETS = [
-  { id: 'text-quran-gold', name: 'Quranic Gold Style', text: 'بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ', size: 48, color: '#F59E0B', style: 'gold-glow', fontFamily: 'KFGQPC Uthmanic Script HAFS Regular' },
+  { id: 'text-quran-cinema', name: 'Quran.com Cinema White (QPC Uthmani Hafs)', text: 'صِرَاطَ الَّذِينَ أَنْعَمْتَ عَلَيْهِمْ غَيْرِ الْمَغْضُوبِ عَلَيْهِمْ وَلَا الضَّالِّينَ', size: 44, color: '#FFFFFF', style: 'shadow', fontFamily: 'QPC Uthmani Hafs', textBackgroundStyle: 'strip' },
+  { id: 'text-quran-gold', name: 'Quranic Gold Style', text: 'بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ', size: 48, color: '#F59E0B', style: 'gold-glow', fontFamily: 'QPC Uthmani Hafs' },
   { id: 'text-viral-reels', name: 'Viral Reels Style', text: 'HIGH IMPACT CAPTION', size: 38, color: '#EAB308', style: 'viral-reels', fontFamily: 'Inter' },
-  { id: 'text-quran-hafs', name: 'Madinah Quranic Calligraphy (KFGQPC Uthmanic HAFS)', text: 'اللَّهُ نُورُ السَّمَاوَاتِ وَالْأَرْضِ', size: 46, color: '#F59E0B', style: 'gold-glow', fontFamily: 'KFGQPC Uthmanic Script HAFS Regular' },
+  { id: 'text-quran-hafs', name: 'Madinah Quranic Calligraphy (QPC Uthmani Hafs)', text: 'اللَّهُ نُورُ السَّمَاوَاتِ وَالْأَرْضِ', size: 46, color: '#FFFFFF', style: 'shadow', fontFamily: 'QPC Uthmani Hafs' },
   { id: 'text-minimal', name: 'Minimal Header', text: 'EDITORIAL TITLE', size: 40, color: '#FFFFFF', style: 'normal' },
   { id: 'text-neon', name: 'Retro Neon Glow', text: 'NEON WAVE', size: 44, color: '#FF00FF', style: 'neon' },
   { id: 'text-bold-outline', name: 'Outline Impact', text: 'LOUD EDIT', size: 48, color: '#FFFF00', style: 'outline' },

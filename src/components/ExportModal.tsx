@@ -4,10 +4,11 @@ import {
   Minimize2, RefreshCw, CheckCircle2, Terminal, Download,
   Film, Music, Clock, Square, Play, Pause, FolderOpen,
   Sliders, Sparkles, FileVideo, RotateCcw, AlertTriangle,
-  Cloud, ExternalLink, Loader2
+  Cloud, ExternalLink, Loader2, Eye, Shield, Check,
+  Smartphone, Monitor, Scan, Tv, Layers
 } from 'lucide-react';
 import { formatTimeCode, getExportResolutionDimensions } from '../utils/editorUtils';
-import { Track } from '../types';
+import { Track, WatermarkSettings } from '../types';
 import { AdMobService } from '../utils/admobService';
 import { GoogleDriveService } from '../services/googleDriveService';
 
@@ -33,6 +34,8 @@ interface ExportModalProps {
   duration: number;
   aspectRatio: '16:9' | '9:16' | '1:1';
   tracks: Track[];
+  watermark?: WatermarkSettings;
+  setWatermark?: React.Dispatch<React.SetStateAction<WatermarkSettings>>;
   exporting: boolean;
   exportProgress: number;
   exportTerminalLogs: string[];
@@ -51,6 +54,8 @@ export default function ExportModal({
   duration,
   aspectRatio,
   tracks,
+  watermark,
+  setWatermark,
   exporting,
   exportProgress,
   exportTerminalLogs,
@@ -77,10 +82,22 @@ export default function ExportModal({
   const [isVideoExpanded, setIsVideoExpanded] = useState(true);
   const [isAudioExpanded, setIsAudioExpanded] = useState(true);
   const [isEditingCover, setIsEditingCover] = useState(false);
+  const [showWatermarkTuner, setShowWatermarkTuner] = useState(false);
+  const [showSafeGuides, setShowSafeGuides] = useState(false);
   const [coverSnapshot, setCoverSnapshot] = useState<string | null>(null);
   const [coverTime, setCoverTime] = useState(0);
   const [showLogs, setShowLogs] = useState(false);
   const [previewPlaying, setPreviewPlaying] = useState(false);
+  const [isScrubPlaying, setIsScrubPlaying] = useState(false);
+
+  // Local fallback for watermark if not passed or for immediate reactivity
+  const currentWatermark = watermark || {
+    enabled: false,
+    url: '',
+    position: 'top-right' as const,
+    opacity: 0.8,
+    scale: 22,
+  };
 
   // Google Drive Upload State
   const [driveUploadStatus, setDriveUploadStatus] = useState<'idle' | 'uploading' | 'success' | 'error'>('idle');
@@ -105,7 +122,7 @@ export default function ExportModal({
       setDriveUploadPercent(35);
 
       // Fetch the compiled video file as a binary Blob
-      const videoResponse = await fetch(downloadUrl);
+      const videoResponse = await fetch(downloadUrl!);
       if (!videoResponse.ok) {
         throw new Error('Could not read rendered video data.');
       }
@@ -134,8 +151,14 @@ export default function ExportModal({
       setDriveErrorMsg(err.message || 'Upload failed.');
     }
   };
+
   const [liveRenderFrame, setLiveRenderFrame] = useState<string | null>(null);
   const videoPreviewRef = useRef<HTMLVideoElement>(null);
+
+  // Output Dimensions computed from resolution preset & aspect ratio
+  const exportDimensions = useMemo(() => {
+    return getExportResolutionDimensions(config.resolution, aspectRatio);
+  }, [config.resolution, aspectRatio]);
 
   // Capture cover thumbnail snapshot from active preview canvas
   useEffect(() => {
@@ -143,7 +166,7 @@ export default function ExportModal({
       try {
         const canvas = document.querySelector('canvas') as HTMLCanvasElement | null;
         if (canvas) {
-          const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.88);
           setCoverSnapshot(dataUrl);
         }
       } catch (e) {
@@ -167,6 +190,25 @@ export default function ExportModal({
       return () => clearInterval(interval);
     }
   }, [exporting]);
+
+  // Mini preview playback simulation
+  useEffect(() => {
+    let playInterval: any = null;
+    if (isScrubPlaying && isOpen && !exporting) {
+      playInterval = setInterval(() => {
+        setCoverTime(prev => {
+          const next = prev + 0.1;
+          if (next >= (duration || 10)) {
+            return 0;
+          }
+          return next;
+        });
+      }, 100);
+    }
+    return () => {
+      if (playInterval) clearInterval(playInterval);
+    };
+  }, [isScrubPlaying, isOpen, exporting, duration]);
 
   // Dynamic bitrates in Mbps
   const videoBitrateMbps = useMemo(() => {
@@ -225,6 +267,15 @@ export default function ExportModal({
     const custom = window.prompt('Enter local export destination directory path:', config.outputDirectory);
     if (custom) {
       setConfig(prev => ({ ...prev, outputDirectory: custom }));
+    }
+  };
+
+  const handleUpdateWatermark = (updates: Partial<WatermarkSettings>) => {
+    if (setWatermark) {
+      setWatermark(prev => ({
+        ...prev,
+        ...updates
+      }));
     }
   };
 
@@ -299,15 +350,15 @@ export default function ExportModal({
   }
 
   return (
-    <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-150">
-      <div className="bg-[#1e1e24] border border-[#32323e] rounded-xl w-full max-w-[680px] shadow-2xl overflow-hidden flex flex-col max-h-[92vh] select-none text-gray-200">
+    <div className="fixed inset-0 bg-black/85 z-50 flex items-center justify-center p-3 md:p-4 backdrop-blur-sm animate-in fade-in duration-150">
+      <div className="bg-[#1c1c23] border border-[#32323e] rounded-xl w-full max-w-[820px] shadow-2xl overflow-hidden flex flex-col max-h-[94vh] select-none text-gray-200">
         
         {/* Modal Title Bar */}
         <div className="h-11 px-4 flex items-center justify-between border-b border-[#282834] bg-[#22222a] shrink-0">
           <div className="flex items-center gap-2">
             <Film className="w-4 h-4 text-cyan-400" />
             <span className="text-xs font-bold text-white tracking-wide">
-              {exporting ? 'Exporting Video...' : downloadUrl ? 'Export Finished' : 'Export Settings'}
+              {exporting ? 'Exporting Video...' : downloadUrl ? 'Export Finished' : 'Export & Final Verification'}
             </span>
             {exporting && (
               <span className="flex items-center gap-1 text-[10px] bg-cyan-950/60 border border-cyan-500/30 text-cyan-300 px-2 py-0.5 rounded-full font-medium animate-pulse">
@@ -339,71 +390,296 @@ export default function ExportModal({
         </div>
 
         {/* Modal Content Body */}
-        <div className="p-5 overflow-y-auto custom-scrollbar flex-1 space-y-4">
+        <div className="p-4 md:p-5 overflow-y-auto custom-scrollbar flex-1 space-y-4">
           
           {/* ======================================================== */}
-          {/* 1. SETTINGS SCREEN (CapCut Pro Layout)                    */}
+          {/* 1. SETTINGS SCREEN WITH MINI-PREVIEW VERIFICATION WINDOW */}
           {/* ======================================================== */}
           {!exporting && !downloadUrl && (
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-5">
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-5 items-start">
               
-              {/* Left Column: Video Thumbnail Preview with "Edit cover" */}
-              <div className="md:col-span-5 flex flex-col gap-2">
-                <div className="relative w-full aspect-video bg-black rounded-lg overflow-hidden border border-[#353544] flex items-center justify-center group shadow-md">
-                  {coverSnapshot ? (
-                    <img
-                      src={coverSnapshot}
-                      alt="Cover Preview"
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="flex flex-col items-center justify-center text-gray-500 gap-1.5 p-4 text-center">
-                      <Film className="w-8 h-8 opacity-40 text-cyan-400" />
-                      <span className="text-[10px]">Active Frame Preview</span>
-                    </div>
-                  )}
+              {/* Left Column: Mini-Preview Window with Resolution & Watermark Reflection */}
+              <div className="md:col-span-6 flex flex-col gap-2.5">
+                
+                {/* Mini-Preview Header Bar */}
+                <div className="flex items-center justify-between px-1">
+                  <div className="flex items-center gap-1.5">
+                    <Eye className="w-3.5 h-3.5 text-cyan-400" />
+                    <span className="text-[11px] font-bold text-gray-200 uppercase tracking-wider">
+                      Output Verification
+                    </span>
+                  </div>
+                  
+                  <div className="flex items-center gap-1.5">
+                    {/* Safe Area Guides Toggle */}
+                    <button
+                      type="button"
+                      onClick={() => setShowSafeGuides(prev => !prev)}
+                      className={`px-2 py-0.5 rounded text-[10px] font-semibold border transition flex items-center gap-1 cursor-pointer ${
+                        showSafeGuides
+                          ? 'bg-cyan-950/80 border-cyan-400 text-cyan-300'
+                          : 'bg-[#15151c] border-gray-700 text-gray-400 hover:text-gray-200'
+                      }`}
+                      title="Toggle Social Safe Margin Guides (TikTok / Reels / TV)"
+                    >
+                      <Scan className="w-2.5 h-2.5" />
+                      <span>Safe Guides</span>
+                    </button>
 
-                  {/* "Edit cover" Top-Left Overlay Button */}
-                  <button
-                    type="button"
-                    onClick={() => setIsEditingCover(prev => !prev)}
-                    className="absolute top-2 left-2 bg-black/65 hover:bg-black/85 backdrop-blur-md border border-white/20 hover:border-white/40 text-white text-[11px] font-medium px-2.5 py-1 rounded flex items-center gap-1.5 transition cursor-pointer shadow-sm"
-                  >
-                    <Edit3 className="w-3 h-3 text-cyan-400" />
-                    <span>Edit cover</span>
-                  </button>
-
-                  <div className="absolute bottom-2 right-2 bg-black/75 px-1.5 py-0.5 rounded text-[9px] font-mono text-cyan-300 border border-white/10">
-                    {formatTimeCode(coverTime || 0)}
+                    {/* Resolution & Aspect Pill */}
+                    <span className="px-2 py-0.5 rounded bg-[#131720] border border-cyan-500/40 text-cyan-300 font-mono font-bold text-[10px]">
+                      {config.resolution} ({exportDimensions.width}×{exportDimensions.height})
+                    </span>
                   </div>
                 </div>
 
-                {/* Edit Cover Slider Drawer */}
-                {isEditingCover && (
-                  <div className="bg-[#16161c] border border-[#2e2e3c] rounded-lg p-2.5 space-y-2 animate-in fade-in duration-150 text-[11px]">
-                    <div className="flex items-center justify-between text-gray-300">
-                      <span>Cover Frame Time:</span>
-                      <span className="font-mono text-cyan-400">{coverTime.toFixed(1)}s</span>
+                {/* Mini-Preview Viewport (Framed to target aspect ratio) */}
+                <div className="relative w-full bg-[#0a0a0f] rounded-lg overflow-hidden border border-[#353546] shadow-xl flex items-center justify-center group select-none">
+                  
+                  {/* Aspect Ratio Container */}
+                  <div
+                    className={`relative w-full flex items-center justify-center bg-black overflow-hidden ${
+                      aspectRatio === '9:16'
+                        ? 'aspect-[9/16] max-h-[300px]'
+                        : aspectRatio === '1:1'
+                        ? 'aspect-square max-h-[260px]'
+                        : 'aspect-video max-h-[260px]'
+                    }`}
+                  >
+                    {/* Base Render Frame */}
+                    {coverSnapshot ? (
+                      <img
+                        src={coverSnapshot}
+                        alt="Export Output Preview Frame"
+                        className="w-full h-full object-contain"
+                      />
+                    ) : (
+                      <div className="flex flex-col items-center justify-center text-gray-500 gap-1.5 p-4 text-center">
+                        <Film className="w-8 h-8 opacity-40 text-cyan-400" />
+                        <span className="text-[10px] text-gray-400">Loading composition preview...</span>
+                      </div>
+                    )}
+
+                    {/* Watermark Overlay Layer (Real-time reflection) */}
+                    {currentWatermark.enabled && currentWatermark.url && (
+                      <div
+                        className="absolute pointer-events-none transition-all duration-150"
+                        style={{
+                          width: `${Math.max(10, Math.min(50, currentWatermark.scale || 22))}%`,
+                          opacity: Math.max(0.1, Math.min(1, currentWatermark.opacity ?? 0.8)),
+                          top: currentWatermark.position.startsWith('top') ? '5%' : 'auto',
+                          bottom: currentWatermark.position.startsWith('bottom') ? '5%' : 'auto',
+                          left: currentWatermark.position.endsWith('left') ? '5%' : 'auto',
+                          right: currentWatermark.position.endsWith('right') ? '5%' : 'auto',
+                        }}
+                      >
+                        <img
+                          src={currentWatermark.url}
+                          alt="Channel Watermark"
+                          className="w-full h-auto object-contain drop-shadow-md"
+                        />
+                      </div>
+                    )}
+
+                    {/* Safe Area Overlay (Guides for Subtitles & UI buttons) */}
+                    {showSafeGuides && (
+                      <div className="absolute inset-0 pointer-events-none border border-cyan-400/40 m-3 rounded flex flex-col justify-between p-2">
+                        <div className="flex justify-between items-start">
+                          <span className="text-[8px] font-mono bg-black/70 px-1 py-0.5 rounded text-cyan-300 border border-cyan-500/30">
+                            {aspectRatio === '9:16' ? 'Top UI Margin' : '10% Title Safe'}
+                          </span>
+                          <span className="text-[8px] font-mono bg-black/70 px-1 py-0.5 rounded text-gray-400">
+                            {config.resolution}
+                          </span>
+                        </div>
+
+                        {aspectRatio === '9:16' && (
+                          <div className="text-right">
+                            <span className="text-[8px] font-mono bg-black/70 px-1 py-0.5 rounded text-amber-300 border border-amber-500/30">
+                              Right UI Actions Clearance
+                            </span>
+                          </div>
+                        )}
+
+                        <div className="flex justify-between items-end">
+                          <span className="text-[8px] font-mono bg-black/70 px-1 py-0.5 rounded text-emerald-300 border border-emerald-500/30">
+                            Subtitle & Caption Safe
+                          </span>
+                          <span className="text-[8px] font-mono bg-black/70 px-1 py-0.5 rounded text-gray-400">
+                            {aspectRatio}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Output Tag Overlay in Corner */}
+                    <div className="absolute top-2 left-2 bg-black/80 backdrop-blur-md px-1.5 py-0.5 rounded text-[9px] font-mono text-cyan-300 border border-cyan-500/30 flex items-center gap-1 shadow">
+                      <span className="w-1.5 h-1.5 rounded-full bg-cyan-400"></span>
+                      {config.resolution} • {aspectRatio}
                     </div>
-                    <input
-                      type="range"
-                      min={0}
-                      max={Math.max(duration, 1)}
-                      step={0.1}
-                      value={coverTime}
-                      onChange={(e) => {
-                        const t = parseFloat(e.target.value);
-                        setCoverTime(t);
-                        setConfig(prev => ({ ...prev, coverTimestamp: t }));
-                      }}
-                      className="w-full accent-cyan-400 cursor-pointer h-1.5 bg-[#2a2a36] rounded-lg"
-                    />
+
+                    {/* Watermark Status Tag in Viewport */}
+                    <div className="absolute bottom-2 left-2 bg-black/80 backdrop-blur-md px-1.5 py-0.5 rounded text-[9px] font-mono text-gray-300 border border-white/10 flex items-center gap-1 shadow">
+                      {currentWatermark.enabled && currentWatermark.url ? (
+                        <>
+                          <Shield className="w-2.5 h-2.5 text-amber-400" />
+                          <span className="text-amber-300">Logo: {currentWatermark.position.toUpperCase()} ({currentWatermark.scale}%)</span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="w-1.5 h-1.5 rounded-full bg-gray-500"></span>
+                          <span className="text-gray-400">No Watermark</span>
+                        </>
+                      )}
+                    </div>
+
+                    {/* Timecode Badge */}
+                    <div className="absolute bottom-2 right-2 bg-black/80 px-1.5 py-0.5 rounded text-[9px] font-mono text-cyan-300 border border-white/10">
+                      {formatTimeCode(coverTime || 0)}
+                    </div>
                   </div>
-                )}
+                </div>
+
+                {/* Timeline Frame Scrubber & Playback Controls */}
+                <div className="bg-[#15151c] border border-[#2b2b38] rounded-lg p-2 flex flex-col gap-1.5">
+                  <div className="flex items-center justify-between text-[10px] text-gray-300">
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setIsScrubPlaying(prev => !prev)}
+                        className="p-1 rounded bg-[#20202c] hover:bg-[#2c2c3c] text-cyan-400 hover:text-white transition cursor-pointer"
+                        title={isScrubPlaying ? 'Pause scrub' : 'Play preview stream'}
+                      >
+                        {isScrubPlaying ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3 fill-current" />}
+                      </button>
+                      <span className="font-semibold text-gray-200">Scrub Output Frame:</span>
+                    </div>
+                    <span className="font-mono text-cyan-400">
+                      {formatTimeCode(coverTime || 0)} / {formatTimeCode(duration || 10)}
+                    </span>
+                  </div>
+
+                  <input
+                    type="range"
+                    min={0}
+                    max={Math.max(duration, 1)}
+                    step={0.1}
+                    value={coverTime}
+                    onChange={(e) => {
+                      const t = parseFloat(e.target.value);
+                      setCoverTime(t);
+                      setConfig(prev => ({ ...prev, coverTimestamp: t }));
+                    }}
+                    className="w-full accent-cyan-400 cursor-pointer h-1.5 bg-[#252532] rounded-lg"
+                  />
+                </div>
+
+                {/* Watermark Verification & Quick Adjustment Bar */}
+                <div className="bg-[#15151c] border border-[#2b2b38] rounded-lg p-2.5 flex flex-col gap-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Shield className="w-3.5 h-3.5 text-amber-400" />
+                      <span className="text-[11px] font-bold text-white">Watermark Overlay Verification</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowWatermarkTuner(prev => !prev)}
+                      className="text-[10px] text-cyan-400 hover:text-cyan-300 font-medium flex items-center gap-0.5 cursor-pointer"
+                    >
+                      <span>{showWatermarkTuner ? 'Hide Controls' : 'Adjust Watermark'}</span>
+                      {showWatermarkTuner ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+                    </button>
+                  </div>
+
+                  {/* Quick Status Pill */}
+                  <div className="flex items-center justify-between text-[11px] bg-[#0f0f15] border border-gray-800 rounded px-2 py-1">
+                    <span className="text-gray-400">Status:</span>
+                    {currentWatermark.enabled && currentWatermark.url ? (
+                      <span className="text-amber-400 font-semibold flex items-center gap-1">
+                        <Check className="w-3 h-3" /> Active on {currentWatermark.position.replace('-', ' ').toUpperCase()} ({Math.round((currentWatermark.opacity || 0.8) * 100)}% opac)
+                      </span>
+                    ) : (
+                      <span className="text-gray-500 font-medium">Disabled / Clean Canvas</span>
+                    )}
+                  </div>
+
+                  {/* Expanded Watermark Tuning Controls */}
+                  {showWatermarkTuner && (
+                    <div className="space-y-2 pt-1 border-t border-gray-800/80 animate-in fade-in duration-150 text-[11px]">
+                      {/* Toggle watermark */}
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-300">Enable in Final Export</span>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={currentWatermark.enabled}
+                            onChange={(e) => handleUpdateWatermark({ enabled: e.target.checked })}
+                            className="sr-only peer"
+                          />
+                          <div className="w-7 h-4 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-amber-500"></div>
+                        </label>
+                      </div>
+
+                      {/* Position Grid */}
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-400">Position</span>
+                        <div className="grid grid-cols-4 gap-1">
+                          {(['top-left', 'top-right', 'bottom-left', 'bottom-right'] as const).map(pos => (
+                            <button
+                              key={pos}
+                              type="button"
+                              onClick={() => handleUpdateWatermark({ position: pos })}
+                              className={`px-1.5 py-0.5 rounded text-[10px] font-mono uppercase font-bold border transition cursor-pointer ${
+                                currentWatermark.position === pos
+                                  ? 'bg-amber-500 text-black border-amber-400'
+                                  : 'bg-[#20202c] text-gray-300 border-gray-700 hover:border-gray-500'
+                              }`}
+                            >
+                              {pos === 'top-left' ? 'TL' : pos === 'top-right' ? 'TR' : pos === 'bottom-left' ? 'BL' : 'BR'}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Opacity Slider */}
+                      <div className="space-y-1">
+                        <div className="flex justify-between text-gray-400 text-[10px]">
+                          <span>Opacity</span>
+                          <span className="font-mono text-amber-400">{Math.round((currentWatermark.opacity || 0.8) * 100)}%</span>
+                        </div>
+                        <input
+                          type="range"
+                          min={10}
+                          max={100}
+                          value={Math.round((currentWatermark.opacity || 0.8) * 100)}
+                          onChange={(e) => handleUpdateWatermark({ opacity: parseInt(e.target.value, 10) / 100 })}
+                          className="w-full accent-amber-400 h-1 bg-gray-800 rounded-lg cursor-pointer"
+                        />
+                      </div>
+
+                      {/* Scale Slider */}
+                      <div className="space-y-1">
+                        <div className="flex justify-between text-gray-400 text-[10px]">
+                          <span>Scale Size</span>
+                          <span className="font-mono text-amber-400">{currentWatermark.scale || 22}% width</span>
+                        </div>
+                        <input
+                          type="range"
+                          min={10}
+                          max={50}
+                          value={currentWatermark.scale || 22}
+                          onChange={(e) => handleUpdateWatermark({ scale: parseInt(e.target.value, 10) })}
+                          className="w-full accent-amber-400 h-1 bg-gray-800 rounded-lg cursor-pointer"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
               </div>
 
               {/* Right Column: Name, Export To, Video & Audio Param Form */}
-              <div className="md:col-span-7 flex flex-col gap-3.5 text-xs">
+              <div className="md:col-span-6 flex flex-col gap-3 text-xs">
                 
                 {/* 1. Name Field */}
                 <div className="grid grid-cols-12 items-center gap-2">
@@ -458,7 +734,7 @@ export default function ExportModal({
                         onChange={(e) => setConfig({ ...config, exportVideo: e.target.checked })}
                         className="w-3.5 h-3.5 rounded text-cyan-500 bg-[#121218] border-[#383848] accent-cyan-400 cursor-pointer"
                       />
-                      <span className="text-[12px] font-semibold text-white">Video</span>
+                      <span className="text-[12px] font-semibold text-white">Video Parameters</span>
                     </label>
                     <button type="button" className="text-gray-400 hover:text-white p-0.5">
                       {isVideoExpanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
@@ -477,11 +753,11 @@ export default function ExportModal({
                             onChange={(e) => setConfig({ ...config, resolution: e.target.value as any })}
                             className="w-full bg-[#15151a] border border-[#2f2f3e] focus:border-cyan-400 rounded px-2 py-1 text-xs text-white focus:outline-none cursor-pointer"
                           >
-                            <option value="4K">4K (3840 x 2160) - Pro</option>
-                            <option value="2K">2K (2560 x 1440) - Pro</option>
-                            <option value="1080p">1080p (1920 x 1080) - HD</option>
-                            <option value="720p">720p (1280 x 720)</option>
-                            <option value="480p">480p (854 x 480)</option>
+                            <option value="4K">4K ({aspectRatio === '9:16' ? '2160 x 3840' : aspectRatio === '1:1' ? '2160 x 2160' : '3840 x 2160'}) - Pro</option>
+                            <option value="2K">2K ({aspectRatio === '9:16' ? '1440 x 2560' : aspectRatio === '1:1' ? '1440 x 1440' : '2560 x 1440'}) - Pro</option>
+                            <option value="1080p">1080p ({aspectRatio === '9:16' ? '1080 x 1920' : aspectRatio === '1:1' ? '1080 x 1080' : '1920 x 1080'}) - HD</option>
+                            <option value="720p">720p ({aspectRatio === '9:16' ? '720 x 1280' : aspectRatio === '1:1' ? '720 x 720' : '1280 x 720'})</option>
+                            <option value="480p">480p ({aspectRatio === '9:16' ? '480 x 854' : aspectRatio === '1:1' ? '480 x 480' : '854 x 480'})</option>
                           </select>
 
                           {(config.resolution === '4K' || config.resolution === '2K') && (
@@ -588,7 +864,7 @@ export default function ExportModal({
                         onChange={(e) => setConfig({ ...config, exportAudioSeparately: e.target.checked })}
                         className="w-3.5 h-3.5 rounded text-cyan-500 bg-[#121218] border-[#383848] accent-cyan-400 cursor-pointer"
                       />
-                      <span className="text-[12px] font-semibold text-white">Audio</span>
+                      <span className="text-[12px] font-semibold text-white">Audio Tracks</span>
                     </label>
                     <button type="button" className="text-gray-400 hover:text-white p-0.5">
                       {isAudioExpanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
@@ -870,7 +1146,7 @@ export default function ExportModal({
           <div className="flex items-center gap-2 text-gray-400 text-[11px]">
             <Film className="w-3.5 h-3.5 text-cyan-400" />
             <span>
-              Duration: <strong className="text-gray-200 font-normal">{totalSec}s</strong> | Size: about <strong className="text-gray-200 font-normal">{estimatedSizeMB} MB</strong>
+              Duration: <strong className="text-gray-200 font-normal">{totalSec}s</strong> | Size: about <strong className="text-gray-200 font-normal">{estimatedSizeMB} MB</strong> | Output: <strong className="text-cyan-300 font-mono">{exportDimensions.width}×{exportDimensions.height}</strong>
             </span>
           </div>
 
@@ -954,3 +1230,4 @@ export default function ExportModal({
     </div>
   );
 }
+

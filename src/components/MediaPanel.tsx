@@ -277,6 +277,7 @@ interface MediaPanelProps {
   onApplyGlobalFontSize?: (size: number) => void;
   onApplyGlobalTextCase?: (casing: 'uppercase' | 'lowercase' | 'capitalize') => void;
   onOpenAISegmentation?: () => void;
+  onOpen100Protocols?: () => void;
   watermark?: WatermarkSettings;
   setWatermark?: React.Dispatch<React.SetStateAction<WatermarkSettings>>;
   width?: number;
@@ -387,6 +388,7 @@ export default function MediaPanel({
   onApplyGlobalFontSize,
   onApplyGlobalTextCase,
   onOpenAISegmentation,
+  onOpen100Protocols,
   watermark,
   setWatermark,
   width,
@@ -2809,6 +2811,7 @@ export default function MediaPanel({
                       }}
                       className="w-full bg-[#0a0a0d] border border-amber-500/40 focus:border-amber-400 rounded-lg p-2.5 text-xs text-amber-300 font-semibold focus:outline-none transition cursor-pointer"
                     >
+                      <option value="QPC Uthmani Hafs">📖 QPC Uthmani Hafs (Quran.com Madinah Mushaf)</option>
                       <option value="Uthmani">📖 Uthmani (KFGQPC Madinah Mushaf Script)</option>
                       <option value="Amiri Quran">🕌 Amiri Quran (Classical Uthmani Scripture)</option>
                       <option value="KFGQPC Uthmanic Script HAFS">📜 KFGQPC Hafs Script (Official Mushaf)</option>
@@ -2821,211 +2824,7 @@ export default function MediaPanel({
                     </select>
                   </div>
 
-                  {/* 2. AYAH NUMBER SYMBOL CONTROLLER SUITE */}
-                  <div className="bg-[#0e0e14] border border-amber-500/25 rounded-lg p-2.5 space-y-2.5">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-1.5">
-                        <BookOpen className="w-3.5 h-3.5 text-amber-400" />
-                        <span className="text-[11px] font-bold text-amber-300 uppercase tracking-wider">AYAH NUMBER SYMBOL</span>
-                      </div>
-                      {/* Show/Hide Toggle */}
-                      <button
-                        type="button"
-                        id="toggle-show-ayah-symbol"
-                        onClick={() => {
-                          const next = !quranShowAyahSymbol;
-                          if (setQuranShowAyahSymbol) setQuranShowAyahSymbol(next);
-                          onApplyQuranStyles({ showAyahSymbol: next });
-                        }}
-                        className={`px-2 py-0.5 text-[10px] font-bold rounded-md transition cursor-pointer border ${
-                          quranShowAyahSymbol
-                            ? 'bg-black text-white border-white'
-                            : 'bg-gray-800 text-gray-400 border-gray-700'
-                        }`}
-                      >
-                        {quranShowAyahSymbol ? 'ON' : 'OFF'}
-                      </button>
-                    </div>
 
-                    {quranShowAyahSymbol && (
-                      <div className="space-y-2 pt-1 border-t border-gray-800/80">
-                        {/* Ayah Symbol Style Selection */}
-                        <div className="space-y-1">
-                          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">SYMBOL STYLE</span>
-                          <div className="grid grid-cols-2 gap-1.5">
-                            {[
-                              {
-                                id: 'ornate-medallion',
-                                label: '👑 Ornate Crown Medallion',
-                                sample: '۝١',
-                                isOrnate: true,
-                              },
-                              { id: 'uthmani-circle', label: '۝ Uthmani Circle', sample: '۝١' },
-                              { id: 'ornate-brackets', label: '﴿ ﴾ Ornate Brackets', sample: '﴿١﴾' },
-                              { id: 'parentheses', label: '( ) Curved', sample: '(١)' },
-                              { id: 'brackets', label: '[ ] Square', sample: '[١]' },
-                            ].map((styleOpt) => (
-                              <button
-                                key={styleOpt.id}
-                                type="button"
-                                id={`btn-ayah-style-${styleOpt.id}`}
-                                onClick={() => {
-                                  if (setQuranAyahSymbolStyle) setQuranAyahSymbolStyle(styleOpt.id as AyahSymbolStyle);
-                                  onApplyQuranStyles({ ayahSymbolStyle: styleOpt.id });
-                                }}
-                                className={`py-1.5 px-2 rounded-md text-xs font-semibold flex items-center justify-between transition border cursor-pointer ${
-                                  quranAyahSymbolStyle === styleOpt.id
-                                    ? 'bg-black text-white border-white font-bold shadow'
-                                    : 'bg-[#15151e] border-gray-800 text-gray-300 hover:text-white hover:bg-gray-800'
-                                } ${styleOpt.id === 'ornate-medallion' ? 'col-span-2 bg-gradient-to-r from-amber-950/40 via-[#1a1528] to-amber-950/40 border-amber-500/40' : ''}`}
-                              >
-                                <div className="flex items-center gap-1.5 min-w-0">
-                                  {styleOpt.id === 'ornate-medallion' && (
-                                    <OrnateAyahMedallion
-                                      ayahNumber={1}
-                                      digitType={quranAyahDigitType}
-                                      size={18}
-                                      color={quranAyahSymbolStyle === 'ornate-medallion' ? '#fbbf24' : '#d97706'}
-                                    />
-                                  )}
-                                  <span className="text-[11px] truncate">{styleOpt.label}</span>
-                                </div>
-                                {styleOpt.id === 'ornate-medallion' ? (
-                                  <span className="text-[9px] bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded font-mono font-bold border border-amber-500/30">
-                                    TAJ CARTOUCHE
-                                  </span>
-                                ) : (
-                                  <span className="font-arabic text-amber-400 font-bold text-xs shrink-0 ml-1">{styleOpt.sample}</span>
-                                )}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-
-                        {/* Digits & Position Controls */}
-                        <div className="grid grid-cols-2 gap-2 pt-1">
-                          {/* Numerals Format */}
-                          <div className="space-y-1">
-                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">DIGIT TYPE</span>
-                            <div className="grid grid-cols-2 gap-1">
-                              <button
-                                type="button"
-                                id="btn-ayah-digits-arabic"
-                                onClick={() => {
-                                  if (setQuranAyahDigitType) setQuranAyahDigitType('arabic');
-                                  onApplyQuranStyles({ ayahDigitType: 'arabic' });
-                                }}
-                                className={`py-1 text-[11px] font-bold rounded transition border cursor-pointer ${
-                                  quranAyahDigitType === 'arabic'
-                                    ? 'bg-black text-white border-white'
-                                    : 'bg-[#15151e] text-gray-400 border-gray-800 hover:text-white'
-                                }`}
-                              >
-                                Arabic (١, ٢, ٣)
-                              </button>
-                              <button
-                                type="button"
-                                id="btn-ayah-digits-latin"
-                                onClick={() => {
-                                  if (setQuranAyahDigitType) setQuranAyahDigitType('latin');
-                                  onApplyQuranStyles({ ayahDigitType: 'latin' });
-                                }}
-                                className={`py-1 text-[11px] font-bold rounded transition border cursor-pointer ${
-                                  quranAyahDigitType === 'latin'
-                                    ? 'bg-black text-white border-white'
-                                    : 'bg-[#15151e] text-gray-400 border-gray-800 hover:text-white'
-                                }`}
-                              >
-                                Latin (1, 2, 3)
-                              </button>
-                            </div>
-                          </div>
-
-                          {/* Symbol Position */}
-                          <div className="space-y-1">
-                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">POSITION</span>
-                            <div className="grid grid-cols-2 gap-1">
-                              <button
-                                type="button"
-                                id="btn-ayah-pos-end"
-                                onClick={() => {
-                                  if (setQuranAyahSymbolPosition) setQuranAyahSymbolPosition('end');
-                                  onApplyQuranStyles({ ayahSymbolPosition: 'end' });
-                                }}
-                                className={`py-1 text-[11px] font-bold rounded transition border cursor-pointer ${
-                                  quranAyahSymbolPosition === 'end'
-                                    ? 'bg-black text-white border-white'
-                                    : 'bg-[#15151e] text-gray-400 border-gray-800 hover:text-white'
-                                }`}
-                              >
-                                End
-                              </button>
-                              <button
-                                type="button"
-                                id="btn-ayah-pos-start"
-                                onClick={() => {
-                                  if (setQuranAyahSymbolPosition) setQuranAyahSymbolPosition('start');
-                                  onApplyQuranStyles({ ayahSymbolPosition: 'start' });
-                                }}
-                                className={`py-1 text-[11px] font-bold rounded transition border cursor-pointer ${
-                                  quranAyahSymbolPosition === 'start'
-                                    ? 'bg-black text-white border-white'
-                                    : 'bg-[#15151e] text-gray-400 border-gray-800 hover:text-white'
-                                }`}
-                              >
-                                Start
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Live Ayah Preview */}
-                        <div className="bg-[#08080c] border border-amber-500/20 rounded p-2 text-center">
-                          <span className="text-[9px] font-mono text-gray-500 block mb-0.5 uppercase tracking-wider">Live Preview with {quranArabicFont}</span>
-                          <div
-                            className="text-sm font-bold text-amber-300 flex items-center justify-center gap-2 flex-wrap"
-                            style={{ fontFamily: quranArabicFont || 'Uthmani' }}
-                            dir="rtl"
-                          >
-                            {quranAyahSymbolPosition === 'start' && (
-                              quranAyahSymbolStyle === 'ornate-medallion' ? (
-                                <OrnateAyahMedallion ayahNumber={1} digitType={quranAyahDigitType} size={24} color="#f59e0b" />
-                              ) : (
-                                <span>{formatAyahSymbol(1, quranAyahSymbolStyle, quranAyahDigitType)}</span>
-                              )
-                            )}
-                            <span>بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ</span>
-                            {quranAyahSymbolPosition === 'end' && (
-                              quranAyahSymbolStyle === 'ornate-medallion' ? (
-                                <OrnateAyahMedallion ayahNumber={1} digitType={quranAyahDigitType} size={24} color="#f59e0b" />
-                              ) : (
-                                <span>{formatAyahSymbol(1, quranAyahSymbolStyle, quranAyahDigitType)}</span>
-                              )
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Quick Apply Button */}
-                    <button
-                      type="button"
-                      id="btn-apply-ayah-symbol-to-timeline"
-                      onClick={() => {
-                        onApplyQuranStyles({
-                          arabicFont: quranArabicFont,
-                          ayahSymbolStyle: quranAyahSymbolStyle,
-                          ayahDigitType: quranAyahDigitType,
-                          ayahSymbolPosition: quranAyahSymbolPosition,
-                          showAyahSymbol: quranShowAyahSymbol,
-                        });
-                      }}
-                      className="w-full py-2 px-3 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 hover:border-amber-400 text-amber-300 font-bold rounded-lg text-xs transition flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
-                    >
-                      <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                      <span>⚡ Apply Ayah Symbol & Uthmani Font to All Clips</span>
-                    </button>
-                  </div>
 
                   {/* 3. FONT SIZE */}
                   <div className="space-y-1.5">
@@ -3682,16 +3481,30 @@ export default function MediaPanel({
                       onChange={(e) => {
                         const val = e.target.value;
                         if (setQuranBgStyle) setQuranBgStyle(val);
-                        onApplyQuranStyles({ bgStyle: val });
+                        if (val === 'strip') {
+                          if (setQuranBgOpacity && (!quranBgOpacity || quranBgOpacity < 0.6)) setQuranBgOpacity(0.65);
+                          if (setQuranBgRadius && (!quranBgRadius || quranBgRadius < 16)) setQuranBgRadius(20);
+                          if (setQuranBgPadding && (!quranBgPadding || quranBgPadding < 16)) setQuranBgPadding(18);
+                          onApplyQuranStyles({ bgStyle: val, bgOpacity: 0.65, bgRadius: 20, bgPadding: 18 });
+                        } else {
+                          onApplyQuranStyles({ bgStyle: val });
+                        }
                       }}
-                      className="w-full bg-[#0a0a0c] border border-fuchsia-900/50 rounded-lg text-white text-xs px-3 py-2.5 focus:outline-none focus:border-fuchsia-500 transition-colors shadow-inner"
+                      className="w-full bg-[#0a0a0c] border border-fuchsia-900/50 rounded-lg text-white text-xs px-3 py-2.5 focus:outline-none focus:border-fuchsia-500 transition-colors shadow-inner font-medium"
                     >
                       <option value="none">None (Clear Text)</option>
+                      <option value="strip">Full-Width Strip (Quran.com Cinema Card)</option>
                       <option value="box">Rounded Padding Box</option>
-                      <option value="strip">Full-Width Strip (Cinema)</option>
                       <option value="glow">Subtle Radial Glow</option>
                     </select>
                   </div>
+
+                  {quranBgStyle === 'strip' && (
+                    <div className="p-2.5 rounded-lg bg-fuchsia-950/40 border border-fuchsia-800/40 text-[11px] text-fuchsia-200 flex items-start gap-2">
+                      <span className="text-base leading-none mt-0.5">✨</span>
+                      <span className="leading-tight"><strong>Quran.com Cinema Mode:</strong> Renders a high-end cinematic translucent dark card with soft drop shadow and subtle 1.2px white border framing across the verse & translation.</span>
+                    </div>
+                  )}
 
                   {quranBgStyle !== 'none' && (
                     <>

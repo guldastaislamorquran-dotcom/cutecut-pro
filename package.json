@@ -54,8 +54,7 @@
       "target": [
         "appimage",
         "deb",
-        "snap",
-        "flatpak"
+        "snap"
       ],
       "category": "AudioVideo",
       "icon": "build-resources/icon.png",

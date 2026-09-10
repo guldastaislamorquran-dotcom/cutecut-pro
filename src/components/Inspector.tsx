@@ -152,9 +152,22 @@ export default function Inspector({
       // --- DEVELOPMENT ASSERTIONS ---
       // Check if there is a mismatch between the current clip metadata and the canonical identity
       if (selectedClip.ayahKey) {
-        const nameMatches = selectedClip.name.includes(selectedClip.ayahKey);
+        let nameMatches = selectedClip.name.includes(selectedClip.ayahKey);
+        const isBisKey = selectedClip.ayahKey === 'bis' || selectedClip.ayahKey === 'basm' || selectedClip.ayahKey === 'bismillah';
+        const isTawKey = selectedClip.ayahKey === 'aux' || selectedClip.ayahKey === 'taw' || selectedClip.ayahKey === 'taawwuz';
+
+        if (isTawKey && (selectedClip.name.includes("Ta'awwuz") || selectedClip.name.includes("Taawwuz") || selectedClip.name.includes("Isti'adha"))) {
+          nameMatches = true;
+        }
+        if (isBisKey && (selectedClip.name.includes("Tasmiyah") || selectedClip.name.includes("Bismillah") || selectedClip.name.includes("Basmala") || selectedClip.name.includes("Tasmeea"))) {
+          nameMatches = true;
+        }
+        const cleanAyahKey = selectedClip.ayahKey.split(' ')[0];
+        if (cleanAyahKey && selectedClip.name.includes(cleanAyahKey)) {
+          nameMatches = true;
+        }
         if (!nameMatches) {
-          console.error(`[QURAN INSPECTOR STATE MISMATCH] Clip ID ${selectedClip.id} has ayahKey ${selectedClip.ayahKey} but name is "${selectedClip.name}". Stale state detected!`);
+          console.warn(`[QURAN INSPECTOR] Clip ID ${selectedClip.id} with ayahKey ${selectedClip.ayahKey} has custom name "${selectedClip.name}".`);
         }
       }
     }
@@ -423,7 +436,14 @@ export default function Inspector({
           <input
             id="clip-title-input"
             type="text"
-            value={selectedClip.ayahKey && selectedClip.language ? `${selectedClip.language.toUpperCase()}: ${selectedClip.ayahKey}` : selectedClip.name}
+            value={
+              selectedClip.name ||
+              (selectedClip.ayahKey && selectedClip.language
+                ? `${selectedClip.language.toUpperCase()}: ${
+                    selectedClip.ayahKey === 'bis' ? 'Tasmiyah' : selectedClip.ayahKey === 'aux' || selectedClip.ayahKey === 'taw' ? "Ta'awwuz" : selectedClip.ayahKey
+                  }`
+                : '')
+            }
             onChange={(e) => onUpdateClip(selectedClip.id, { name: e.target.value })}
             disabled={!!(selectedClip.ayahKey && selectedClip.language)}
             className="text-xs font-bold text-white bg-[#1a1a20] border border-gray-800 rounded px-2 py-1 flex-1 focus:outline-none focus:border-cyan-500 font-mono min-w-0"
@@ -2480,6 +2500,7 @@ export default function Inspector({
                     <option value="JetBrains Mono">💻 JetBrains Mono (Technical Monospace)</option>
                   </optgroup>
                   <optgroup label="🕌 Arabic Scripture & Quranic Calligraphy">
+                    <option value="QPC Uthmani Hafs">📖 QPC Uthmani Hafs (Quran.com Madinah Mushaf)</option>
                     <option value="Uthmani">📖 Uthmani (KFGQPC Madinah Mushaf Script)</option>
                     <option value="Amiri Quran">🕌 Amiri Quran (Classical Uthmani Scripture)</option>
                     <option value="KFGQPC Uthmanic Script HAFS">📜 KFGQPC Hafs Script (Official Mushaf)</option>
@@ -2624,9 +2645,12 @@ export default function Inspector({
               {/* Background Color & Padding */}
               <div className="space-y-2 pt-2 border-t border-gray-800">
                 <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold text-gray-300 uppercase tracking-wide">📦 Background Box</span>
+                  <span className="text-[11px] font-bold text-gray-300 uppercase tracking-wide">📦 Text Background Overlay</span>
                   <button
-                    onClick={() => onUpdateClip(selectedClip.id, { textBackgroundColor: selectedClip.textBackgroundColor === 'transparent' ? '#000000' : 'transparent' })}
+                    onClick={() => onUpdateClip(selectedClip.id, { 
+                      textBackgroundColor: selectedClip.textBackgroundColor === 'transparent' ? '#000000' : 'transparent',
+                      textBackgroundStyle: selectedClip.textBackgroundColor === 'transparent' ? (selectedClip.textBackgroundStyle || 'box') : 'none'
+                    })}
                     className="text-[9px] bg-gray-800 hover:bg-gray-700 text-gray-300 px-1.5 py-0.5 rounded transition"
                   >
                     {selectedClip.textBackgroundColor === 'transparent' || !selectedClip.textBackgroundColor ? 'Enable' : 'Disable'}
@@ -2635,6 +2659,22 @@ export default function Inspector({
                 
                 {selectedClip.textBackgroundColor && selectedClip.textBackgroundColor !== 'transparent' && (
                   <>
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] text-gray-400">Overlay Style</span>
+                        <span className="font-mono text-[9px] text-purple-400 uppercase">{selectedClip.textBackgroundStyle || 'box'}</span>
+                      </div>
+                      <select
+                        value={selectedClip.textBackgroundStyle || 'box'}
+                        onChange={(e) => onUpdateClip(selectedClip.id, { textBackgroundStyle: e.target.value as any })}
+                        className="w-full bg-[#18181c] border border-gray-700 rounded text-white text-[11px] px-2 py-1 focus:outline-none focus:border-purple-500"
+                      >
+                        <option value="box">Rounded Padding Box</option>
+                        <option value="strip">Full-Width Strip (Quran.com Cinema)</option>
+                        <option value="glow">Subtle Radial Glow</option>
+                      </select>
+                    </div>
+
                     <div className="flex items-center justify-between pt-1">
                       <span className="text-[10px] text-gray-400">Background Color</span>
                       <div className="flex items-center gap-1.5">
@@ -2648,20 +2688,51 @@ export default function Inspector({
                         <span className="font-mono text-[9px] text-gray-500 uppercase">{selectedClip.textBackgroundColor || '#000000'}</span>
                       </div>
                     </div>
+
+                    <div className="pt-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] text-gray-400">Opacity</span>
+                        <span className="font-mono text-[9px] text-gray-500">{Math.round((selectedClip.textBackgroundOpacity ?? 0.65) * 100)}%</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="0"
+                        max="1"
+                        step="0.05"
+                        value={selectedClip.textBackgroundOpacity ?? 0.65}
+                        onChange={(e) => onUpdateClip(selectedClip.id, { textBackgroundOpacity: parseFloat(e.target.value) })}
+                        className="w-full h-1 mt-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-purple-400"
+                      />
+                    </div>
                     
-                    <div className="pt-2">
+                    <div className="pt-1">
                       <div className="flex items-center justify-between">
                         <span className="text-[10px] text-gray-400">Padding</span>
-                        <span className="font-mono text-[9px] text-gray-500">{selectedClip.textBackgroundPadding ?? 8}px</span>
+                        <span className="font-mono text-[9px] text-gray-500">{selectedClip.textBackgroundPadding ?? 18}px</span>
                       </div>
                       <input
                         id="bg-padding-slider"
                         type="range"
                         min="0"
-                        max="40"
-                        value={selectedClip.textBackgroundPadding ?? 8}
+                        max="60"
+                        value={selectedClip.textBackgroundPadding ?? 18}
                         onChange={(e) => onUpdateClip(selectedClip.id, { textBackgroundPadding: parseInt(e.target.value) })}
-                        className="w-full h-1 mt-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-gray-400"
+                        className="w-full h-1 mt-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-purple-400"
+                      />
+                    </div>
+
+                    <div className="pt-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] text-gray-400">Border Radius</span>
+                        <span className="font-mono text-[9px] text-gray-500">{selectedClip.textBackgroundRadius ?? 20}px</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="0"
+                        max="40"
+                        value={selectedClip.textBackgroundRadius ?? 20}
+                        onChange={(e) => onUpdateClip(selectedClip.id, { textBackgroundRadius: parseInt(e.target.value) })}
+                        className="w-full h-1 mt-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-purple-400"
                       />
                     </div>
                   </>

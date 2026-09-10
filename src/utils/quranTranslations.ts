@@ -256,6 +256,13 @@ export const SUPPORTED_TRANSLATION_FONTS: TranslationFontInfo[] = [
 
   // Arabic Scripture Fonts (also applicable for translations & commentaries)
   {
+    family: 'QPC Uthmani Hafs',
+    label: '📖 QPC Uthmani Hafs (Quran.com Official Mushaf)',
+    category: 'arabic',
+    supportedLanguages: ['ar', 'ur'],
+    description: 'Authentic King Fahd Quran Complex Hafs typography as used on Quran.com',
+  },
+  {
     family: 'Uthmani',
     label: '📖 Uthmani (KFGQPC Madinah Mushaf Script)',
     category: 'arabic',

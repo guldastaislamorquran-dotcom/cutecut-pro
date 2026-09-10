@@ -1,6 +1,7 @@
 import express from 'express';
 import path from 'path';
 import * as fs from 'fs';
+import { exec } from 'child_process';
 import dotenv from 'dotenv';
 import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI, Type, ThinkingLevel } from '@google/genai';
@@ -32,18 +33,27 @@ function getAiClient(req?: express.Request): GoogleGenAI | null {
   }
 }
 
+
+
+const origLog = console.log;
+const origError = console.error;
+const origWarn = console.warn;
+console.log = (...args) => { fs.appendFileSync('server_debug.log', '[LOG] ' + args.map(a => typeof a === 'object' ? JSON.stringify(a) : a).join(' ') + '\n'); origLog(...args); };
+console.error = (...args) => { fs.appendFileSync('server_debug.log', '[ERR] ' + args.map(a => typeof a === 'object' ? JSON.stringify(a) : a).join(' ') + '\n'); origError(...args); };
+console.warn = (...args) => { fs.appendFileSync('server_debug.log', '[WARN] ' + args.map(a => typeof a === 'object' ? JSON.stringify(a) : a).join(' ') + '\n'); origWarn(...args); };
+
 async function startServer() {
   const app = express();
   const PORT = 3000;
 
   // Safe wrapper for Gemini generateContent that handles model fallbacks smoothly
   async function safeGenerateContent(aiClient: GoogleGenAI, params: { model?: string; contents: any; config?: any }) {
-    const requestedModel = params.model || 'gemini-3.7-flash';
+    const requestedModel = params.model || 'gemini-3.8-flash';
     
     // Modern supported Gemini models
     const modelsToTry = requestedModel === 'gemini-3.1-flash-live-preview'
-      ? ['gemini-3.7-flash', 'gemini-3.1-flash-lite', 'gemini-flash-latest']
-      : [requestedModel, 'gemini-3.7-flash', 'gemini-3.1-flash-lite', 'gemini-flash-latest'];
+      ? ['gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.1-flash-lite', 'gemini-flash-latest']
+      : [requestedModel, 'gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.1-flash-lite', 'gemini-flash-latest'];
 
     const candidateModels = Array.from(new Set(modelsToTry));
     let lastError: any = null;
@@ -72,8 +82,8 @@ async function startServer() {
   }
 
   // Middleware
-  app.use(express.json({ limit: '150mb' }));
-  app.use(express.urlencoded({ limit: '150mb', extended: true }));
+  app.use(express.json({ limit: '500mb' }));
+  app.use(express.urlencoded({ limit: '500mb', extended: true }));
 
   // API Route: Health Check
   app.get('/api/health', (req, res) => {
@@ -173,7 +183,7 @@ async function startServer() {
         </html>
       `);
     } catch (err: any) {
-      console.error('[Google OAuth Exchange Error]', err);
+      console.warn('[Google OAuth Exchange Error]', err);
       res.send(`
         <html>
           <body style="background-color: #14141a; color: white; font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0;">
@@ -251,7 +261,7 @@ async function startServer() {
         destination: 'Cloud & Local Google Drive Sync Container'
       });
     } catch (err: any) {
-      console.error('[Google Drive Sync] Failed:', err);
+      console.warn('[Google Drive Sync] Failed:', err);
       return res.status(500).json({ error: err.message || 'Drive sync failed' });
     }
   });
@@ -293,14 +303,8 @@ async function startServer() {
         Generate a list of subtitle objects. Each object MUST contain:
         - "start" (decimal number in seconds, e.g. 1.25)
         - "end" (decimal number in seconds, e.g. 3.50)
-        - "text" (the subtitle segment, usually 2-5 words, neat and high impact)
-        
-        Ensure that:
-        1. Subtitles are chronological.
-        2. Subtitles fit cleanly within a typical speaking pace (average of 3-4 words per second).
-        3. Segment times do not overlap.
-        4. Segment times are perfectly continuous and fit the transcript.
-      `;
+        - "text" (caption text)
+      `
 
       const response = await safeGenerateContent(ai, {
         model: 'gemini-3.7-flash',
@@ -342,7 +346,7 @@ async function startServer() {
       const parsed = JSON.parse(responseText.trim());
       res.json(parsed);
     } catch (error: any) {
-      console.error('Error generating AI captions:', error);
+      console.warn('Error generating AI captions:', error);
       // Seamless mock fallback on failure or invalid credentials
       const words = (transcript || 'Video Subtitle Line 1. Video Subtitle Line 2. Video Subtitle Line 3.').split(' ');
       const subtitles: any[] = [];
@@ -361,11 +365,87 @@ async function startServer() {
     }
   });
 
+  // API Route: Smart Audio Chunk Slicing for Long Tilawat Recitations (10m - 2h+)
+  app.post('/api/audio/slice-chunks', async (req, res) => {
+    try {
+      const { audioData, mimeType, chunkDuration = 180 } = req.body;
+      if (!audioData) {
+        return res.status(400).json({ error: 'Missing audioData payload' });
+      }
+
+      const durationSec = Math.max(60, Math.min(300, parseInt(chunkDuration) || 180));
+      const rawBuffer = Buffer.from(audioData, 'base64');
+      const tempId = `chunk_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+      const inputExt = (mimeType && mimeType.includes('mp4')) ? 'mp4' : (mimeType && mimeType.includes('wav')) ? 'wav' : 'mp3';
+      const inputPath = `/tmp/${tempId}_input.${inputExt}`;
+      const outputPattern = `/tmp/${tempId}_out_%03d.wav`;
+
+      await fs.promises.writeFile(inputPath, rawBuffer);
+
+      // Run ffmpeg to segment into compact 8kHz mono 16-bit WAV chunks
+      await new Promise((resolve, reject) => {
+        exec(`ffmpeg -i "${inputPath}" -vn -c:a pcm_s16le -ar 8000 -ac 1 -f segment -segment_time ${durationSec} "${outputPattern}" -y`, (err) => {
+          if (err) return reject(err);
+          resolve(true);
+        });
+      });
+
+      // Read all generated chunk files
+      const dirFiles = await fs.promises.readdir('/tmp');
+      const chunkFiles = dirFiles.filter(f => f.startsWith(`${tempId}_out_`) && f.endsWith('.wav')).sort();
+
+      const chunks = [];
+      for (let i = 0; i < chunkFiles.length; i++) {
+        const cFile = chunkFiles[i];
+        const cPath = `/tmp/${cFile}`;
+        const cBuf = await fs.promises.readFile(cPath);
+        // Clean up chunk file immediately
+        await fs.promises.unlink(cPath).catch(() => {});
+        chunks.push({
+          base64: cBuf.toString('base64'),
+          offset: i * durationSec,
+          duration: durationSec,
+          mimeType: 'audio/wav'
+        });
+      }
+
+      // Clean up input file
+      await fs.promises.unlink(inputPath).catch(() => {});
+
+      console.log(`[Audio Slicer] Successfully sliced audio into ${chunks.length} chunks of ~${durationSec}s using ffmpeg.`);
+      return res.json({ chunks, totalChunks: chunks.length });
+    } catch (err: any) {
+      console.error('[Audio Slicer] Failed to slice audio:', err);
+      return res.status(500).json({ error: err.message || 'Failed to slice audio' });
+    }
+  });
+
   // API Route: AI Quran Voice Alignment
   app.post('/api/ai/quran-align', async (req, res) => {
-    const { audioData, mimeType, surah, startAyah, style, mode, audioDuration, breathMode } = req.body;
+    const { audioData, mimeType, surah, startAyah, endAyah, selectionType, style, mode, audioDuration, breathMode, language, introMode, referenceVerses, chunkOffset } = req.body;
 
     const startAyahNum = parseInt(startAyah) || 1;
+    const endAyahNum = parseInt(endAyah) || startAyahNum;
+    const isSingleAyah = selectionType === 'single';
+    const isRangeAyah = selectionType === 'range';
+    const targetLang = (language || 'en').toLowerCase();
+
+    // Map language to Quran.com API translation ID
+    let transApiId = 20; // default English Sahih International
+    if (targetLang === 'ur') {
+      transApiId = 97; // Urdu: Tafheem ul Quran / 234 Fatah Jalandhry
+    } else if (targetLang === 'hi') {
+      transApiId = 122; // Hindi
+    } else if (targetLang === 'id') {
+      transApiId = 33; // Indonesian
+    } else if (targetLang === 'fr') {
+      transApiId = 31; // French
+    } else if (targetLang === 'tr') {
+      transApiId = 77; // Turkish
+    } else if (targetLang === 'bn') {
+      transApiId = 163; // Bengali
+    }
+
     let surahList: number[] = [];
     const surahStr = String(surah || '1').trim().toLowerCase();
     
@@ -402,7 +482,7 @@ async function startServer() {
       }
     }
 
-    console.log(`[Quran Align API] Multi-Surah List: [${surahList.join(', ')}], Start Ayah: ${startAyahNum}`);
+    console.log(`[Quran Align API] Multi-Surah List: [${surahList.join(', ')}], Scope: ${selectionType || 'default'}, Start Ayah: ${startAyahNum}, Lang: ${targetLang}`);
 
     // Step 1: Fetch verses from Quran.com API in chunks to handle multi-surah resiliently
     let allFilteredVerses: any[] = [];
@@ -415,21 +495,26 @@ async function startServer() {
           chunk.map(async (sNum, chunkIdx) => {
             const globalIdx = i + chunkIdx;
             try {
-              const quranApiUrl = `https://api.quran.com/api/v4/verses/by_chapter/${sNum}?language=en&words=false&translations=20&fields=text_uthmani&per_page=300`;
+              const quranApiUrl = `https://api.quran.com/api/v4/verses/by_chapter/${sNum}?language=${targetLang}&words=false&translations=${transApiId}&fields=text_uthmani&per_page=300`;
               const apiRes = await fetch(quranApiUrl);
               if (apiRes.ok) {
                 const data = await apiRes.json();
                 const verses = data.verses || [];
-                // Only filter startAyah on the very first surah in the selection sequence
                 return verses.filter((v: any) => {
-                  if (globalIdx !== 0) return true;
+                  if (globalIdx !== 0 && surahList.length > 1) return true;
                   const parts = v.verse_key.split(':');
                   const ayah = parseInt(parts[1]) || 1;
+                  if (isSingleAyah) {
+                    return ayah === startAyahNum;
+                  }
+                  if (isRangeAyah) {
+                    return ayah >= startAyahNum && ayah <= endAyahNum;
+                  }
                   return ayah >= startAyahNum;
                 });
               }
             } catch (err) {
-              console.error(`Error fetching Surah ${sNum}:`, err);
+              console.warn(`Error fetching Surah ${sNum}:`, err);
             }
             return [];
           })
@@ -438,7 +523,7 @@ async function startServer() {
       }
       allFilteredVerses = results.flat();
     } catch (e) {
-      console.error('Error fetching Quran.com API data:', e);
+      console.warn('Error fetching Quran.com API data:', e);
     }
 
     const versesContext = allFilteredVerses.map((v: any) => {
@@ -450,18 +535,22 @@ async function startServer() {
         .replace(/&nbsp;/g, ' ')
         .trim();
 
+      const parts = (v.verse_key || '').split(':');
+      const vNum = parseInt(parts[1]) || 1;
+
       return {
         verse_key: v.verse_key,
+        verse_number: vNum,
         text_uthmani: v.text_uthmani,
         translation: cleanTranslation
       };
     });
 
-    // Step 2: Use Gemini if available, audioData is provided, and verses limit is friendly (<= 30) to ensure high accuracy
+    // Step 2: Use Gemini multimodal audio recognition to listen to the audio track and align recitation
     const ai = getAiClient(req);
-    if (ai && audioData && versesContext.length > 0 && versesContext.length <= 30) {
+    if (ai && audioData) {
       try {
-        console.log('[Quran Align API] Calling Gemini for audio voice alignment...');
+        console.log('[Quran Align API] Calling Gemini (gemini-3.7-flash) for multimodal audio speech alignment...');
 
         const audioPart = {
           inlineData: {
@@ -472,47 +561,109 @@ async function startServer() {
 
         const isSplitBreaths = breathMode === 'split-breaths';
         const breathRuleText = isSplitBreaths
-          ? `3. MULTI-BREATH & WAQF HANDLING (SPLIT BREATH PHRASES & AI TRANSLATION TRIMMING MODE):
-             - Reciters frequently recite a long or medium Ayah across 2, 3, 4, or 5 separate breaths (stopping at Waqf marks: ۙ, ۗ, ۚ, ۖ, ۜ, pausing to inhale, and resuming).
-             - If a verse is recited across multiple breaths or has a clear breathing pause (>0.5s), output separate subtitle segments for EACH individual breath phrase!
-             - For each breath phrase:
-               a) 'text_arabic': Output ONLY the exact Arabic words recited during that breath.
-               b) 'text_english': Output ONLY the corresponding trimmed translation clause that matches the Arabic phrase recited in that breath (AI Translation Trimming). DO NOT repeat the entire Ayah translation for a short split phrase!
-               c) 'verse_key': Label clearly (e.g. "2:255 [1/3]", "2:255 [2/3]", "2:255 [3/3]" or "2:255").
-             - CRITICAL: If an Ayah is recited in a SINGLE breath without stopping, do NOT cut or split it! Keep it as 1 complete segment.`
-          : `3. COMPLETE AYAH SPAN & WAQF/PAUSE HANDLING (FULL AYAH DISPLAY MODE):
-             - Each recited Ayah MUST be output as one complete, unbroken verse segment containing the full Arabic text and full translation with its exact verse_key (e.g., "55:33", "1:1", "2:255").
-             - The 'start' time MUST be the exact millisecond when the reciter begins the very first word of that Ayah.
-             - If the reciter takes 1, 2, 3, 4, or 5 breaths / waqf pauses during this single Ayah, the segment MUST encompass the entire recitation of that Ayah, so the 'end' time is when the reciter finishes the last syllable of that Ayah before moving to the next Ayah.
-             - Do NOT chop or fragment an Ayah into half-sentences - keep the complete Ayah text intact across all its internal breaths!`;
+          ? `4. MULTI-BREATH WAQF PHRASES:
+             - Reciters frequently pause for breath at Waqf marks (ۙ, ۗ, ۚ, ۖ, ۜ).
+             - If a verse is recited across multiple distinct breaths with pauses (>0.5s), output separate subtitle segments for each breath phrase with trimmed Arabic and trimmed translation.`
+          : `4. FULL AYAH MODE:
+             - Each recited Ayah MUST be output as one complete, unbroken verse segment with full Arabic and full translation.
+             - The 'start' time MUST be the exact millisecond when the reciter starts the very first word of the Ayah.
+             - The 'end' time MUST be the exact millisecond when the reciter finishes the last syllable of that Ayah.`;
+
+        // Context slice: use client-provided dynamic sliding window, or compute window starting at startAyahNum
+        let referenceSlice: any[] = [];
+        if (Array.isArray(referenceVerses) && referenceVerses.length > 0) {
+          referenceSlice = referenceVerses;
+        } else {
+          let startIndex = 0;
+          if (startAyahNum > 1) {
+            const foundIdx = versesContext.findIndex((v: any) => v.verse_number === startAyahNum);
+            if (foundIdx !== -1) startIndex = foundIdx;
+          }
+          // Support long segments without 50-verse truncation
+          referenceSlice = versesContext.slice(startIndex, startIndex + 80);
+        }
+
+        // Only search for A'udhu/Bismillah intro in the very first audio chunk (offset == 0)
+        const isMiddleChunk = chunkOffset && Number(chunkOffset) > 0;
+        const currentIntro = isMiddleChunk ? 'none' : (introMode || 'none');
+        const shouldAddTaawwuz = currentIntro === 'both' || currentIntro === 'taawwuz-only';
+        const shouldAddBismillah = currentIntro === 'both' || currentIntro === 'bismillah-only';
 
         const promptText = `
-          You are an expert Quranic audio-to-text alignment, Tajweed acoustic analyzer, and voice transcription model (QuranCaption Engine).
-          Analyze the attached recitation media (audio or video) track with absolute millisecond precision.
-          Your task is to scan and align the spoken recitation voice in the media with the corresponding Quranic text segments provided in this list:
-          ${JSON.stringify(versesContext)}
+          You are an expert Quranic speech recognition, Tajweed acoustic analyzer, and voice transcription model (QuranCaption Engine).
+          Listen to the attached recitation audio track with absolute millisecond precision.
+          Your task is to identify the spoken recitation voice in the audio and align it into subtitles according to the 100 MASTER QURAN AUDIO ALIGNMENT PROTOCOLS below.
 
-          ALIGNMENT & TIMING RULES (QuranCaption Architecture):
-          1. VOICE DETECTOR: Detect the exact millisecond/second when the reciter starts and stops speaking each phrase. Listen to the vocal boundaries to determine when each word begins and ends.
-          2. TAJWEED ACOUSTIC WEIGHTING:
-             - Prolonged Madd letters (4 to 6 Harakats with ~ or ٰ) take 2x to 4x longer duration.
-             - Tashdeed (ّ) and Ghunnah (نّ, مّ) held consonants take extra duration.
-             - Reflect this natural Tajweed prolongation in your timestamp boundaries.
-          3. AUZUBILLAH & BISMILLAH RECITATION:
-             Listen carefully at the very beginning of the audio track:
-             - If "Auzubillah" (A'udhu billahi minash-shaitanir-rajim) is recited, identify its exact start time (e.g. 0.5s) and end time (e.g. 4.2s). In the output subtitles, you MUST place this segment:
-               {"start": <start_sec>, "end": <end_sec>, "verse_key": "aux", "text_arabic": "أَعُوذُ بِاللَّهِ مِنَ الشَّيْطَانِ الرَّجِيمِ", "text_english": "I seek refuge in Allah from Satan, the expelled."}
-             - If "Bismillah" (Bismillahir-Rahmanir-Rahim) is recited, identify its exact start time (e.g. 4.8s) and end time (e.g. 9.5s). In the output subtitles, you MUST place this segment:
-               {"start": <start_sec>, "end": <end_sec>, "verse_key": "bis", "text_arabic": "بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ", "text_english": "In the name of Allah, the Entirely Merciful, the Especially Merciful."}
+          ALIGNMENT MODE CONFIGURATION:
           ${breathRuleText}
-          4. GAP & PAUSE MANAGEMENT:
-             - The silence gap between the end of one Ayah and the start of the next Ayah must be accurately reflected: Ayah N ends when its last word ends, and Ayah N+1 starts when its first word begins.
-             - Segment timings MUST NOT overlap under any circumstance.
-             - Segment timings MUST fit within the audio timeline bounds.
-        `;
+
+          CRITICAL AYAH BOUNDARY PRECISION MANDATE:
+          - Every Ayah MUST match the spoken audio exactly: start when the reciter begins the first syllable of that Ayah, and end when the reciter finishes reciting the final syllable (including madd/ghunnah prolongation and waqf).
+          - Match each spoken verse to its exact corresponding scripture Ayah from the REFERENCE VERSES below.
+          - Never assign an Ayah number to audio that recites a different Ayah.
+          - If an Ayah begins before the end of this audio chunk and finishes recited in it, mark its start at the beginning of its recitation. If an Ayah finishes during this chunk, mark its end exactly when it finishes.
+          - Do NOT drift or accumulate timing errors; every Ayah's boundary must anchor directly to the voice acoustics.
+
+          REFERENCE QURANIC VERSES FOR SURAH #${surahList[0]} (Starting at Ayah ${startAyahNum}):
+          ${JSON.stringify(referenceSlice)}
+
+          100 MASTER ALIGNMENT PROTOCOLS:
+          1. A'udhu Detection: Identify exact start and end in seconds (millisecond decimal accuracy) for "A'udhu billahi minash-shaitanir-rajim".
+          2. Bismillah Detection: Identify exact start and end for "Bismillahir-Rahmanir-Rahim".
+          3. First Ayah Detection: Identify exact start and end for the first recited Ayah.
+          4. A'udhu Absence: If A'udhu is not recited in the audio, DO NOT output any A'udhu segment ("A'udhu absent").
+          5. Bismillah Absence: If Bismillah is not recited in the audio, DO NOT output any Bismillah segment ("Bismillah absent").
+          6. Silence Segments: Ignore silence gaps; do not assign Ayah numbers or text to silence.
+          7. Speech Labeling: Label every detected speech segment with its authentic Ayah number or opening verse ("aux", "bis", or "surah:ayah").
+          8. Noise Detection: Note low/medium/high background noise if present.
+          9. Overlapping Recitation: Ensure segment timestamps do not overlap sequentially.
+          10. Sequential Timestamps: Ensure strictly ordered timestamps across all detected Ayahs.
+          11. Opening Verse Mapping: Map A'udhu, Bismillah, and Ayah 1 cleanly at the start of the audio.
+          12. Direct Start: If reciter starts directly at Ayah 1 without A'udhu/Bismillah, start immediately at Ayah 1.
+          13. Partial Verses: Flag partial recitation if verse is cut off at the start or end.
+          14. Confidence Score: Calculate confidence score (0.0 to 1.0) for every detected segment.
+          15. Verification Tag: Mark low-confidence or ambiguous segments with verify-manual if necessary.
+          16. Short Clips (<=15s): Mark spoken words strictly; ignore initial and trailing silence.
+          17. Long Recordings (>=30min): Process streaming audio chunks accurately preserving global sequence.
+          18. Extra Duas/Intro: Mark extra non-Quranic introductions or duas as separate segments if present.
+          19. Text Snippets: Match authentic Uthmani text to the first words spoken in each segment.
+          20. Split Verses: If reciter splits an Ayah across long pauses, provide clean non-overlapping segment timestamps.
+          21. Pause Analysis: Note pauses >1s as natural breath or waqf.
+          22. Single Reciter Focus: Focus strictly on primary recitation channel.
+          23. Tajweed Rules: Respect madd, ghunnah, and waqf prolongations in duration.
+          24. Acoustic Echo: Maintain exact speech onset/offset despite room echo or reverb.
+          25. Clean Speech Focus: Filter audio focus to spoken voice over background ambiance.
+          26. Authentic Script: Use strictly accurate Quranic Uthmani text.
+          27. Interruption Handling: Ignore throat clearing, coughs, or breath sounds between words.
+          28. Overlap Precision: Ensure Bismillah and Ayah 1 have distinct, non-overlapping boundaries.
+          29. Gain Adjustment: Process low-volume recitation accurately without missing soft syllables.
+          30. Language Mapping: Provide Arabic Uthmani text and precise ${targetLang === 'ur' ? 'Urdu' : 'English'} translation for every segment.
+          31. Repeated Verses: If reciter repeats an Ayah for practice or tajweed, mark repeat segments sequentially.
+          32. Approximate Boundaries: Provide nearest millisecond timestamps for all speech boundaries.
+          33. Threshold Adaptability: Maintain boundary precision across both quiet and loud reciters.
+          34. Recommended Subtitle Duration: Ensure end timestamp covers complete trailing tajweed voweling.
+          35. Soft Whispering/Recitation: Detect quiet or whispered recitation accurately.
+          36. Fast Recitation (Hadr): Handle fast tempo recitation without dropping short Ayahs.
+          37. Slow Recitation (Tahqiq): Handle slow tempo recitation with long madd prolongations accurately.
+          38. Clipping Distortion: Process distorted or overdriven audio gracefully.
+          39. Trailing Trim: Trim trailing silence from subtitle end times.
+          40. Restart Handling: Handle recitation restarts cleanly.
+          41. Background Speech: Filter out ambient room speech.
+          42. Combined Breath: If reciter combines multiple Ayahs in one breath, output separate Ayah entries with contiguous timings.
+          43-100. Universal Quality Standards: Ensure exact millisecond bounds, zero drift, stable surah:ayah keying, and 100% synchronized translation timestamps.
+
+          STRICT OUTPUT FORMAT RULES:
+          Output every detected segment as a subtitle object containing:
+          - "start": exact second (e.g. 2.15)
+          - "end": exact second (e.g. 8.40)
+          - "verse_key": e.g. "aux" for A'udhu, "bis" for Bismillah, or "${surahList[0]}:1", "${surahList[0]}:2" etc.
+          - "verse_number": numeric Ayah number (0 for aux/bis)
+          - "text_arabic": Uthmani text
+          - "text_english": Translation in ${targetLang === 'ur' ? 'Urdu' : 'English'}
+        `
 
         const response = await safeGenerateContent(ai, {
-          model: 'gemini-3.7-flash',
+          model: 'gemini-3.8-flash',
           contents: [audioPart, { text: promptText }],
           config: {
             responseMimeType: 'application/json',
@@ -536,7 +687,11 @@ async function startServer() {
                       },
                       verse_key: {
                         type: Type.STRING,
-                        description: 'The verse key reference (e.g. "1:1", "aux", "bis").',
+                        description: 'The verse key reference (e.g. "2:1", "aux", "bis").',
+                      },
+                      verse_number: {
+                        type: Type.INTEGER,
+                        description: 'The Ayah number.',
                       },
                       text_arabic: {
                         type: Type.STRING,
@@ -544,7 +699,7 @@ async function startServer() {
                       },
                       text_english: {
                         type: Type.STRING,
-                        description: 'The English translation of this segment.',
+                        description: 'The translation of this segment.',
                       },
                     },
                   },
@@ -558,78 +713,28 @@ async function startServer() {
         const responseText = response.text || '{}';
         const parsed = JSON.parse(responseText.trim());
         if (parsed.subtitles && parsed.subtitles.length > 0) {
-          console.log(`[Quran Align API] Aligned ${parsed.subtitles.length} segments with Gemini successfully.`);
+          console.log(`[Quran Align API] Aligned ${parsed.subtitles.length} segments with Gemini 3.8 Flash successfully.`);
           return res.json(parsed);
         }
       } catch (error: any) {
-        console.error('[Quran Align API] Error with Gemini alignment:', error);
+        const errMsg = (error?.message || '').toLowerCase();
+        if (errMsg.includes('401') || errMsg.includes('unauthenticated') || errMsg.includes('invalid authentication')) {
+          console.warn('[Quran Align API] Unauthorized / Invalid API Key used.');
+          return res.status(401).json({ error: 'Invalid Gemini API Key' });
+        }
+        if (errMsg.includes('429') || errMsg.includes('resource_exhausted') || errMsg.includes('quota')) {
+          console.warn('[Quran Align API] Quota Exceeded / Rate Limited.');
+          return res.status(429).json({ error: 'Gemini API Quota Exceeded. Please check your plan or try again later.' });
+        }
+        console.warn('[Quran Align API] Warning with Gemini alignment:', error?.message || 'Unknown error');
+        return res.status(500).json({ error: error?.message || 'AI audio alignment failed.' });
       }
     }
 
-    // Step 3: High-quality automated timing fallback with Intelligent Word/Character Ratio Length Match Algorithm
-    console.log('[Quran Align API] Running intelligent word/character ratio layout timing segmenter...');
-    const subtitles: any[] = [];
-    
-    // Group up the active verses to map (use context if available, otherwise Al-Fatihah fallback)
-    const versesToMap = versesContext.length > 0 ? versesContext : [
-      { verse_key: '1:1', text_uthmani: 'الْحَمْدُ لِلَّهِ رَبِّ الْعَالَمِينَ', translation: 'All praise is due to Allah, Lord of all worlds.' },
-      { verse_key: '1:2', text_uthmani: 'الرَّحْمَٰنِ الرَّحِيمِ', translation: 'The Entirely Merciful, the Especially Merciful.' },
-      { verse_key: '1:3', text_uthmani: 'مَالِكِ يَوْمِ الدِّينِ', translation: 'Sovereign of the Day of Recompense.' },
-      { verse_key: '1:4', text_uthmani: 'إِيَّاكَ نَعْبُدُ وَإِيَّاكَ نَسْتَعِينُ', translation: 'It is You we worship and You we ask for help.' },
-    ];
-
-    const hasIntro = startAyahNum === 1 && surahList[0] !== 9;
-
-    const allVerses: any[] = [];
-    if (hasIntro) {
-      allVerses.push({
-        verse_key: 'aux',
-        text_uthmani: 'أَعُوذُ بِاللَّهِ مِنَ الشَّيْطَانِ الرَّجِيمِ',
-        translation: 'I seek refuge in Allah from Satan, the expelled.'
-      });
-      allVerses.push({
-        verse_key: 'bis',
-        text_uthmani: 'بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ',
-        translation: 'In the name of Allah, the Entirely Merciful, the Especially Merciful.'
-      });
-    }
-    allVerses.push(...versesToMap);
-
-    let currentTimelineMarker = 0.5;
-
-    allVerses.forEach((v: any) => {
-      const arabicText = v.text_uthmani || v.text_arabic || '';
-      const englishText = v.translation || v.text_english || '';
-      const combinedText = `${arabicText} ${englishText}`.trim();
-
-      // Analyze string length
-      const words = combinedText.split(/\s+/).filter(Boolean);
-      const wordCount = words.length || 1;
-      const charCount = combinedText.length;
-
-      // Intelligent Word/Character Ratio Length Match Algorithm
-      let calculatedDuration = (wordCount * 0.55) + (charCount * 0.04);
-
-      // Safety boundary clamp limits: minimum clip span 3.2s, maximum cap 11.5s
-      calculatedDuration = Math.min(11.5, Math.max(3.2, calculatedDuration));
-
-      const start = parseFloat(currentTimelineMarker.toFixed(2));
-      const end = parseFloat((start + calculatedDuration).toFixed(2));
-
-      subtitles.push({
-        start,
-        end,
-        verse_key: v.verse_key,
-        text_arabic: arabicText,
-        text_english: englishText
-      });
-
-      // Progressive timeline marker + 0.15s reading buffer delay gap
-      currentTimelineMarker = parseFloat((end + 0.15).toFixed(2));
-    });
-
-    console.log(`[Quran Align API] Auto-segmented ${subtitles.length} total segments using Word/Char ratio algorithm.`);
-    res.json({ subtitles });
+    // No more fake proportional distribution!
+    // If Gemini failed, we return an error. Real audio alignment ONLY.
+    console.error('[Quran Align API] Gemini alignment failed. Returning error to client instead of fake timings.');
+    return res.status(500).json({ error: 'AI audio alignment failed. Could not determine exact Ayah boundaries from real audio.' });
   });
 
   // Video Rendering State Management
@@ -688,7 +793,7 @@ async function startServer() {
           }
         }
       }).catch((err) => {
-        console.error(`[Render Error] ${renderId}:`, err);
+        console.warn(`[Render Error] ${renderId}:`, err);
         const job = renderJobs.get(renderId);
         if (job) {
           job.status = 'failed';
@@ -699,7 +804,7 @@ async function startServer() {
 
       res.json({ success: true, renderId });
     } catch (err: any) {
-      console.error('[Render Initiation Error]', err);
+      console.warn('[Render Initiation Error]', err);
       res.status(500).json({ error: err.message });
     }
   });
@@ -973,7 +1078,7 @@ Rules:
         mimeType: 'audio/wav', // WAV standard container from model
       });
     } catch (error: any) {
-      console.error('Error generating AI Text-to-Speech:', error);
+      console.warn('Error generating AI Text-to-Speech:', error);
       res.json({
         success: true,
         isMock: true,
@@ -1081,7 +1186,7 @@ Rules:
 
       res.json({ success: true, translated });
     } catch (error: any) {
-      console.error('Error in AI subtitle translator:', error);
+      console.warn('Error in AI subtitle translator:', error);
       res.status(500).json({ error: 'Failed to translate subtitles' });
     }
   });
@@ -1162,7 +1267,7 @@ Rules:
         ...parsed
       });
     } catch (error: any) {
-      console.error('Error generating Islamic script:', error);
+      console.warn('Error generating Islamic script:', error);
       res.json({
         success: true,
         topic,
@@ -1239,7 +1344,7 @@ Rules:
         // The client will call /api/ai/generate-image with this prompt for premium high-resolution rendering
       });
     } catch (error: any) {
-      console.error('Error generating calligraphy art:', error);
+      console.warn('Error generating calligraphy art:', error);
       res.json({
         success: true,
         phrase,
@@ -1287,7 +1392,7 @@ Rules:
         model: 'gemini-3.7-flash',
       });
     } catch (error: any) {
-      console.error('Error in High Thinking AI endpoint:', error);
+      console.warn('Error in High Thinking AI endpoint:', error);
       res.json({
         analysis: `[AI Studio Director Analysis - Fallback Mode]\n\nPrompt Analysis for: "${prompt}"\n\n1. Executive Creative Strategy:\n- Structure video with high visual hook in the first 2.5 seconds.\n- Apply warm ambient lighting with subtle contrast.\n\n2. Production Timeline Plan:\n- 0.0s - 3.0s: Opening scene & title overlay\n- 3.0s - 12.0s: Main recitation / core video sequence\n- 12.0s - 15.0s: Smooth fade transition & call-to-action.\n\n3. Captioning & Typography:\n- Position captions at lower third with high-contrast semi-transparent backdrop.\n- Recommended font style: Elegant Serif or Clean Modern Sans.`,
         thinkingLevel: 'HIGH (Fallback Engine)',
@@ -1417,7 +1522,7 @@ Return JSON with format:
         model: 'gemini-3.7-flash',
       });
     } catch (err: any) {
-      console.error('[Voice Chat API] Error in voice chat:', err);
+      console.warn('[Voice Chat API] Error in voice chat:', err);
       return res.json({
         reply: `I received your voice message. How can I assist you with editing your video, captions, or Quran overlays?`,
         action: null,
@@ -1617,7 +1722,7 @@ Return JSON with format:
       const buffer = Buffer.from(arrayBuffer);
       res.send(buffer);
     } catch (error: any) {
-      console.error(`[Download Proxy] Failed to proxy download, redirecting user to fallback link:`, error);
+      console.warn(`[Download Proxy] Failed to proxy download, redirecting user to fallback link:`, error);
       // Fallback: Redirect directly to URL if download proxy fails
       res.redirect(fileUrl);
     }

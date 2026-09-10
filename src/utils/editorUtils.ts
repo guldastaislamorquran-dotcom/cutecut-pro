@@ -241,6 +241,48 @@ export const DEFAULT_TRACK_SLOTS = {
 export const DEFAULT_INITIAL_TRACKS: Track[] = [];
 
 /**
+ * Inserts a newly auto-created or manual track in its designated position based on track type hierarchy:
+ * 1. Top Section (highest visual layers): TEXT, IMAGE, EFFECT (above video and audio)
+ * 2. Middle Section: VIDEO (above audio, below text/image)
+ * 3. Bottom / Last Section: AUDIO (at the very bottom / last of the timeline tracks)
+ */
+export function insertTrackInProperOrder(existingTracks: Track[], newTrack: Track): Track[] {
+  const result = [...existingTracks];
+  const type = newTrack.type;
+
+  // 1. AUDIO track: Always placed at the very bottom / last of all tracks
+  if (type === ClipType.AUDIO) {
+    result.push(newTrack);
+    return result;
+  }
+
+  // 2. VIDEO track: Placed above all AUDIO tracks, but below any existing TEXT/IMAGE/EFFECT tracks
+  if (type === ClipType.VIDEO) {
+    const firstAudioIdx = result.findIndex(t => t.type === ClipType.AUDIO);
+    if (firstAudioIdx !== -1) {
+      result.splice(firstAudioIdx, 0, newTrack);
+    } else {
+      // If no audio track exists yet, append at the end (below text/image/video tracks)
+      result.push(newTrack);
+    }
+    return result;
+  }
+
+  // 3. TEXT, IMAGE, EFFECT tracks: Placed at the top section (above VIDEO and AUDIO tracks)
+  // If there are existing text/image tracks, it is placed after them, but before any VIDEO or AUDIO tracks
+  const firstVideoOrAudioIdx = result.findIndex(
+    t => t.type === ClipType.VIDEO || t.type === ClipType.AUDIO
+  );
+  if (firstVideoOrAudioIdx !== -1) {
+    result.splice(firstVideoOrAudioIdx, 0, newTrack);
+  } else {
+    // If no video or audio tracks exist yet, append after existing text/image tracks
+    result.push(newTrack);
+  }
+  return result;
+}
+
+/**
  * Applies pixel-level canvas filters for real-time playbacks
  */
 export function applyPixelFilters(
@@ -575,7 +617,7 @@ export function convertToArabicDigits(num: number | string): string {
 
 export type AyahSymbolStyle = 'ornate-medallion' | 'uthmani-circle' | 'ornate-brackets' | 'parentheses' | 'brackets' | 'none';
 export type AyahDigitType = 'arabic' | 'latin';
-export type AyahSymbolPosition = 'end' | 'start';
+export type AyahSymbolPosition = 'end' | 'start' | 'divider';
 
 /**
  * Formats the Ayah end ornamental symbol / number badge
@@ -619,6 +661,7 @@ export function stripAyahSymbol(text: string): string {
     .replace(/﴿[\u0660-\u06690-9\s]*﴾/g, '')
     .replace(/\([\u0660-\u06690-9\s]+\)/g, '')
     .replace(/\[[\u0660-\u06690-9\s]+\]/g, '')
+    .replace(/\s+[\u0660-\u06690-9]+$/g, '')
     .replace(/\s{2,}/g, ' ')
     .trim();
 }
@@ -636,11 +679,17 @@ export function attachAyahSymbolToText(
   if (!text) return '';
   const clean = stripAyahSymbol(text);
   if (symbolStyle === 'none' || !ayahNumber) return clean;
+  // When position is 'divider', the ornate medallion is rendered as a standalone or cinema-card divider on canvas.
+  // Never attach an inline symbol to the text string in divider mode to prevent duplicate symbols.
+  if (position === 'divider') {
+    return clean;
+  }
   const symbol = formatAyahSymbol(ayahNumber, symbolStyle, digitType);
   if (!symbol) return clean;
   if (position === 'start') {
     return `${symbol} ${clean}`.trim();
   }
+  // For 'end' or any default position: attach symbol directly to Arabic text
   return `${clean} ${symbol}`.trim();
 }
 
@@ -1192,30 +1241,34 @@ export function analyzeVoiceActivityRMS(
 
   // 4. Reciter-Independent Adaptive Timing Defaults (if not explicitly overridden)
   // Derive pace/tempo from energy fluctuations if audio duration permits
-  let defaultMinSilence = 220;
-  let defaultMinSpeech = 450;
-  let defaultPadding = 80;
+  let defaultMinSilence = 600;
+  let defaultMinSpeech = 600;
+  let defaultPadding = 60;
 
-  if (sensitivity === 'tartil') {
-    defaultMinSilence = 320;
+  if (sensitivity === 'quran-ayah') {
+    defaultMinSilence = 650;
     defaultMinSpeech = 600;
-    defaultPadding = 100;
+    defaultPadding = 60;
+  } else if (sensitivity === 'tartil') {
+    defaultMinSilence = 600;
+    defaultMinSpeech = 700;
+    defaultPadding = 80;
   } else if (sensitivity === 'hadr') {
-    defaultMinSilence = 160;
-    defaultMinSpeech = 300;
+    defaultMinSilence = 380;
+    defaultMinSpeech = 400;
     defaultPadding = 50;
   } else if (sensitivity === 'mosque') {
-    defaultMinSilence = 280;
-    defaultMinSpeech = 650;
-    defaultPadding = 90;
+    defaultMinSilence = 650;
+    defaultMinSpeech = 700;
+    defaultPadding = 80;
   } else if (sensitivity === 'studio') {
-    defaultMinSilence = 150;
-    defaultMinSpeech = 400;
+    defaultMinSilence = 550;
+    defaultMinSpeech = 500;
     defaultPadding = 60;
   } else if (sensitivity === 'smart-waqf') {
-    defaultMinSilence = 200;
-    defaultMinSpeech = 400;
-    defaultPadding = 80;
+    defaultMinSilence = 500;
+    defaultMinSpeech = 500;
+    defaultPadding = 60;
   }
 
   const minSilenceMs = options.minSilenceMs ?? defaultMinSilence;
@@ -1892,17 +1945,30 @@ export function splitVerseAcrossBreaths(
 
   const vNum = verse.verse_number || (verse.verse_key ? parseInt(verse.verse_key.split(':')[1], 10) : 1);
   const showSymbol = options?.showAyahSymbol ?? true;
-  const symStyle = options?.ayahSymbolStyle ?? 'none';
+  const symStyle = options?.ayahSymbolStyle ?? 'ornate-medallion';
   const symDigit = options?.ayahDigitType ?? 'arabic';
   const symPos = options?.ayahSymbolPosition ?? 'end';
 
-  if (segs.length === 1) {
+  const isImmune = Boolean(
+    verse.isTaawwuz ||
+    verse.isTasmiyah ||
+    (verse.verse_key && (
+      String(verse.verse_key).includes('taawwuz') ||
+      String(verse.verse_key).includes('bismillah') ||
+      verse.verse_key === 'aux' ||
+      verse.verse_key === 'bis'
+    ))
+  );
+  const arWordsList = (verse.text_arabic || '').trim().split(/\s+/).filter(Boolean);
+  const isShortAyah = arWordsList.length <= 5;
+
+  if (segs.length === 1 || isImmune || isShortAyah) {
     let arText = verse.text_arabic || '';
-    if (arText && !verse.isTaawwuz && !verse.isTasmiyah && showSymbol) {
+    if (arText && !verse.isTaawwuz && !verse.isTasmiyah && !isImmune && showSymbol) {
       arText = attachAyahSymbolToText(arText, vNum, symStyle, symDigit, symPos);
     }
     const sStart = Math.max(0, Number(segs[0].start.toFixed(2)));
-    const sEnd = Math.max(sStart + 0.2, Number(segs[0].end.toFixed(2)));
+    const sEnd = Math.max(sStart + 0.2, Number(segs[segs.length - 1].end.toFixed(2)));
     return [{
       verse_key: verse.verse_key,
       text_arabic: arText,
@@ -1914,7 +1980,7 @@ export function splitVerseAcrossBreaths(
       isTaawwuz: verse.isTaawwuz,
       isTasmiyah: verse.isTasmiyah,
       isWaqfPause: false,
-      confidenceScore: Number(Math.min(95, Math.max(50, 70 + (segs[0].end - segs[0].start > 1.0 ? 15 : 0))).toFixed(1)),
+      confidenceScore: Number(Math.min(95, Math.max(50, 70 + (sEnd - sStart > 1.0 ? 15 : 0))).toFixed(1)),
       pauseType: 'ayah-boundary',
       subPhraseIndex: 1,
       totalSubPhrases: 1
@@ -2738,19 +2804,25 @@ export function computeClipTransitionState(
  * Calculates exact export dimensions based on resolution preset and aspect ratio
  */
 export function getExportResolutionDimensions(
-  resolution: '480p' | '720p' | '1080p' | string,
+  resolution: '4K' | '2K' | '480p' | '720p' | '1080p' | string,
   aspectRatio: '16:9' | '9:16' | '1:1' | string
 ): { width: number; height: number } {
   if (aspectRatio === '9:16') {
+    if (resolution === '4K') return { width: 2160, height: 3840 };
+    if (resolution === '2K') return { width: 1440, height: 2560 };
     if (resolution === '1080p') return { width: 1080, height: 1920 };
     if (resolution === '720p') return { width: 720, height: 1280 };
     return { width: 480, height: 854 };
   } else if (aspectRatio === '1:1') {
+    if (resolution === '4K') return { width: 2160, height: 2160 };
+    if (resolution === '2K') return { width: 1440, height: 1440 };
     if (resolution === '1080p') return { width: 1080, height: 1080 };
     if (resolution === '720p') return { width: 720, height: 720 };
     return { width: 480, height: 480 };
   } else {
     // 16:9 Landscape default
+    if (resolution === '4K') return { width: 3840, height: 2160 };
+    if (resolution === '2K') return { width: 2560, height: 1440 };
     if (resolution === '1080p') return { width: 1920, height: 1080 };
     if (resolution === '720p') return { width: 1280, height: 720 };
     return { width: 854, height: 480 };

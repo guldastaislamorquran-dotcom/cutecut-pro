@@ -2,8 +2,20 @@
 @import "tailwindcss";
 
 @font-face {
+  font-family: 'QPC Uthmani Hafs';
+  src: url('/fonts/hafs-uthmanic-v14-full.woff2') format('woff2'),
+       url('/fonts/hafs-uthmanic-v14-full.ttf') format('truetype'),
+       url('https://cdn.jsdelivr.net/gh/fawazahmed0/quran-api@1/fonts/hafs-uthmanic-v14-full.woff2') format('woff2');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
   font-family: 'Uthmani';
-  src: url('https://cdn.jsdelivr.net/gh/quran/quran.com-frontend-next@master/public/fonts/uthmanic_hafs/v22.woff2') format('woff2');
+  src: url('/fonts/hafs-uthmanic-v14-full.woff2') format('woff2'),
+       url('/fonts/hafs-uthmanic-v14-full.ttf') format('truetype'),
+       url('https://cdn.jsdelivr.net/gh/fawazahmed0/quran-api@1/fonts/hafs-uthmanic-v14-full.woff2') format('woff2');
   font-weight: normal;
   font-style: normal;
   font-display: swap;
@@ -11,7 +23,9 @@
 
 @font-face {
   font-family: 'KFGQPC Uthmanic Script HAFS';
-  src: url('https://cdn.jsdelivr.net/gh/quran/quran.com-frontend-next@master/public/fonts/uthmanic_hafs/v22.woff2') format('woff2');
+  src: url('/fonts/hafs-uthmanic-v14-full.woff2') format('woff2'),
+       url('/fonts/hafs-uthmanic-v14-full.ttf') format('truetype'),
+       url('https://cdn.jsdelivr.net/gh/fawazahmed0/quran-api@1/fonts/hafs-uthmanic-v14-full.woff2') format('woff2');
   font-weight: normal;
   font-style: normal;
   font-display: swap;
@@ -19,7 +33,9 @@
 
 @font-face {
   font-family: 'KFGQPC Uthmanic Script HAFS Regular';
-  src: url('https://cdn.jsdelivr.net/gh/quran/quran.com-frontend-next@master/public/fonts/uthmanic_hafs/v22.woff2') format('woff2');
+  src: url('/fonts/hafs-uthmanic-v14-full.woff2') format('woff2'),
+       url('/fonts/hafs-uthmanic-v14-full.ttf') format('truetype'),
+       url('https://cdn.jsdelivr.net/gh/fawazahmed0/quran-api@1/fonts/hafs-uthmanic-v14-full.woff2') format('woff2');
   font-weight: normal;
   font-style: normal;
   font-display: swap;
@@ -27,7 +43,9 @@
 
 @font-face {
   font-family: 'KFGQPC Uthman Taha Naskh';
-  src: url('https://cdn.jsdelivr.net/gh/quran/quran.com-frontend-next@master/public/fonts/uthmanic_hafs/v22.woff2') format('woff2');
+  src: url('/fonts/hafs-uthmanic-v14-full.woff2') format('woff2'),
+       url('/fonts/hafs-uthmanic-v14-full.ttf') format('truetype'),
+       url('https://cdn.jsdelivr.net/gh/fawazahmed0/quran-api@1/fonts/hafs-uthmanic-v14-full.woff2') format('woff2');
   font-weight: normal;
   font-style: normal;
   font-display: swap;
@@ -36,7 +54,7 @@
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
-  --font-uthmani: "Uthmani", "KFGQPC Uthman Taha Naskh", "Amiri Quran", "Noto Naskh Arabic", serif;
+  --font-uthmani: "QPC Uthmani Hafs", "KFGQPC Uthmanic Script HAFS", "Uthmani", "KFGQPC Uthman Taha Naskh", "Amiri Quran", "Noto Naskh Arabic", serif;
   --font-amiri: "Amiri", serif;
   --font-scheherazade: "Scheherazade New", serif;
   --font-reemkufi: "Reem Kufi", sans-serif;

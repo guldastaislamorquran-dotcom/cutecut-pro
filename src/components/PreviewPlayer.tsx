@@ -5,7 +5,123 @@ import {
   Film, Menu, Scan, Search, ChevronDown, Activity, SlidersHorizontal
 } from 'lucide-react';
 import { Track, Clip, ClipType, WatermarkSettings } from '../types';
-import { formatTimeCode, applyPixelFilters, applyColorGrading, isColorGradingActive, normalizeMediaUrl, getSafeCrossOrigin, getInterpolatedClipProperties, computeClipTransitionState, getExportResolutionDimensions } from '../utils/editorUtils';
+import {
+  formatTimeCode,
+  applyPixelFilters,
+  applyColorGrading,
+  isColorGradingActive,
+  normalizeMediaUrl,
+  getSafeCrossOrigin,
+  getInterpolatedClipProperties,
+  computeClipTransitionState,
+  getExportResolutionDimensions,
+  extractAyahNumberFromClip,
+  convertToArabicDigits,
+  stripAyahSymbol,
+} from '../utils/editorUtils';
+
+/**
+ * Draws the authentic Quran.com style ornate crowned Ayah medallion directly on canvas
+ */
+function drawCanvasAyahMedallion(
+  ctx: CanvasRenderingContext2D,
+  centerX: number,
+  centerY: number,
+  height: number,
+  ayahNumber: number,
+  digitType: 'arabic' | 'latin' = 'arabic',
+  color: string = '#ffffff'
+) {
+  const digits = digitType === 'arabic' ? convertToArabicDigits(ayahNumber) : String(ayahNumber);
+  const scale = height / 120;
+
+  ctx.save();
+  ctx.translate(centerX, centerY);
+
+  // Outer ambient glow / shadow
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.6)';
+  ctx.shadowBlur = 8;
+  ctx.shadowOffsetY = 2;
+
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 3.2 * scale;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+
+  // 1. Top Crown & Finial
+  ctx.beginPath();
+  ctx.moveTo(0, -56 * scale);
+  ctx.bezierCurveTo(-3 * scale, -50 * scale, -7 * scale, -46 * scale, -10 * scale, -44 * scale);
+  ctx.bezierCurveTo(-4 * scale, -45 * scale, 4 * scale, -45 * scale, 10 * scale, -44 * scale);
+  ctx.bezierCurveTo(7 * scale, -46 * scale, 3 * scale, -50 * scale, 0, -56 * scale);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.16)';
+  ctx.fill();
+  ctx.stroke();
+
+  // Top jewel circle
+  ctx.beginPath();
+  ctx.arc(0, -55 * scale, 2.2 * scale, 0, Math.PI * 2);
+  ctx.fillStyle = color;
+  ctx.fill();
+
+  // 2. Outer Medallion Frame (rosette oval with pointed top and bottom)
+  ctx.beginPath();
+  ctx.moveTo(0, -46 * scale);
+  ctx.bezierCurveTo(28 * scale, -42 * scale, 42 * scale, -22 * scale, 42 * scale, 0);
+  ctx.bezierCurveTo(42 * scale, 22 * scale, 28 * scale, 42 * scale, 0, 46 * scale);
+  ctx.bezierCurveTo(-28 * scale, 42 * scale, -42 * scale, 22 * scale, -42 * scale, 0);
+  ctx.bezierCurveTo(-42 * scale, -22 * scale, -28 * scale, -42 * scale, 0, -46 * scale);
+  ctx.closePath();
+  ctx.stroke();
+
+  // 3. Inner Concentric Medallion
+  ctx.lineWidth = 1.8 * scale;
+  ctx.beginPath();
+  ctx.moveTo(0, -36 * scale);
+  ctx.bezierCurveTo(22 * scale, -32 * scale, 32 * scale, -16 * scale, 32 * scale, 0);
+  ctx.bezierCurveTo(32 * scale, 16 * scale, 22 * scale, 32 * scale, 0, 36 * scale);
+  ctx.bezierCurveTo(-22 * scale, 32 * scale, -32 * scale, 16 * scale, -32 * scale, 0);
+  ctx.bezierCurveTo(-32 * scale, -16 * scale, -22 * scale, -32 * scale, 0, -36 * scale);
+  ctx.closePath();
+  ctx.stroke();
+
+  // 4. Floral Arches at Cardinal Points
+  ctx.beginPath();
+  ctx.moveTo(-13 * scale, -41 * scale);
+  ctx.quadraticCurveTo(0, -32 * scale, 13 * scale, -41 * scale);
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.moveTo(-13 * scale, 41 * scale);
+  ctx.quadraticCurveTo(0, 32 * scale, 13 * scale, 41 * scale);
+  ctx.stroke();
+
+  // 5. Bottom Finial Teardrop
+  ctx.beginPath();
+  ctx.moveTo(-5 * scale, 45 * scale);
+  ctx.quadraticCurveTo(0, 55 * scale, 0, 57 * scale);
+  ctx.quadraticCurveTo(0, 55 * scale, 5 * scale, 45 * scale);
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.16)';
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.arc(0, 56 * scale, 1.8 * scale, 0, Math.PI * 2);
+  ctx.fillStyle = color;
+  ctx.fill();
+
+  // 6. Center Ayah Number
+  ctx.shadowBlur = 3;
+  ctx.fillStyle = color;
+  const numFontSize = Math.round(scale * (digits.length > 2 ? 22 : digits.length === 2 ? 26 : 30));
+  ctx.font = `bold ${numFontSize}px "Amiri", "Noto Naskh Arabic", "Scheherazade New", system-ui, sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(digits, 0, 2 * scale);
+
+  ctx.restore();
+}
 
 interface PreviewPlayerProps {
   tracks: Track[];
@@ -65,6 +181,13 @@ export default function PreviewPlayer({
   useEffect(() => {
     if (onCanvasReady) {
       onCanvasReady(canvasRef.current);
+    }
+    if (typeof document !== 'undefined' && (document as any).fonts) {
+      Promise.all([
+        (document as any).fonts.load('36px "QPC Uthmani Hafs"'),
+        (document as any).fonts.load('36px "Uthmani"'),
+        (document as any).fonts.load('36px "KFGQPC Uthmanic Script HAFS"'),
+      ]).catch(() => {});
     }
   }, [onCanvasReady]);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -669,110 +792,291 @@ export default function PreviewPlayer({
           }
         });
 
-      // ------------------ TEXT LAYERS ------------------
-      activeFrameClips.forEach((clip) => {
-        if (clip.type === ClipType.TEXT && clip.text) {
-          ctx.save();
-          
-          const transState = computeClipTransitionState(clip, currentTime, dimensions.width, dimensions.height);
-          ctx.globalAlpha = Math.max(0, Math.min(1, transState.alphaMultiplier));
+      // ------------------ PRE-CALCULATE TEXT LAYERS & CINEMA OVERLAYS ------------------
+      interface PreparedTextLayer {
+        clip: Clip;
+        transState: ReturnType<typeof computeClipTransitionState>;
+        xPos: number;
+        yPos: number;
+        fontSize: number;
+        fontStack: string;
+        color: string;
+        alignment: CanvasTextAlign;
+        lines: string[];
+        lineGap: number;
+        totalHeight: number;
+        startY: number;
+        blockW: number;
+        blockH: number;
+        boxLeft: number;
+        boxTop: number;
+      }
 
-          const xPos = (((clip.textX ?? 50) / 100) * dimensions.width) + transState.offsetX;
-          const yPos = (((clip.textY ?? 50) / 100) * dimensions.height) + transState.offsetY;
-          const rawFontSize = clip.fontSize ?? 32;
-          // Scale font size from logical mobile CSS pixels (e.g. 390 width) to actual canvas dimensions
-          const referenceWidth = 390;
-          const fontScale = dimensions.width / referenceWidth;
-          const fontSize = rawFontSize * fontScale;
+      const preparedTextLayers: PreparedTextLayer[] = [];
+      const activeTextClips = activeFrameClips.filter((clip) => clip.type === ClipType.TEXT && Boolean(clip.text));
 
-          const color = clip.color ?? '#FFFFFF';
-          const alignment = clip.textAlignment ?? 'center';
-          const wrapEnabled = clip.textWrap !== false;
-          const maxPct = clip.textMaxWidth ?? 85;
-          const maxPxWidth = (maxPct / 100) * dimensions.width;
-          const lineHeightMult = clip.textLineHeight ?? 1.3;
+      activeTextClips.forEach((clip) => {
+        const transState = computeClipTransitionState(clip, currentTime, dimensions.width, dimensions.height);
+        const xPos = (((clip.textX ?? 50) / 100) * dimensions.width) + transState.offsetX;
+        const yPos = (((clip.textY ?? 50) / 100) * dimensions.height) + transState.offsetY;
+        const rawFontSize = clip.fontSize ?? 32;
+        const referenceWidth = 390;
+        const fontScale = dimensions.width / referenceWidth;
+        const fontSize = rawFontSize * fontScale;
 
-          let fontStack = '"Inter", sans-serif';
-          if (clip.fontFamily === 'KFGQPC Uthmanic Script HAFS Regular' || clip.fontFamily === 'KFGQPC Uthmanic Script HAFS' || clip.fontFamily === 'Uthmani' || clip.fontFamily === 'KFGQPC Uthman Taha Naskh') {
-            fontStack = '"KFGQPC Uthmanic Script HAFS Regular", "KFGQPC Uthmanic Script HAFS", "Uthmani", "KFGQPC Uthman Taha Naskh", "Amiri Quran", "Noto Naskh Arabic", serif';
-          } else if (clip.fontFamily === 'Amiri Quran') {
-            fontStack = '"Amiri Quran", "Uthmani", "Amiri", serif';
-          } else if (clip.fontFamily === 'Noto Naskh Arabic') {
-            fontStack = '"Noto Naskh Arabic", "Uthmani", "Amiri", serif';
-          } else if (clip.fontFamily === 'Amiri') {
-            fontStack = '"Amiri", serif';
-          }
-          else if (clip.fontFamily === 'Traditional Arabic') fontStack = '"Traditional Arabic", "Amiri", serif';
-          else if (clip.fontFamily === 'Lateef') fontStack = '"Lateef", serif';
-          else if (clip.fontFamily === 'Scheherazade New') fontStack = '"Scheherazade New", serif';
-          else if (clip.fontFamily === 'Reem Kufi') fontStack = '"Reem Kufi", sans-serif';
-          else if (clip.fontFamily === 'Noto Nastaliq Urdu') fontStack = '"Noto Nastaliq Urdu", serif';
-          else if (clip.fontFamily === 'Cinzel') fontStack = '"Cinzel", serif';
-          else if (clip.fontFamily === 'Montserrat') fontStack = '"Montserrat", sans-serif';
-          else if (clip.fontFamily === 'Space Grotesk') fontStack = '"Space Grotesk", sans-serif';
-          else if (clip.fontFamily === 'Playfair Display') fontStack = '"Playfair Display", serif';
-          else if (clip.fontFamily === 'JetBrains Mono') fontStack = '"JetBrains Mono", monospace';
-          else if (clip.fontFamily) fontStack = clip.fontFamily;
+        const color = clip.color ?? '#FFFFFF';
+        const alignment = (clip.textAlignment ?? 'center') as CanvasTextAlign;
+        const wrapEnabled = clip.textWrap !== false;
+        const maxPct = clip.textMaxWidth ?? 85;
+        const maxPxWidth = (maxPct / 100) * dimensions.width;
+        const lineHeightMult = clip.textLineHeight ?? 1.3;
 
-          ctx.font = `bold ${fontSize}px ${fontStack}`;
-          ctx.textAlign = alignment;
-          ctx.textBaseline = 'middle';
+        let fontStack = '"Inter", sans-serif';
+        if (
+          clip.fontFamily === 'QPC Uthmani Hafs' ||
+          clip.fontFamily === 'KFGQPC Uthmanic Script HAFS Regular' ||
+          clip.fontFamily === 'KFGQPC Uthmanic Script HAFS' ||
+          clip.fontFamily === 'Uthmani' ||
+          clip.fontFamily === 'KFGQPC Uthman Taha Naskh'
+        ) {
+          fontStack = '"QPC Uthmani Hafs", "KFGQPC Uthmanic Script HAFS Regular", "KFGQPC Uthmanic Script HAFS", "Uthmani", "KFGQPC Uthman Taha Naskh", "Amiri Quran", "Noto Naskh Arabic", serif';
+        } else if (clip.fontFamily === 'Amiri Quran') {
+          fontStack = '"Amiri Quran", "Uthmani", "Amiri", serif';
+        } else if (clip.fontFamily === 'Noto Naskh Arabic') {
+          fontStack = '"Noto Naskh Arabic", "Uthmani", "Amiri", serif';
+        } else if (clip.fontFamily === 'Amiri') {
+          fontStack = '"Amiri", serif';
+        } else if (clip.fontFamily === 'Traditional Arabic') fontStack = '"Traditional Arabic", "Amiri", serif';
+        else if (clip.fontFamily === 'Lateef') fontStack = '"Lateef", serif';
+        else if (clip.fontFamily === 'Scheherazade New') fontStack = '"Scheherazade New", serif';
+        else if (clip.fontFamily === 'Reem Kufi') fontStack = '"Reem Kufi", sans-serif';
+        else if (clip.fontFamily === 'Noto Nastaliq Urdu') fontStack = '"Noto Nastaliq Urdu", serif';
+        else if (clip.fontFamily === 'Cinzel') fontStack = '"Cinzel", serif';
+        else if (clip.fontFamily === 'Montserrat') fontStack = '"Montserrat", sans-serif';
+        else if (clip.fontFamily === 'Space Grotesk') fontStack = '"Space Grotesk", sans-serif';
+        else if (clip.fontFamily === 'Playfair Display') fontStack = '"Playfair Display", serif';
+        else if (clip.fontFamily === 'JetBrains Mono') fontStack = '"JetBrains Mono", monospace';
+        else if (clip.fontFamily) fontStack = clip.fontFamily;
 
-          const rawText = clip.textTransform === 'uppercase' ? clip.text.toUpperCase() : clip.text;
-          
-          let lines: string[] = [rawText];
-          if (wrapEnabled) {
-            const manualParagraphs = rawText.split('\n');
-            const wrappedLines: string[] = [];
-            for (const para of manualParagraphs) {
-              const words = para.trim().split(/\s+/);
-              if (words.length <= 1) {
-                wrappedLines.push(para);
-              } else {
-                let currentLine = words[0];
-                for (let i = 1; i < words.length; i++) {
-                  const word = words[i];
-                  const testLine = currentLine + " " + word;
-                  const metrics = ctx.measureText(testLine);
-                  if (metrics.width > maxPxWidth) {
-                    wrappedLines.push(currentLine);
-                    currentLine = word;
-                  } else {
-                    currentLine = testLine;
-                  }
+        ctx.font = `bold ${fontSize}px ${fontStack}`;
+        ctx.textAlign = alignment;
+        ctx.textBaseline = 'middle';
+
+        let rawText = clip.textTransform === 'uppercase' ? (clip.text || '').toUpperCase() : (clip.text || '');
+        const isArabicOrQuran = clip.language === 'ar' || /[\u0600-\u06FF]/.test(clip.text || '') || clip.trackId?.includes('quran') || clip.name?.startsWith('AR:');
+        const ayahSymbolStyle = clip.ayahSymbolStyle && clip.ayahSymbolStyle !== 'none' ? clip.ayahSymbolStyle : 'ornate-medallion';
+        const ayahSymbolPosition = clip.ayahSymbolPosition || 'end';
+        const isDividerOrCinema = ayahSymbolPosition === 'divider' || !ayahSymbolPosition || clip.textBackgroundStyle === 'strip';
+        const hasDoubleCircleIssue = ayahSymbolStyle === 'ornate-medallion' || ayahSymbolStyle === 'uthmani-circle';
+        if (isArabicOrQuran && (isDividerOrCinema || hasDoubleCircleIssue)) {
+          rawText = stripAyahSymbol(rawText);
+        }
+        let lines: string[] = [rawText];
+        if (wrapEnabled) {
+          const manualParagraphs = rawText.split('\n');
+          const wrappedLines: string[] = [];
+          for (const para of manualParagraphs) {
+            const words = para.trim().split(/\s+/);
+            if (words.length <= 1) {
+              wrappedLines.push(para);
+            } else {
+              let currentLine = words[0];
+              for (let i = 1; i < words.length; i++) {
+                const word = words[i];
+                const testLine = currentLine + " " + word;
+                const metrics = ctx.measureText(testLine);
+                if (metrics.width > maxPxWidth) {
+                  wrappedLines.push(currentLine);
+                  currentLine = word;
+                } else {
+                  currentLine = testLine;
                 }
-                wrappedLines.push(currentLine);
               }
+              wrappedLines.push(currentLine);
             }
-            lines = wrappedLines.filter(l => l.trim().length > 0);
           }
-          
-          if (lines.length === 0) lines = [''];
+          lines = wrappedLines.filter(l => l.trim().length > 0);
+        }
+        if (lines.length === 0) lines = [''];
 
-          const lineGap = fontSize * lineHeightMult;
-          const totalHeight = (lines.length - 1) * lineGap;
-          const startY = yPos - totalHeight / 2;
+        const lineGap = fontSize * lineHeightMult;
+        const totalHeight = (lines.length - 1) * lineGap;
+        const startY = yPos - totalHeight / 2;
 
-          let maxLineWidth = 0;
-          lines.forEach((lText) => {
-            const w = ctx.measureText(lText).width;
-            if (w > maxLineWidth) maxLineWidth = w;
-          });
+        let maxLineWidth = 0;
+        lines.forEach((lText) => {
+          const w = ctx.measureText(lText).width;
+          if (w > maxLineWidth) maxLineWidth = w;
+        });
 
-          const blockW = Math.max(80, maxLineWidth + 24);
-          const blockH = Math.max(40, lines.length * lineGap + 16);
-          const boxLeft = alignment === 'center' ? xPos - blockW / 2 : alignment === 'right' ? xPos - blockW : xPos;
-          const boxTop = yPos - blockH / 2;
+        const blockW = Math.max(80, maxLineWidth + 24);
+        const blockH = Math.max(40, lines.length * lineGap + 16);
+        const boxLeft = alignment === 'center' ? xPos - blockW / 2 : alignment === 'right' ? xPos - blockW : xPos;
+        const boxTop = yPos - blockH / 2;
 
-          textBoundsRef.current[clip.id] = {
-            left: boxLeft,
-            top: boxTop,
-            width: blockW,
-            height: blockH,
-            centerX: xPos,
-            centerY: yPos,
-            clip,
-          };
+        textBoundsRef.current[clip.id] = {
+          left: boxLeft,
+          top: boxTop,
+          width: blockW,
+          height: blockH,
+          centerX: xPos,
+          centerY: yPos,
+          clip,
+        };
+
+        preparedTextLayers.push({
+          clip,
+          transState,
+          xPos,
+          yPos,
+          fontSize,
+          fontStack,
+          color,
+          alignment,
+          lines,
+          lineGap,
+          totalHeight,
+          startY,
+          blockW,
+          blockH,
+          boxLeft,
+          boxTop,
+        });
+      });
+
+      // ------------------ QURAN.COM CINEMA STRIP CONTAINER RENDERING ------------------
+      // Group clips with textBackgroundStyle === 'strip' into unified Quran Cinema Cards
+      const renderedCinemaClipIds = new Set<string>();
+      const renderedMedallionAyahNumbers = new Set<number>();
+      const stripLayers = preparedTextLayers.filter(l => l.clip.textBackgroundStyle === 'strip');
+
+      stripLayers.forEach(layer => {
+        if (renderedCinemaClipIds.has(layer.clip.id)) return;
+
+        // Find all layers that should belong to this Cinema Card group
+        const group: PreparedTextLayer[] = [layer];
+        renderedCinemaClipIds.add(layer.clip.id);
+
+        stripLayers.forEach(other => {
+          if (renderedCinemaClipIds.has(other.clip.id)) return;
+          const isLinked = layer.clip.linkedClipId === other.clip.id || other.clip.linkedClipId === layer.clip.id;
+          const isBothQuran = (
+            (layer.clip.trackId?.includes('quran') || layer.clip.name?.startsWith('AR:') || layer.clip.name?.startsWith('EN:') || /[\u0600-\u06FF]/.test(layer.clip.text || '')) &&
+            (other.clip.trackId?.includes('quran') || other.clip.name?.startsWith('AR:') || other.clip.name?.startsWith('EN:') || /[\u0600-\u06FF]/.test(other.clip.text || ''))
+          );
+          const isVerticallyClose = Math.abs(layer.yPos - other.yPos) < dimensions.height * 0.70;
+
+          if (isLinked || isBothQuran || isVerticallyClose) {
+            group.push(other);
+            renderedCinemaClipIds.add(other.clip.id);
+          }
+        });
+
+        // Compute unified bounding box for the Cinema Card
+        const minBoxTop = Math.min(...group.map(g => g.boxTop));
+        const maxBoxBottom = Math.max(...group.map(g => g.boxTop + g.blockH));
+
+        const arLayer = group.find(g => g.clip.language === 'ar' || /[\u0600-\u06FF]/.test(g.clip.text || ''));
+        const enLayer = group.find(g => g !== arLayer);
+        const ayahNum = group.map(g => g.clip.ayahNumber || extractAyahNumberFromClip(g.clip)).find(n => typeof n === 'number' && n > 0);
+
+        const medallionH = Math.max(34, Math.min(52, Math.round(dimensions.height * 0.052)));
+        let medallionY = 0;
+        if (ayahNum) {
+          if (arLayer && enLayer) {
+            const arBottom = arLayer.boxTop + arLayer.blockH;
+            const enTop = enLayer.boxTop;
+            medallionY = (arBottom + enTop) / 2;
+          } else if (arLayer) {
+            medallionY = arLayer.boxTop + arLayer.blockH + (medallionH / 2) + 12;
+          } else {
+            medallionY = (minBoxTop + maxBoxBottom) / 2;
+          }
+        }
+
+        const primaryClip = group[0].clip;
+        const bgPad = Math.max(16, Math.max(...group.map(g => g.clip.textBackgroundPadding ?? 18)));
+        const bgRad = Math.max(18, Math.max(...group.map(g => g.clip.textBackgroundRadius ?? 20)));
+        const bgOpac = Math.max(...group.map(g => g.clip.textBackgroundOpacity ?? 0.65));
+        const bgBlur = Math.max(...group.map(g => g.clip.textBackgroundBlur ?? 0));
+        const bgColor = primaryClip.textBackgroundColor && primaryClip.textBackgroundColor !== 'transparent'
+          ? primaryClip.textBackgroundColor
+          : '#000000';
+
+        // Cinema card spans wide with elegant side margins (matching user reference image from Quran.com)
+        const sideMargin = Math.max(20, Math.round(dimensions.width * 0.038));
+        const cardLeft = sideMargin;
+        const cardWidth = dimensions.width - (sideMargin * 2);
+
+        // Vertical padding: spacious and balanced
+        const vPad = Math.max(22, Math.round(bgPad * 1.4));
+        const cardTop = minBoxTop - vPad;
+        const effectiveMaxBottom = (ayahNum && arLayer && !enLayer)
+          ? Math.max(maxBoxBottom, medallionY + (medallionH / 2) + 6)
+          : maxBoxBottom;
+        const cardHeight = (effectiveMaxBottom - minBoxTop) + (vPad * 2);
+        const cornerRadius = Math.max(16, Math.min(32, bgRad));
+
+        const groupAlpha = Math.max(...group.map(g => g.transState.alphaMultiplier));
+
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, Math.min(1, groupAlpha * bgOpac));
+
+        if (bgBlur > 0) {
+          ctx.filter = `blur(${bgBlur}px)`;
+        }
+
+        // Ambient dark drop shadow
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.45)';
+        ctx.shadowBlur = 24;
+        ctx.shadowOffsetY = 4;
+
+        // Dark translucent Cinema card
+        ctx.fillStyle = bgColor;
+        ctx.beginPath();
+        ctx.roundRect(cardLeft, cardTop, cardWidth, cardHeight, cornerRadius);
+        ctx.fill();
+
+        // Clear shadow before drawing subtle border
+        ctx.shadowColor = 'transparent';
+        ctx.shadowBlur = 0;
+        ctx.shadowOffsetY = 0;
+
+        // Crisp subtle 1.2px border framing as seen on Quran.com
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.13)';
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+
+        ctx.restore();
+
+        // Render the authentic Quran.com ornate crowned Ayah medallion in the Cinema Card
+        // Strictly render only ONE medallion per ayah number across the entire frame
+        const isMedallionEnabled = primaryClip.ayahSymbolPosition === 'divider' && primaryClip.ayahSymbolStyle !== 'none';
+        if (ayahNum && isMedallionEnabled && !renderedMedallionAyahNumbers.has(ayahNum)) {
+          renderedMedallionAyahNumbers.add(ayahNum);
+          ctx.save();
+          ctx.globalAlpha = Math.max(0, Math.min(1, groupAlpha));
+          drawCanvasAyahMedallion(
+            ctx,
+            dimensions.width / 2,
+            medallionY,
+            medallionH,
+            ayahNum,
+            'arabic',
+            '#ffffff'
+          );
+          ctx.restore();
+        }
+      });
+
+      // ------------------ TEXT CONTENT & SELECTION RENDERING ------------------
+      preparedTextLayers.forEach((layer) => {
+        const { clip, transState, xPos, yPos, fontSize, fontStack, color, alignment, lines, lineGap, totalHeight, startY, blockW, blockH, boxLeft, boxTop } = layer;
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, Math.min(1, transState.alphaMultiplier));
+        ctx.font = `bold ${fontSize}px ${fontStack}`;
+        ctx.textAlign = alignment;
+        ctx.textBaseline = 'middle';
 
           // ------------------ CapCut Text Animation Calculations ------------------
           const clipTime = Math.max(0, currentTime - clip.start);
@@ -943,8 +1247,8 @@ export default function PreviewPlayer({
             ctx.restore();
           }
 
-          // Render background box overlay if specified
-          if (clip.textBackgroundStyle && clip.textBackgroundStyle !== 'none' && clip.textBackgroundColor && clip.textBackgroundColor !== 'transparent') {
+          // Render background box overlay if specified (skip 'strip' as it is handled by the Quran.com Cinema container)
+          if (clip.textBackgroundStyle && clip.textBackgroundStyle !== 'none' && clip.textBackgroundStyle !== 'strip' && clip.textBackgroundColor && clip.textBackgroundColor !== 'transparent') {
             const bgPad = clip.textBackgroundPadding ?? 8;
             const bgRad = clip.textBackgroundRadius ?? 8;
             const bgOpac = clip.textBackgroundOpacity ?? 0.6;
@@ -961,9 +1265,7 @@ export default function PreviewPlayer({
             ctx.fillStyle = clip.textBackgroundColor;
             ctx.beginPath();
             
-            if (bgStyle === 'strip') {
-              ctx.rect(0, boxTop - bgPad, canvas.width, blockH + (bgPad * 2));
-            } else if (bgStyle === 'glow') {
+            if (bgStyle === 'glow') {
               const cx = boxLeft + blockW / 2;
               const cy = boxTop + blockH / 2;
               const r = Math.max(blockW, blockH) / 2 + bgPad * 2;
@@ -979,7 +1281,7 @@ export default function PreviewPlayer({
             
             ctx.fill();
             ctx.restore();
-          } else if (clip.textBackgroundColor && clip.textBackgroundColor !== 'transparent' && clip.textBackgroundStyle !== 'none') {
+          } else if (clip.textBackgroundColor && clip.textBackgroundColor !== 'transparent' && clip.textBackgroundStyle !== 'none' && clip.textBackgroundStyle !== 'strip') {
             // Legacy fallback if style isn't set but color is
             const bgPad = clip.textBackgroundPadding ?? 8;
             const bgRad = clip.textBackgroundRadius ?? 8;
@@ -1058,6 +1360,96 @@ export default function PreviewPlayer({
 
           ctx.restore(); // Restore Canvas Context after Animation Transforms
 
+          // Standalone / Inline Ayah medallion if clip is Arabic and has ayahNumber
+          if (clip.language === 'ar' || /[\u0600-\u06FF]/.test(clip.text || '')) {
+            const ayahNum = clip.ayahNumber || extractAyahNumberFromClip(clip);
+            const ayahSymbolStyle = clip.ayahSymbolStyle && clip.ayahSymbolStyle !== 'none' ? clip.ayahSymbolStyle : 'ornate-medallion';
+            const ayahSymbolPosition = clip.ayahSymbolPosition || 'end';
+            const hasDoubleCircleIssue = ayahSymbolStyle === 'ornate-medallion' || ayahSymbolStyle === 'uthmani-circle';
+            if (ayahNum) {
+              if (ayahSymbolPosition === 'divider') {
+                if (!renderedMedallionAyahNumbers.has(ayahNum)) {
+                  renderedMedallionAyahNumbers.add(ayahNum);
+                  const medH = Math.max(30, Math.min(48, Math.round(dimensions.height * 0.048)));
+                  const medY = boxTop + blockH + (medH / 2) + 8;
+                  ctx.save();
+                  ctx.globalAlpha = Math.max(0, Math.min(1, transState.alphaMultiplier));
+                  drawCanvasAyahMedallion(
+                    ctx,
+                    dimensions.width / 2,
+                    medY,
+                    medH,
+                    ayahNum,
+                    'arabic',
+                    clip.color || '#ffffff'
+                  );
+                  ctx.restore();
+                }
+              } else if (hasDoubleCircleIssue) {
+                // Determine size based on text font size, scaled proportionally
+                const medH = Math.max(16, Math.round(fontSize * 0.90));
+                
+                // Use renderLines (active, typed characters) instead of lines (static)
+                const targetLineIdx = ayahSymbolPosition === 'start' ? 0 : renderLines.length - 1;
+                const targetLineText = renderLines[targetLineIdx];
+                
+                if (targetLineText && targetLineText.trim().length > 0) {
+                  // Temporarily set the font on the context to measure the line width correctly
+                  ctx.save();
+                  ctx.font = `bold ${fontSize}px ${fontStack}`;
+                  const targetLineWidth = ctx.measureText(targetLineText).width;
+                  ctx.restore();
+                  
+                   const targetLineY = startY + targetLineIdx * lineGap;
+                  // Optically center the medallion vertically with the text line
+                  // When textBaseline is 'middle', targetLineY is the exact middle of the text,
+                  // so medY should equal targetLineY without subtracting fontSize * 0.35.
+                  const medY = targetLineY;
+                  
+                  let medX = xPos;
+                  // For a compact and beautiful Quran.com alignment, the distance of the medallion's outer edge from the text should be tight.
+                  // The medallion's radius (half-width) is 0.35 * medH.
+                  // We add a small optical gap scaled to the font size (e.g. 7% of font size).
+                  const gap = Math.round(fontSize * 0.07);
+                  const halfMedWidth = medH * 0.35;
+                  
+                  if (alignment === 'center') {
+                    if (ayahSymbolPosition === 'start') {
+                      medX = xPos + (targetLineWidth / 2) + halfMedWidth + gap;
+                    } else {
+                      medX = xPos - (targetLineWidth / 2) - halfMedWidth - gap;
+                    }
+                  } else if (alignment === 'right') {
+                    if (ayahSymbolPosition === 'start') {
+                      medX = xPos + halfMedWidth + gap;
+                    } else {
+                      medX = xPos - targetLineWidth - halfMedWidth - gap;
+                    }
+                  } else { // 'left'
+                    if (ayahSymbolPosition === 'start') {
+                      medX = xPos + targetLineWidth + halfMedWidth + gap;
+                    } else {
+                      medX = xPos - halfMedWidth - gap;
+                    }
+                  }
+                  
+                  ctx.save();
+                  ctx.globalAlpha = Math.max(0, Math.min(1, transState.alphaMultiplier));
+                  drawCanvasAyahMedallion(
+                    ctx,
+                    medX,
+                    medY,
+                    medH,
+                    ayahNum,
+                    'arabic',
+                    clip.color || '#ffffff'
+                  );
+                  ctx.restore();
+                }
+              }
+            }
+          }
+
           // Draw CapCut Pro Selection Handles & Bounding Box if Selected
           if (selectedClip?.id === clip.id && !isExporting) {
             ctx.save();
@@ -1105,7 +1497,6 @@ export default function PreviewPlayer({
           }
 
           ctx.restore();
-        }
       });
 
       // ------------------ CAPCUT PRO MULTI-SELECTION GROUP TRANSFORM MATRIX ------------------

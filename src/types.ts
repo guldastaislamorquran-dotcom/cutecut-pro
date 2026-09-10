@@ -106,6 +106,8 @@ export interface Clip {
   ayahNumber?: number;
   ayahKey?: string; // e.g., "67:22"
   language?: 'ar' | 'en' | string;
+  ayahSymbolPosition?: 'end' | 'start' | 'divider';
+  ayahSymbolStyle?: string;
 
   // Video adjustments and filters
   transform?: {

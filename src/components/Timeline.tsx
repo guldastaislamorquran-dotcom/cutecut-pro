@@ -1107,15 +1107,15 @@ export default function Timeline({
             if (calculatedIdx >= 0 && calculatedIdx < tracksRef.current.length) {
               currentTargetTrackId = tracksRef.current[calculatedIdx].id;
               currentTargetTrackIdx = calculatedIdx;
-            } else if (calculatedIdx >= tracksRef.current.length) {
-              // Create a new track placeholder ID if dragging below all tracks
+            } else if (calculatedIdx >= tracksRef.current.length || calculatedIdx < 0) {
+              // Create a new track placeholder ID if dragging outside existing tracks
               // We need a stable ID for the drag session to group them together
               if (!activeDragging.targetTrackId || !activeDragging.targetTrackId.startsWith('new-track-')) {
                 currentTargetTrackId = 'new-track-' + Date.now();
               } else {
                 currentTargetTrackId = activeDragging.targetTrackId;
               }
-              currentTargetTrackIdx = tracksRef.current.length;
+              currentTargetTrackIdx = calculatedIdx < 0 ? 0 : tracksRef.current.length;
             }
           }
 
