@@ -108,6 +108,7 @@ export interface Clip {
   language?: 'ar' | 'en' | string;
   ayahSymbolPosition?: 'end' | 'start' | 'divider';
   ayahSymbolStyle?: string;
+  ayahDigitType?: 'arabic' | 'latin';
 
   // Video adjustments and filters
   transform?: {
@@ -240,6 +241,7 @@ export interface PresetMedia {
   duration: number;
   thumbnail: string;
   category: string;
+  isImage?: boolean;
 }
 
 export interface AICaptionRequest {

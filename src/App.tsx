@@ -17,7 +17,7 @@ import { VideoExport } from './components/video/VideoExport';
 import LandingPortal from './components/LandingPortal';
 import { MobileCapCutLayout } from './components/MobileCapCutLayout';
 import { AdMobService } from './utils/admobService';
-import { applyPixelFilters, formatTimeCode, normalizeMediaUrl, getSafeCrossOrigin, DEFAULT_INITIAL_TRACKS, insertTrackInProperOrder, alignQuranLocalClient, runVoiceAlignmentPipeline, convertToArabicDigits, analyzeVoiceActivityRMS, fitAcousticSegmentsToVerses, splitTextIntoPhrases, assignAcousticSegmentsToVerses, splitVerseAcrossBreaths, autoSegmentAudioClipsBySilence, autoSyncVideoClipsToAyahs, autoSegmentClipByRhythm, enforceStrictNonOverlappingClips, AyahSymbolStyle, AyahDigitType, AyahSymbolPosition, attachAyahSymbolToText, extractAyahNumberFromClip, formatAyahSymbol, stripAyahSymbol, getExportResolutionDimensions, fixWebmDuration, calculateTasmeeaMatchRatio, normalizeQuranicText, getTajweedPhoneticWeight, runQuranAlignmentEngine, QuranVerseInput } from './utils/editorUtils';
+import { applyPixelFilters, formatTimeCode, normalizeMediaUrl, getSafeCrossOrigin, DEFAULT_INITIAL_TRACKS, insertTrackInProperOrder, alignQuranLocalClient, runVoiceAlignmentPipeline, convertToArabicDigits, analyzeVoiceActivityRMS, fitAcousticSegmentsToVerses, splitTextIntoPhrases, assignAcousticSegmentsToVerses, splitVerseAcrossBreaths, autoSegmentAudioClipsBySilence, autoSyncVideoClipsToAyahs, autoSegmentClipByRhythm, enforceStrictNonOverlappingClips, AyahSymbolStyle, AyahDigitType, AyahSymbolPosition, attachAyahSymbolToText, extractAyahNumberFromClip, formatAyahSymbol, stripAyahSymbol, isTranslationClip, isQuranArabicClip, getExportResolutionDimensions, fixWebmDuration, calculateTasmeeaMatchRatio, normalizeQuranicText, getTajweedPhoneticWeight, runQuranAlignmentEngine, QuranVerseInput } from './utils/editorUtils';
 import { QURAN_TRANSLATION_OPTIONS, getTranslationOptionById, fetchSingleAyahTranslation, getTaawwuzTranslation, getTasmiyahTranslation, OFFLINE_SURAH_TRANSLATIONS } from './utils/quranTranslations';
 import { auth, googleProvider, saveUserTimelineProject, getUserTimelineProject } from './utils/firebaseConfig';
 import { getSystemSpecs, SystemSpecs } from './utils/systemPerformance';
@@ -299,7 +299,7 @@ export default function App() {
   // Export overlay state
   const [showExportModal, setShowExportModal] = useState(false);
   const [isExportMinimized, setIsExportMinimized] = useState(false);
-  const [exportResolution, setExportResolution] = useState<'480p' | '720p' | '1080p'>('1080p');
+  const [exportResolution, setExportResolution] = useState<'4K' | '2K' | '1080p' | '720p' | '480p'>('1080p');
   const [exportProgress, setExportProgress] = useState(0);
   const [exportTerminalLogs, setExportTerminalLogs] = useState<string[]>([]);
   const [exporting, setExporting] = useState(false);
@@ -1251,7 +1251,9 @@ export default function App() {
           : clipName.includes("Tasmiyah")
           ? `${transOpt.languageCode.toUpperCase()}: Tasmiyah`
           : `${transOpt.languageCode.toUpperCase()}: ${clipName.replace(/^(AR|EN|UR|HI|ID|TR|FR|BN|ES|DE|RU|FA|MS|TA):\s*/i, '')}`,
-        text: translatedText,
+        language: transOpt.languageCode || 'en',
+        text: stripAyahSymbol(translatedText),
+        ayahSymbolStyle: 'none',
         fontFamily: fontToUse,
         fontSize: quranEnglishSize,
         color: quranEnglishColor,
@@ -1492,6 +1494,10 @@ export default function App() {
       if (clipName && (clipName.includes("Ta'awwuz") || clipName.includes("Tasmiyah"))) {
         return clipText;
       }
+      // USER DIRECTIVE: Ayah symbol must NEVER appear on translation text, ONLY on Quran Arabic Ayahs!
+      if (clipName && (/^(EN|UR|HI|ID|TR|FR|BN|ES|DE|RU|FA|MS|TA|TRANSLATION|TRANS|SUB):/i.test(clipName) || clipName.toLowerCase().includes('translation'))) {
+        return stripAyahSymbol(clipText || '');
+      }
       const ayahNum = extractAyahNumberFromClip({ name: clipName, text: clipText });
       if (ayahNum !== null) {
         return attachAyahSymbolToText(
@@ -1523,28 +1529,38 @@ export default function App() {
       if (isArabicTrack) {
         return {
           ...track,
-          clips: track.clips.map(clip => ({
-            ...clip,
-            text: formatArabicText(clip.text, clip.name),
-            ayahSymbolPosition: symPos,
-            ayahSymbolStyle: symStyle,
-            fontFamily: arFont,
-            fontSize: arSize,
-            color: arColor,
-            textStyle: arStyleVal,
-            textY: arY,
-            textWrap: arWrap,
-            textMaxWidth: arMaxW,
-            textLineHeight: arLH,
-            textAlignment: arAlign,
-            textBackgroundColor: bgC,
-            textBackgroundOpacity: bgO,
-            textBackgroundPadding: bgP,
-            textBackgroundRadius: bgR,
-            textBackgroundBlur: bgB,
-            textBackgroundStyle: bgS,
-            textAnimation: { inAnimation: animIn, outAnimation: animOut, inDuration: animDur, outDuration: animDur }
-          }))
+          clips: track.clips.map(clip => {
+            const isTrans = isTranslationClip(clip);
+            if (isTrans) {
+              return {
+                ...clip,
+                text: stripAyahSymbol(clip.text || ''),
+                ayahSymbolStyle: 'none'
+              };
+            }
+            return {
+              ...clip,
+              text: formatArabicText(clip.text, clip.name),
+              ayahSymbolPosition: symPos,
+              ayahSymbolStyle: symStyle,
+              fontFamily: arFont,
+              fontSize: arSize,
+              color: arColor,
+              textStyle: arStyleVal,
+              textY: arY,
+              textWrap: arWrap,
+              textMaxWidth: arMaxW,
+              textLineHeight: arLH,
+              textAlignment: arAlign,
+              textBackgroundColor: bgC,
+              textBackgroundOpacity: bgO,
+              textBackgroundPadding: bgP,
+              textBackgroundRadius: bgR,
+              textBackgroundBlur: bgB,
+              textBackgroundStyle: bgS,
+              textAnimation: { inAnimation: animIn, outAnimation: animOut, inDuration: animDur, outDuration: animDur }
+            };
+          })
         };
       }
 
@@ -1553,6 +1569,8 @@ export default function App() {
           ...track,
           clips: track.clips.map(clip => ({
             ...clip,
+            text: stripAyahSymbol(clip.text || ''),
+            ayahSymbolStyle: 'none',
             fontFamily: enFont,
             fontSize: enSize,
             color: enColor,
@@ -1579,12 +1597,10 @@ export default function App() {
         return {
           ...track,
           clips: track.clips.map(clip => {
-            const isArabicClip = clip.id.includes('quran-ar') || 
-                                 clip.id.includes('arabic') || 
-                                 clip.name.startsWith('AR:') || 
-                                 /[\u0600-\u06FF]/.test(clip.text || '');
+            const isTrans = isTranslationClip(clip);
+            const isArabicClip = !isTrans && isQuranArabicClip(clip);
 
-            const isEnglishClip = clip.id.includes('quran-en') || 
+            const isEnglishClip = isTrans || clip.id.includes('quran-en') || 
                                   clip.id.includes('english') || 
                                   clip.name.startsWith('EN:') ||
                                   (!isArabicClip && Boolean(clip.text));
@@ -1593,6 +1609,8 @@ export default function App() {
               return {
                 ...clip,
                 text: formatArabicText(clip.text, clip.name),
+                ayahSymbolPosition: symPos,
+                ayahSymbolStyle: symStyle,
                 fontFamily: arFont,
                 fontSize: arSize,
                 color: arColor,
@@ -1602,17 +1620,19 @@ export default function App() {
                 textMaxWidth: arMaxW,
                 textLineHeight: arLH,
                 textAlignment: arAlign,
-            textBackgroundColor: bgC,
-            textBackgroundOpacity: bgO,
-            textBackgroundPadding: bgP,
-            textBackgroundRadius: bgR,
-            textBackgroundBlur: bgB,
-            textBackgroundStyle: bgS,
-            textAnimation: { inAnimation: animIn, outAnimation: animOut, inDuration: animDur, outDuration: animDur }
+                textBackgroundColor: bgC,
+                textBackgroundOpacity: bgO,
+                textBackgroundPadding: bgP,
+                textBackgroundRadius: bgR,
+                textBackgroundBlur: bgB,
+                textBackgroundStyle: bgS,
+                textAnimation: { inAnimation: animIn, outAnimation: animOut, inDuration: animDur, outDuration: animDur }
               };
             } else if (isEnglishClip) {
               return {
                 ...clip,
+                text: stripAyahSymbol(clip.text || ''),
+                ayahSymbolStyle: 'none',
                 fontFamily: enFont,
                 fontSize: enSize,
                 color: enColor,
@@ -1623,13 +1643,13 @@ export default function App() {
                 textMaxWidth: enMaxW,
                 textLineHeight: enLH,
                 textAlignment: enAlign,
-            textBackgroundColor: bgC,
-            textBackgroundOpacity: bgO,
-            textBackgroundPadding: bgP,
-            textBackgroundRadius: bgR,
-            textBackgroundBlur: bgB,
-            textBackgroundStyle: bgS,
-            textAnimation: { inAnimation: animIn, outAnimation: animOut, inDuration: animDur, outDuration: animDur }
+                textBackgroundColor: bgC,
+                textBackgroundOpacity: bgO,
+                textBackgroundPadding: bgP,
+                textBackgroundRadius: bgR,
+                textBackgroundBlur: bgB,
+                textBackgroundStyle: bgS,
+                textAnimation: { inAnimation: animIn, outAnimation: animOut, inDuration: animDur, outDuration: animDur }
               };
             }
             return clip;
@@ -1913,19 +1933,23 @@ export default function App() {
         const safeCrossOrigin = getSafeCrossOrigin(clip.url);
 
         // Build video & image caches
-        if (clip.type === ClipType.VIDEO && normalizedUrl) {
-          if (!videoElementsRef.current[clip.id]) {
+        if ((clip.type === ClipType.VIDEO || clip.type === ClipType.IMAGE) && (normalizedUrl || clip.poster || clip.thumbnailUrl)) {
+          const effectiveUrl = normalizedUrl || clip.poster || clip.thumbnailUrl || '';
+          if (!videoElementsRef.current[clip.id] && effectiveUrl) {
             const effectiveCrossOrigin = safeCrossOrigin || 'anonymous';
-            if (clip.isImage) {
+            const isExplicitImage = clip.isImage === true || clip.type === ClipType.IMAGE || (/\.(jpeg|jpg|png|gif|webp|svg|avif)(\?|$)/i.test(effectiveUrl) && !effectiveUrl.includes('.webm') && !effectiveUrl.includes('.mp4'));
+            const isVideo = clip.type === ClipType.VIDEO && !isExplicitImage;
+            const isImg = !isVideo;
+
+            if (isImg) {
               const img = document.createElement('img');
               img.crossOrigin = effectiveCrossOrigin;
-              img.src = normalizedUrl;
+              img.src = effectiveUrl;
 
               const handleImgError = () => {
                 if (img.crossOrigin) {
-                  console.warn(`CORS load failed for image: ${normalizedUrl}. Retrying without crossOrigin.`);
                   img.removeAttribute('crossorigin');
-                  img.src = normalizedUrl;
+                  img.src = effectiveUrl;
                 }
               };
               img.addEventListener('error', handleImgError);
@@ -1938,16 +1962,19 @@ export default function App() {
             } else {
               const video = document.createElement('video');
               video.crossOrigin = effectiveCrossOrigin;
-              video.src = normalizedUrl;
+              video.src = effectiveUrl;
+              video.muted = true; // muted to permit background rendering without gesture blocking
               video.playsInline = true;
               video.preload = 'auto';
+              video.loop = true;
               video.setAttribute('webkit-playsinline', 'true');
+              video.setAttribute('playsinline', 'true');
 
               const handleVideoError = () => {
                 if (video.crossOrigin) {
-                  console.warn(`CORS load failed for video: ${normalizedUrl}. Retrying without crossOrigin.`);
+                  console.warn(`CORS load failed for video: ${effectiveUrl}. Retrying without crossOrigin.`);
                   video.removeAttribute('crossorigin');
-                  video.src = normalizedUrl;
+                  video.src = effectiveUrl;
                   video.load();
                 }
               };
@@ -2084,22 +2111,29 @@ export default function App() {
           const media = videoElementsRef.current[clip.id];
           if (media && media instanceof HTMLVideoElement) {
             const video = media;
-            video.playbackRate = clip.playbackRate;
+            video.playbackRate = clip.playbackRate || 1.0;
             video.volume = safeVolume;
-            video.muted = false;
+            video.muted = isMuted || track.muted || safeVolume === 0;
+
+            const vidDur = (video.duration && !isNaN(video.duration) && isFinite(video.duration) && video.duration > 0) ? video.duration : (clip.duration || 999999);
+            const clampedTarget = vidDur > 0 ? (targetSrcTime % vidDur) : 0;
 
             if (isActive) {
               if (isPlayingActive || exporting) {
                 if (video.paused) {
-                  video.play().catch(() => {});
+                  video.play().catch(() => {
+                    // Fallback to muted playback if audio policy blocked it
+                    video.muted = true;
+                    video.play().catch(() => {});
+                  });
                 }
                 // Sync drift check with clamping to avoid crashes on huge streams
                 if (shouldCheckDrift && !video.seeking) {
-                  const durationLimit = video.duration || clip.duration || 999999;
-                  const clampedTarget = Math.max(0, Math.min(durationLimit, targetSrcTime));
-                  const driftThreshold = (safeVolume === 0 || video.muted) ? 1.2 : 0.6;
+                  const driftThreshold = (safeVolume === 0 || video.muted) ? 1.0 : 0.5;
                   if (Math.abs(video.currentTime - clampedTarget) > driftThreshold) {
-                    video.currentTime = clampedTarget;
+                    try {
+                      video.currentTime = clampedTarget;
+                    } catch {}
                   }
                 }
                 syncAudioEffectsForClip(video, clip);
@@ -2107,15 +2141,15 @@ export default function App() {
                 if (!video.paused) {
                   video.pause();
                 }
-                // Sync paused time with clamping
-                const durationLimit = video.duration || clip.duration || 999999;
-                const clampedTarget = Math.max(0, Math.min(durationLimit, targetSrcTime));
-                if (Math.abs(video.currentTime - clampedTarget) > 0.05) {
-                  video.currentTime = clampedTarget;
+                // Sync paused time
+                if (Math.abs(video.currentTime - clampedTarget) > 0.05 && !video.seeking) {
+                  try {
+                    video.currentTime = clampedTarget;
+                  } catch {}
                 }
               }
             } else {
-              // Not active, guarantee paused state and do not set out-of-bound playhead times
+              // Not active, guarantee paused state
               if (!video.paused) {
                 video.pause();
               }
@@ -3007,29 +3041,58 @@ export default function App() {
   };
 
   const addNewClip = (clipData: Partial<Clip>) => {
-    const targetType = clipData.type || ClipType.VIDEO;
+    let targetType = clipData.type || ClipType.VIDEO;
+    const isImg = clipData.isImage || clipData.type === ClipType.IMAGE || (clipData.url ? !!clipData.url.match(/\.(png|jpg|jpeg|webp|avif|gif)/i) : false);
+
+    // Normalize image clips into the primary visual video track layer
+    if (targetType === ClipType.IMAGE) {
+      targetType = ClipType.VIDEO;
+    }
 
     // Generate guaranteed unique clip ID with timestamp and random entropy
     const uniqueClipId = (clipData.id && !tracks.some(t => t.clips.some(c => c.id === clipData.id)))
       ? clipData.id
       : `clip-${Date.now()}-${Math.random().toString(36).substring(2, 9)}-${Math.floor(Math.random() * 100000)}`;
 
+    const clipDuration = clipData.duration || (isImg ? 8 : 15);
+    const thumbnailRef = clipData.poster || clipData.thumbnailUrl || (clipData as any).thumbnail || (isImg ? clipData.url : undefined);
+
     setTracks(prevTracks => {
       let existingTrack = prevTracks.find(t => t.type === targetType);
       const trackId = existingTrack ? existingTrack.id : `track-${targetType}-${Date.now()}`;
 
+      // Smart positioning: if explicit start given, use it;
+      // if currentTime > 0, place at playhead;
+      // if track already has clips, append sequentially after the last clip so items don't collide at 0s
+      let clipStart = clipData.start;
+      if (clipStart === undefined) {
+        if (currentTime > 0) {
+          clipStart = currentTime;
+        } else if (existingTrack && existingTrack.clips.length > 0) {
+          const maxEnd = existingTrack.clips.reduce((max, c) => Math.max(max, c.start + c.duration), 0);
+          clipStart = maxEnd;
+        } else {
+          clipStart = 0;
+        }
+      }
+
       const newClip: Clip = {
+        ...clipData,
         id: uniqueClipId,
-        name: clipData.name || (targetType === ClipType.VIDEO ? (clipData.url?.includes('data:image') || clipData.url?.match(/\.(png|jpg|jpeg|webp)/i) ? 'Image Clip' : 'Video Clip') : targetType === ClipType.AUDIO ? 'Audio Track' : 'Text Overlay'),
+        name: clipData.name || (targetType === ClipType.VIDEO ? (isImg ? 'Image Clip' : 'Video Clip') : targetType === ClipType.AUDIO ? 'Audio Track' : 'Text Overlay'),
         type: targetType,
         trackId: trackId,
-        start: clipData.start !== undefined ? clipData.start : (currentTime || 0),
-        duration: clipData.duration || 5,
+        start: clipStart,
+        duration: clipDuration,
         sourceStart: clipData.sourceStart || 0,
-        sourceDuration: clipData.sourceDuration || (clipData.duration || 5),
+        sourceDuration: clipData.sourceDuration || clipDuration,
         playbackRate: clipData.playbackRate || 1.0,
-        volume: clipData.volume || 1.0,
+        volume: clipData.volume !== undefined ? clipData.volume : 1.0,
         url: clipData.url,
+        isImage: isImg,
+        poster: thumbnailRef,
+        thumbnailUrl: thumbnailRef,
+        fallbackUrl: thumbnailRef || clipData.fallbackUrl,
         text: clipData.text,
         fontSize: clipData.fontSize,
         color: clipData.color,
@@ -3044,6 +3107,11 @@ export default function App() {
         filters: clipData.filters
       };
 
+      // Ensure timeline editor duration expands so the new clip is completely visible
+      const neededDuration = Math.ceil(clipStart + clipDuration + 2);
+      setDuration(prev => Math.max(prev, neededDuration));
+      setCurrentTime(clipStart);
+
       if (!existingTrack) {
         const trackCountOfType = prevTracks.filter(t => t.type === targetType).length + 1;
         const trackName = targetType === ClipType.VIDEO 
@@ -3052,8 +3120,6 @@ export default function App() {
           ? `Audio Track ${trackCountOfType}` 
           : targetType === ClipType.TEXT 
           ? `Text Track ${trackCountOfType}` 
-          : targetType === ClipType.IMAGE
-          ? `Image Track ${trackCountOfType}`
           : `${targetType.toUpperCase()} Track`;
 
         const newTrack: Track = {
@@ -3076,7 +3142,7 @@ export default function App() {
       });
     });
 
-    setSelectedClipId(uniqueClipId);
+    setSelectedClipIds([uniqueClipId]);
   };
 
   // ------------------ CapCut Pro Timeline Handlers ------------------
@@ -3657,7 +3723,7 @@ export default function App() {
       return [{
         verse_key: verse.verse_key,
         text_arabic: arText,
-        text_english: verse.text_english || '',
+        text_english: stripAyahSymbol(verse.text_english || ''),
         start: vStart,
         end: vEnd,
         isTaawwuz: verse.isTaawwuz,
@@ -3725,7 +3791,7 @@ export default function App() {
       result.push({
         verse_key: verse.isTaawwuz || verse.isTasmiyah ? verse.verse_key : `${verse.verse_key} [${sIdx + 1}/${totalSegs}]`,
         text_arabic: arTextWithSym,
-        text_english: enPhrase,
+        text_english: stripAyahSymbol(enPhrase),
         start: vStart,
         end: vEnd,
         isTaawwuz: verse.isTaawwuz,
@@ -4195,7 +4261,7 @@ export default function App() {
               verse_key: s.verse_key,
               verse_number: vNum,
               text_arabic: arText,
-              text_english: offlineText
+              text_english: stripAyahSymbol(offlineText)
             };
           });
         }
@@ -4478,7 +4544,7 @@ export default function App() {
             verse_key: sub.verse_key,
             verse_number: vNum,
             text_arabic: arText,
-            text_english: engText,
+            text_english: stripAyahSymbol(engText),
             start: typeof sub.start === 'number' ? sub.start : 0,
             end: typeof sub.end === 'number' ? sub.end : (sub.start + 3.0),
             isTaawwuz: isAux,
@@ -4518,7 +4584,7 @@ export default function App() {
         subtitles = alignedEngineSegments.map(seg => ({
           verse_key: seg.verse_key,
           text_arabic: seg.text_arabic,
-          text_english: seg.text_english,
+          text_english: stripAyahSymbol(seg.text_english || ''),
           start: seg.startTime,
           end: seg.endTime,
           isTaawwuz: seg.verse_key === 'aux',
@@ -4689,7 +4755,7 @@ export default function App() {
           surahNumber,
           ayahNumber,
           ayahKey,
-          language: 'en',
+          language: transOpt.languageCode || 'en',
           name: sub.isTaawwuz ? `${prefix}: Ta'awwuz` : sub.isTasmiyah ? `${prefix}: Tasmiyah` : `${prefix}: ${sub.verse_key}`,
           type: ClipType.TEXT,
           trackId: trackEnId,
@@ -4699,7 +4765,8 @@ export default function App() {
           sourceDuration: clipDuration,
           playbackRate: 1.0,
           volume: 1.0,
-          text: textEn,
+          text: stripAyahSymbol(textEn),
+          ayahSymbolStyle: 'none',
           fontSize: enSize,
           color: enColor,
           fontFamily: (enFont === 'Inter' && transOpt.direction === 'rtl') ? transOpt.defaultFont : enFont,
@@ -6142,16 +6209,6 @@ export default function App() {
           </button>
 
           <div className="h-4 w-px bg-[#2a2a3a] mx-1" />
-
-          {/* Video Synthesis button */}
-          <button
-            id="btn-video-synthesis"
-            onClick={() => setShowVideoSynthesis(true)}
-            className="flex items-center gap-2 px-4 h-9 bg-[#1b1b24] hover:bg-[#252532] border border-blue-500/40 text-blue-400 font-bold text-xs rounded-lg transition active:scale-95 cursor-pointer shadow-sm shadow-blue-500/10"
-          >
-            <Film className="w-4 h-4 text-blue-400" />
-            <span>Synthesis</span>
-          </button>
 
           {/* Export Video button */}
           <button

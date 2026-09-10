@@ -2,7 +2,8 @@ import React, { useRef, useEffect, useState } from 'react';
 import {
   Play, Pause, ChevronLeft, ChevronRight, Maximize2, Minimize2, Layers,
   Grid, ShieldCheck, Volume2, VolumeX, Monitor, Smartphone, Square,
-  Film, Menu, Scan, Search, ChevronDown, Activity, SlidersHorizontal
+  Film, Menu, Scan, Search, ChevronDown, Activity, SlidersHorizontal,
+  Sparkles, Check
 } from 'lucide-react';
 import { Track, Clip, ClipType, WatermarkSettings } from '../types';
 import {
@@ -18,6 +19,8 @@ import {
   extractAyahNumberFromClip,
   convertToArabicDigits,
   stripAyahSymbol,
+  isTranslationClip,
+  isQuranArabicClip,
 } from '../utils/editorUtils';
 
 /**
@@ -30,7 +33,8 @@ function drawCanvasAyahMedallion(
   height: number,
   ayahNumber: number,
   digitType: 'arabic' | 'latin' = 'arabic',
-  color: string = '#ffffff'
+  color: string = '#ffffff',
+  style: string = 'ornate-medallion'
 ) {
   const digits = digitType === 'arabic' ? convertToArabicDigits(ayahNumber) : String(ayahNumber);
   const scale = height / 120;
@@ -44,81 +48,211 @@ function drawCanvasAyahMedallion(
   ctx.shadowOffsetY = 2;
 
   ctx.strokeStyle = color;
-  ctx.lineWidth = 3.2 * scale;
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
 
-  // 1. Top Crown & Finial
-  ctx.beginPath();
-  ctx.moveTo(0, -56 * scale);
-  ctx.bezierCurveTo(-3 * scale, -50 * scale, -7 * scale, -46 * scale, -10 * scale, -44 * scale);
-  ctx.bezierCurveTo(-4 * scale, -45 * scale, 4 * scale, -45 * scale, 10 * scale, -44 * scale);
-  ctx.bezierCurveTo(7 * scale, -46 * scale, 3 * scale, -50 * scale, 0, -56 * scale);
-  ctx.closePath();
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.16)';
-  ctx.fill();
-  ctx.stroke();
+  if (style === 'uthmani-circle') {
+    // ------------------ AUTHENTIC QURAN.COM UTHMANI 4-POINTED ROSETTE ------------------
+    // An intricate, perfectly symmetrical circular rosette with 4 gorgeous floral cardinal flourishes,
+    // a double concentric circle, and cardinal tip jewels—matching Quran.com exactly.
+    
+    // 1. Outer Concentric Circle
+    ctx.beginPath();
+    ctx.arc(0, 0, 31 * scale, 0, Math.PI * 2);
+    ctx.lineWidth = 1.6 * scale;
+    ctx.stroke();
 
-  // Top jewel circle
-  ctx.beginPath();
-  ctx.arc(0, -55 * scale, 2.2 * scale, 0, Math.PI * 2);
-  ctx.fillStyle = color;
-  ctx.fill();
+    // 2. Inner Concentric Circle
+    ctx.beginPath();
+    ctx.arc(0, 0, 22 * scale, 0, Math.PI * 2);
+    ctx.lineWidth = 2.4 * scale;
+    ctx.stroke();
 
-  // 2. Outer Medallion Frame (rosette oval with pointed top and bottom)
-  ctx.beginPath();
-  ctx.moveTo(0, -46 * scale);
-  ctx.bezierCurveTo(28 * scale, -42 * scale, 42 * scale, -22 * scale, 42 * scale, 0);
-  ctx.bezierCurveTo(42 * scale, 22 * scale, 28 * scale, 42 * scale, 0, 46 * scale);
-  ctx.bezierCurveTo(-28 * scale, 42 * scale, -42 * scale, 22 * scale, -42 * scale, 0);
-  ctx.bezierCurveTo(-42 * scale, -22 * scale, -28 * scale, -42 * scale, 0, -46 * scale);
-  ctx.closePath();
-  ctx.stroke();
+    // 3. Four Symmetrical Cardinal Flourishes (Top, Right, Bottom, Left)
+    ctx.lineWidth = 1.4 * scale;
+    for (let i = 0; i < 4; i++) {
+      const angle = (i * Math.PI) / 2;
+      ctx.save();
+      ctx.rotate(angle);
+      
+      // Symmetrical outer wing curl
+      ctx.beginPath();
+      ctx.moveTo(-12 * scale, -29 * scale);
+      ctx.bezierCurveTo(-18 * scale, -36 * scale, -10 * scale, -42 * scale, 0, -44 * scale);
+      ctx.bezierCurveTo(10 * scale, -42 * scale, 18 * scale, -36 * scale, 12 * scale, -29 * scale);
+      ctx.stroke();
 
-  // 3. Inner Concentric Medallion
-  ctx.lineWidth = 1.8 * scale;
-  ctx.beginPath();
-  ctx.moveTo(0, -36 * scale);
-  ctx.bezierCurveTo(22 * scale, -32 * scale, 32 * scale, -16 * scale, 32 * scale, 0);
-  ctx.bezierCurveTo(32 * scale, 16 * scale, 22 * scale, 32 * scale, 0, 36 * scale);
-  ctx.bezierCurveTo(-22 * scale, 32 * scale, -32 * scale, 16 * scale, -32 * scale, 0);
-  ctx.bezierCurveTo(-32 * scale, -16 * scale, -22 * scale, -32 * scale, 0, -36 * scale);
-  ctx.closePath();
-  ctx.stroke();
+      // Symmetrical inner detail loop
+      ctx.beginPath();
+      ctx.moveTo(-8 * scale, -30 * scale);
+      ctx.bezierCurveTo(-10 * scale, -34 * scale, 0, -38 * scale, 0, -38 * scale);
+      ctx.bezierCurveTo(0, -38 * scale, 10 * scale, -34 * scale, 8 * scale, -30 * scale);
+      ctx.stroke();
 
-  // 4. Floral Arches at Cardinal Points
-  ctx.beginPath();
-  ctx.moveTo(-13 * scale, -41 * scale);
-  ctx.quadraticCurveTo(0, -32 * scale, 13 * scale, -41 * scale);
-  ctx.stroke();
+      // Accent Tip Jewel Dot
+      ctx.beginPath();
+      ctx.arc(0, -46 * scale, 2.0 * scale, 0, Math.PI * 2);
+      ctx.fillStyle = color;
+      ctx.fill();
 
-  ctx.beginPath();
-  ctx.moveTo(-13 * scale, 41 * scale);
-  ctx.quadraticCurveTo(0, 32 * scale, 13 * scale, 41 * scale);
-  ctx.stroke();
+      ctx.restore();
+    }
+    
+    // 4. Symmetrical Accent Dots in the Ring (at 45, 135, 225, 315 degrees between concentric circles)
+    ctx.fillStyle = color;
+    const diagonalAngles = [Math.PI/4, (3*Math.PI)/4, (5*Math.PI)/4, (7*Math.PI)/4];
+    diagonalAngles.forEach(ang => {
+      ctx.beginPath();
+      ctx.arc(Math.cos(ang) * 26.5 * scale, Math.sin(ang) * 26.5 * scale, 1.4 * scale, 0, Math.PI * 2);
+      ctx.fill();
+    });
 
-  // 5. Bottom Finial Teardrop
-  ctx.beginPath();
-  ctx.moveTo(-5 * scale, 45 * scale);
-  ctx.quadraticCurveTo(0, 55 * scale, 0, 57 * scale);
-  ctx.quadraticCurveTo(0, 55 * scale, 5 * scale, 45 * scale);
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.16)';
-  ctx.fill();
-  ctx.stroke();
+  } else {
+    // ------------------ AUTHENTIC CLASSIC MUSHAF CROWNED MEDALLION (QURAN.COM) ------------------
+    // An upright ornate oval cartouche matching the Quran.com reference image exactly:
+    // - Graceful tapered oval frame (cartouche)
+    // - Inner circular ring that neatly encloses the Arabic verse numeral
+    // - 3-lobed trefoil crown crest at the top apex with finial bead
+    // - Symmetrical upper arabesque volute scrolls curving inward and upward with hollow filigree cutouts
+    // - Symmetrical lower arabesque volute scrolls curving inward and downward with hollow filigree cutouts
+    // - Bottom inverted cleft cusp with finial bead
+    // - Centered, high-contrast Arabic verse numeral
 
-  ctx.beginPath();
-  ctx.arc(0, 56 * scale, 1.8 * scale, 0, Math.PI * 2);
-  ctx.fillStyle = color;
-  ctx.fill();
+    // 1. Outer Cartouche Oval Frame
+    ctx.lineWidth = 2.2 * scale;
+    ctx.beginPath();
+    ctx.moveTo(0, -45 * scale);
+    ctx.bezierCurveTo(20 * scale, -45 * scale, 31 * scale, -25 * scale, 31 * scale, 0);
+    ctx.bezierCurveTo(31 * scale, 25 * scale, 20 * scale, 45 * scale, 0, 45 * scale);
+    ctx.bezierCurveTo(-20 * scale, 45 * scale, -31 * scale, 25 * scale, -31 * scale, 0);
+    ctx.bezierCurveTo(-31 * scale, -25 * scale, -20 * scale, -45 * scale, 0, -45 * scale);
+    ctx.closePath();
+    ctx.stroke();
 
-  // 6. Center Ayah Number
+    // 2. Inner Circular Ring Enclosing the Ayah Number (as in user Quran.com reference)
+    ctx.lineWidth = 1.8 * scale;
+    ctx.beginPath();
+    ctx.arc(0, 0, 22.5 * scale, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // 3. Top Trefoil Crown Crest (3-lobed arch at apex)
+    ctx.lineWidth = 2.0 * scale;
+    ctx.beginPath();
+    // Left lobe
+    ctx.moveTo(-13 * scale, -41 * scale);
+    ctx.bezierCurveTo(-13 * scale, -49 * scale, -7 * scale, -50 * scale, -5 * scale, -44.5 * scale);
+    // Center tall dome lobe
+    ctx.bezierCurveTo(-6 * scale, -55 * scale, 6 * scale, -55 * scale, 5 * scale, -44.5 * scale);
+    // Right lobe
+    ctx.bezierCurveTo(7 * scale, -50 * scale, 13 * scale, -49 * scale, 13 * scale, -41 * scale);
+    ctx.stroke();
+
+    // Top Apex Finial Bead
+    ctx.beginPath();
+    ctx.arc(0, -55.5 * scale, 1.8 * scale, 0, Math.PI * 2);
+    ctx.fillStyle = color;
+    ctx.fill();
+
+    // Inner crown support arch
+    ctx.lineWidth = 1.4 * scale;
+    ctx.beginPath();
+    ctx.moveTo(-6 * scale, -44 * scale);
+    ctx.bezierCurveTo(-4 * scale, -49 * scale, 4 * scale, -49 * scale, 6 * scale, -44 * scale);
+    ctx.stroke();
+
+    // 4. Upper Symmetrical Arabesque Volute Scrolls (Left & Right)
+    // Left Upper Outer Wing & Inward Volute Curl
+    ctx.lineWidth = 2.0 * scale;
+    ctx.beginPath();
+    ctx.moveTo(-2 * scale, -39 * scale);
+    ctx.bezierCurveTo(-13 * scale, -39 * scale, -24 * scale, -32 * scale, -25 * scale, -19 * scale);
+    ctx.bezierCurveTo(-25 * scale, -12 * scale, -15 * scale, -13 * scale, -12 * scale, -19 * scale);
+    ctx.bezierCurveTo(-10 * scale, -23 * scale, -15 * scale, -27 * scale, -18 * scale, -25 * scale);
+    ctx.stroke();
+
+    // Left Upper Inner Cutout Arc (creating the hollow teardrop filigree)
+    ctx.lineWidth = 1.5 * scale;
+    ctx.beginPath();
+    ctx.moveTo(-4 * scale, -35 * scale);
+    ctx.bezierCurveTo(-12 * scale, -35 * scale, -20 * scale, -30 * scale, -20 * scale, -22 * scale);
+    ctx.bezierCurveTo(-20 * scale, -17 * scale, -14 * scale, -17 * scale, -13 * scale, -20 * scale);
+    ctx.stroke();
+
+    // Right Upper Outer Wing & Inward Volute Curl (Symmetrical mirror)
+    ctx.lineWidth = 2.0 * scale;
+    ctx.beginPath();
+    ctx.moveTo(2 * scale, -39 * scale);
+    ctx.bezierCurveTo(13 * scale, -39 * scale, 24 * scale, -32 * scale, 25 * scale, -19 * scale);
+    ctx.bezierCurveTo(25 * scale, -12 * scale, 15 * scale, -13 * scale, 12 * scale, -19 * scale);
+    ctx.bezierCurveTo(10 * scale, -23 * scale, 15 * scale, -27 * scale, 18 * scale, -25 * scale);
+    ctx.stroke();
+
+    // Right Upper Inner Cutout Arc
+    ctx.lineWidth = 1.5 * scale;
+    ctx.beginPath();
+    ctx.moveTo(4 * scale, -35 * scale);
+    ctx.bezierCurveTo(12 * scale, -35 * scale, 20 * scale, -30 * scale, 20 * scale, -22 * scale);
+    ctx.bezierCurveTo(20 * scale, -17 * scale, 14 * scale, -17 * scale, 13 * scale, -20 * scale);
+    ctx.stroke();
+
+    // 5. Lower Symmetrical Arabesque Volute Scrolls (Left & Right)
+    // Left Lower Outer Wing & Inward Volute Curl
+    ctx.lineWidth = 2.0 * scale;
+    ctx.beginPath();
+    ctx.moveTo(-2 * scale, 39 * scale);
+    ctx.bezierCurveTo(-13 * scale, 39 * scale, -24 * scale, 32 * scale, -25 * scale, 19 * scale);
+    ctx.bezierCurveTo(-25 * scale, 12 * scale, -15 * scale, 13 * scale, -12 * scale, 19 * scale);
+    ctx.bezierCurveTo(-10 * scale, 23 * scale, -15 * scale, 27 * scale, -18 * scale, 25 * scale);
+    ctx.stroke();
+
+    // Left Lower Inner Cutout Arc
+    ctx.lineWidth = 1.5 * scale;
+    ctx.beginPath();
+    ctx.moveTo(-4 * scale, 35 * scale);
+    ctx.bezierCurveTo(-12 * scale, 35 * scale, -20 * scale, 30 * scale, -20 * scale, 22 * scale);
+    ctx.bezierCurveTo(-20 * scale, 17 * scale, -14 * scale, 17 * scale, -13 * scale, 20 * scale);
+    ctx.stroke();
+
+    // Right Lower Outer Wing & Inward Volute Curl (Symmetrical mirror)
+    ctx.lineWidth = 2.0 * scale;
+    ctx.beginPath();
+    ctx.moveTo(2 * scale, 39 * scale);
+    ctx.bezierCurveTo(13 * scale, 39 * scale, 24 * scale, 32 * scale, 25 * scale, 19 * scale);
+    ctx.bezierCurveTo(25 * scale, 12 * scale, 15 * scale, 13 * scale, 12 * scale, 19 * scale);
+    ctx.bezierCurveTo(10 * scale, 23 * scale, 15 * scale, 27 * scale, 18 * scale, 25 * scale);
+    ctx.stroke();
+
+    // Right Lower Inner Cutout Arc
+    ctx.lineWidth = 1.5 * scale;
+    ctx.beginPath();
+    ctx.moveTo(4 * scale, 35 * scale);
+    ctx.bezierCurveTo(12 * scale, 35 * scale, 20 * scale, 30 * scale, 20 * scale, 22 * scale);
+    ctx.bezierCurveTo(20 * scale, 17 * scale, 14 * scale, 17 * scale, 13 * scale, 20 * scale);
+    ctx.stroke();
+
+    // 6. Bottom Apex Inverted Cleft / Cusp & Finial Bead
+    ctx.lineWidth = 1.8 * scale;
+    ctx.beginPath();
+    ctx.moveTo(-8 * scale, 43 * scale);
+    ctx.bezierCurveTo(-4 * scale, 48 * scale, 4 * scale, 48 * scale, 8 * scale, 43 * scale);
+    ctx.stroke();
+
+    // Bottom Finial Bead
+    ctx.beginPath();
+    ctx.arc(0, 48.5 * scale, 1.8 * scale, 0, Math.PI * 2);
+    ctx.fillStyle = color;
+    ctx.fill();
+  }
+
+  // 7. Center Ayah Number inside Inner Ring
   ctx.shadowBlur = 3;
   ctx.fillStyle = color;
   const numFontSize = Math.round(scale * (digits.length > 2 ? 22 : digits.length === 2 ? 26 : 30));
   ctx.font = `bold ${numFontSize}px "Amiri", "Noto Naskh Arabic", "Scheherazade New", system-ui, sans-serif`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(digits, 0, 2 * scale);
+  const textYOffset = style === 'uthmani-circle' ? 1.2 * scale : 0.8 * scale;
+  ctx.fillText(digits, 0, textYOffset);
 
   ctx.restore();
 }
@@ -225,16 +359,18 @@ export default function PreviewPlayer({
   const [dragStart, setDragStart] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [initialTextPos, setInitialTextPos] = useState<{ x: number; y: number; fontSize: number }>({ x: 50, y: 50, fontSize: 32 });
   const [activeCursor, setActiveCursor] = useState<'default' | 'pointer' | 'move' | 'nwse-resize'>('default');
+  const [previewQuality, setPreviewQuality] = useState<'4K' | '2K' | '1080p' | '720p'>('1080p');
+  const [showQualityMenu, setShowQualityMenu] = useState(false);
 
-  // Compute Canvas Size based on aspect ratio (Native Crisp Full HD / 1080p resolution)
+  // Compute Canvas Size based on aspect ratio & preview quality preset (4K / 2K / 1080p / 720p)
   useEffect(() => {
-    const targetPreset = isExporting ? (exportResolution || '1080p') : '1080p';
+    const targetPreset = isExporting ? (exportResolution || '1080p') : previewQuality;
     const dims = getExportResolutionDimensions(targetPreset, aspectRatio);
     setDimensions((prev) => {
       if (prev.width === dims.width && prev.height === dims.height) return prev;
       return dims;
     });
-  }, [aspectRatio, isExporting, exportResolution]);
+  }, [aspectRatio, isExporting, exportResolution, previewQuality]);
 
   // Find active video clip for adjustment controls
   const activeClips: Clip[] = [];
@@ -247,9 +383,14 @@ export default function PreviewPlayer({
     });
   });
 
-  const activeVideoClip = selectedClip?.type === ClipType.VIDEO 
+  const isVisualClip = (c: Clip | null | undefined): boolean => {
+    if (!c) return false;
+    return c.type === ClipType.VIDEO || c.type === ClipType.IMAGE || !!c.isImage;
+  };
+
+  const activeVideoClip = isVisualClip(selectedClip)
     ? selectedClip 
-    : activeClips.find(c => c.type === ClipType.VIDEO) || null;
+    : activeClips.find(c => isVisualClip(c)) || null;
 
   // Frame Scrubbing
   const stepFrame = (direction: 'prev' | 'next') => {
@@ -289,7 +430,7 @@ export default function PreviewPlayer({
   useEffect(() => {
     tracks.forEach((track) => {
       track.clips.forEach((clip) => {
-        if (clip.type === ClipType.VIDEO && clip.url) {
+        if ((clip.type === ClipType.VIDEO || clip.type === ClipType.IMAGE) && clip.url) {
           const media = videoNodes[clip.id] || fallbackMediaRef.current[clip.id];
           if (media && media instanceof HTMLVideoElement) {
             const video = media as HTMLVideoElement;
@@ -369,9 +510,9 @@ export default function PreviewPlayer({
         });
       });
 
-      // ------------------ VIDEO LAYERS ------------------
+      // ------------------ VIDEO & IMAGE LAYERS ------------------
       activeFrameClips.forEach((clip) => {
-        if (clip.type === ClipType.VIDEO) {
+        if (clip.type === ClipType.VIDEO || clip.type === ClipType.IMAGE) {
           let media = videoNodes[clip.id] || fallbackMediaRef.current[clip.id];
 
           // Fallback: create safe HTML5 video/image element dynamically if missing
@@ -434,26 +575,30 @@ export default function PreviewPlayer({
             const isImg = clip.isImage || (media instanceof HTMLImageElement);
             const videoEl = media as HTMLVideoElement;
 
-            const isVideoReady = !isImg && !(videoEl as any).hasError && (videoEl.readyState >= 2 || (videoEl.videoWidth > 0 && videoEl.currentTime > 0));
+            const isVideoReady = !isImg && !(videoEl as any).hasError && (videoEl.readyState >= 1 || videoEl.videoWidth > 0);
             const isImageReady = isImg && ((media as HTMLImageElement).complete && (media as HTMLImageElement).naturalWidth > 0);
 
             if (isVideoReady) {
               drawTarget = videoEl;
               const elapsed = currentTime - clip.start;
-              const srcTime = clip.sourceStart + elapsed * clip.playbackRate;
-              const durationLimit = (videoEl.duration && !isNaN(videoEl.duration) && isFinite(videoEl.duration)) ? videoEl.duration : (clip.duration || 999999);
-              const clampedSrcTime = Math.max(0, Math.min(durationLimit, srcTime));
+              const rawSrcTime = clip.sourceStart + elapsed * clip.playbackRate;
+              const vidDur = (videoEl.duration && !isNaN(videoEl.duration) && isFinite(videoEl.duration) && videoEl.duration > 0) ? videoEl.duration : (clip.duration || 999999);
+              const clampedSrcTime = vidDur > 0 ? (rawSrcTime % vidDur) : 0;
               
               if (isPlaying) {
-                if (videoEl.paused) videoEl.play().catch(() => {});
-                if (Math.abs(videoEl.currentTime - clampedSrcTime) > 0.25 && !videoEl.seeking) {
+                if (videoEl.paused) {
+                  videoEl.play().catch(() => {});
+                }
+                // Only seek if drift is significant to avoid video decoder stuttering during playback
+                const drift = Math.abs(videoEl.currentTime - clampedSrcTime);
+                if (drift > 0.8 && !videoEl.seeking) {
                   try {
                     videoEl.currentTime = clampedSrcTime;
                   } catch {}
                 }
               } else {
                 if (!videoEl.paused) videoEl.pause();
-                if (Math.abs(videoEl.currentTime - clampedSrcTime) > 0.08 && !videoEl.seeking) {
+                if (Math.abs(videoEl.currentTime - clampedSrcTime) > 0.05 && !videoEl.seeking) {
                   try {
                     videoEl.currentTime = clampedSrcTime;
                   } catch {}
@@ -810,6 +955,15 @@ export default function PreviewPlayer({
         blockH: number;
         boxLeft: number;
         boxTop: number;
+        hasInlineMedallion?: boolean;
+        targetLineIdx?: number;
+        medH?: number;
+        medGap?: number;
+        medWidth?: number;
+        medallionTotalW?: number;
+        ayahNum?: number;
+        ayahSymbolPosition?: string;
+        ayahSymbolStyle?: string;
       }
 
       const preparedTextLayers: PreparedTextLayer[] = [];
@@ -863,12 +1017,25 @@ export default function PreviewPlayer({
         ctx.textBaseline = 'middle';
 
         let rawText = clip.textTransform === 'uppercase' ? (clip.text || '').toUpperCase() : (clip.text || '');
-        const isArabicOrQuran = clip.language === 'ar' || /[\u0600-\u06FF]/.test(clip.text || '') || clip.trackId?.includes('quran') || clip.name?.startsWith('AR:');
+
+        // Determine whether this clip is a translation clip (English, Urdu, Hindi, etc.)
+        const isTranslation = isTranslationClip(clip);
+
+        // USER DIRECTIVE: Ayah symbol must NEVER appear on translation text, only on Quran Ayah!
+        // Always strip any Ayah symbols or numeric markers from translation text
+        if (isTranslation) {
+          rawText = stripAyahSymbol(rawText);
+        }
+
+        // Only genuine Quran Arabic scripture can display an Ayah symbol / medallion
+        const isQuranArabic = isQuranArabicClip(clip);
+
         const ayahSymbolStyle = clip.ayahSymbolStyle && clip.ayahSymbolStyle !== 'none' ? clip.ayahSymbolStyle : 'ornate-medallion';
         const ayahSymbolPosition = clip.ayahSymbolPosition || 'end';
         const isDividerOrCinema = ayahSymbolPosition === 'divider' || !ayahSymbolPosition || clip.textBackgroundStyle === 'strip';
         const hasDoubleCircleIssue = ayahSymbolStyle === 'ornate-medallion' || ayahSymbolStyle === 'uthmani-circle';
-        if (isArabicOrQuran && (isDividerOrCinema || hasDoubleCircleIssue)) {
+
+        if (isQuranArabic && (isDividerOrCinema || hasDoubleCircleIssue)) {
           rawText = stripAyahSymbol(rawText);
         }
         let lines: string[] = [rawText];
@@ -903,9 +1070,21 @@ export default function PreviewPlayer({
         const totalHeight = (lines.length - 1) * lineGap;
         const startY = yPos - totalHeight / 2;
 
+        // Ayah medallion belongs exclusively to Quran Arabic Ayahs (NEVER for translation!)
+        const ayahNum = isQuranArabic ? (clip.ayahNumber || extractAyahNumberFromClip(clip)) : undefined;
+        const hasInlineMedallion = Boolean(isQuranArabic && hasDoubleCircleIssue && ayahNum && ayahSymbolPosition !== 'divider');
+        const targetLineIdx = ayahSymbolPosition === 'start' ? 0 : lines.length - 1;
+        const medH = Math.max(22, Math.round(fontSize * 1.05));
+        const medGap = Math.max(10, Math.round(fontSize * 0.22));
+        const medWidth = Math.round(medH * 0.52);
+        const medallionTotalW = hasInlineMedallion ? (medWidth + medGap) : 0;
+
         let maxLineWidth = 0;
-        lines.forEach((lText) => {
-          const w = ctx.measureText(lText).width;
+        lines.forEach((lText, lIdx) => {
+          let w = ctx.measureText(lText).width;
+          if (hasInlineMedallion && lIdx === targetLineIdx) {
+            w += medallionTotalW;
+          }
           if (w > maxLineWidth) maxLineWidth = w;
         });
 
@@ -941,6 +1120,15 @@ export default function PreviewPlayer({
           blockH,
           boxLeft,
           boxTop,
+          hasInlineMedallion,
+          targetLineIdx,
+          medH,
+          medGap,
+          medWidth,
+          medallionTotalW,
+          ayahNum: ayahNum || undefined,
+          ayahSymbolPosition,
+          ayahSymbolStyle,
         });
       });
 
@@ -976,9 +1164,10 @@ export default function PreviewPlayer({
         const minBoxTop = Math.min(...group.map(g => g.boxTop));
         const maxBoxBottom = Math.max(...group.map(g => g.boxTop + g.blockH));
 
-        const arLayer = group.find(g => g.clip.language === 'ar' || /[\u0600-\u06FF]/.test(g.clip.text || ''));
-        const enLayer = group.find(g => g !== arLayer);
-        const ayahNum = group.map(g => g.clip.ayahNumber || extractAyahNumberFromClip(g.clip)).find(n => typeof n === 'number' && n > 0);
+        const arLayer = group.find(g => isQuranArabicClip(g.clip));
+        const enLayer = group.find(g => isTranslationClip(g.clip) || g !== arLayer);
+        // CRITICAL: Only extract ayahNum if there is a Quran Arabic Ayah layer in this group! Ayah medallion NEVER appears without Quran Ayah!
+        const ayahNum = arLayer ? (arLayer.clip.ayahNumber || extractAyahNumberFromClip(arLayer.clip)) : undefined;
 
         const medallionH = Math.max(34, Math.min(52, Math.round(dimensions.height * 0.052)));
         let medallionY = 0;
@@ -1063,7 +1252,8 @@ export default function PreviewPlayer({
             medallionH,
             ayahNum,
             'arabic',
-            '#ffffff'
+            '#ffffff',
+            primaryClip.ayahSymbolStyle || 'ornate-medallion'
           );
           ctx.restore();
         }
@@ -1307,6 +1497,27 @@ export default function PreviewPlayer({
             if (!lineText) return;
             const currentY = startY + idx * lineGap;
 
+            // Calculate lineX with optical compensation for inline medallion on the target line
+            let lineX = xPos;
+            const isTargetLine = Boolean(layer.hasInlineMedallion && idx === layer.targetLineIdx && layer.medallionTotalW);
+            if (isTargetLine && layer.medallionTotalW) {
+              if (alignment === 'center') {
+                if (layer.ayahSymbolPosition === 'start') {
+                  lineX = xPos - (layer.medallionTotalW / 2);
+                } else {
+                  lineX = xPos + (layer.medallionTotalW / 2);
+                }
+              } else if (alignment === 'right') {
+                if (layer.ayahSymbolPosition === 'start') {
+                  lineX = xPos - layer.medallionTotalW;
+                }
+              } else if (alignment === 'left') {
+                if (layer.ayahSymbolPosition === 'end') {
+                  lineX = xPos + layer.medallionTotalW;
+                }
+              }
+            }
+
             // 3D Text Extrusion Depth Layering
             if (clip.text3D && clip.text3D.depth3D && clip.text3D.depth3D > 0) {
               const depth = clip.text3D.depth3D;
@@ -1314,12 +1525,12 @@ export default function PreviewPlayer({
               ctx.save();
               ctx.fillStyle = shadowColor;
               for (let d = depth; d > 0; d--) {
-                ctx.fillText(lineText, xPos + d * 0.8, currentY + d * 0.8);
+                ctx.fillText(lineText, lineX + d * 0.8, currentY + d * 0.8);
               }
               if (clip.text3D.metallicBorder) {
                 ctx.strokeStyle = '#e2e8f0';
                 ctx.lineWidth = 1.5;
-                ctx.strokeText(lineText, xPos + depth * 0.8, currentY + depth * 0.8);
+                ctx.strokeText(lineText, lineX + depth * 0.8, currentY + depth * 0.8);
               }
               ctx.restore();
             }
@@ -1331,7 +1542,7 @@ export default function PreviewPlayer({
             if (strokeWidth > 0) {
               ctx.strokeStyle = clip.textStrokeColor || (clip.textStyle === ('gold-glow' as any) ? '#78350f' : '#000000');
               ctx.lineWidth = strokeWidth;
-              ctx.strokeText(lineText, xPos, currentY);
+              ctx.strokeText(lineText, lineX, currentY);
             }
 
             const effectiveGlow = (clip.textGlowIntensity ?? (clip.textStyle === 'neon' ? 15 : 0)) + animGlowBoost;
@@ -1355,97 +1566,74 @@ export default function PreviewPlayer({
             }
 
             ctx.fillStyle = clip.textStyle === 'neon' ? '#FFFFFF' : (clip.textStyle === ('gold-glow' as any) ? '#fbbf24' : (clip.textStyle === ('viral-reels' as any) ? '#facc15' : color));
-            ctx.fillText(lineText, xPos, currentY);
+            ctx.fillText(lineText, lineX, currentY);
+
+            // Draw inline crowned Ayah medallion on the target line (inside animation transform context)
+            if (isTargetLine && layer.ayahNum && lineText && lineText.trim().length > 0) {
+              const targetLineWidth = ctx.measureText(lineText).width;
+              const medH = layer.medH ?? Math.round(fontSize * 1.05);
+              const halfMed = (layer.medWidth ?? Math.round(medH * 0.52)) / 2;
+              const gap = layer.medGap ?? Math.max(10, Math.round(fontSize * 0.22));
+              let medX = lineX;
+
+              if (alignment === 'center') {
+                if (layer.ayahSymbolPosition === 'start') {
+                  medX = lineX + (targetLineWidth / 2) + gap + halfMed;
+                } else {
+                  medX = lineX - (targetLineWidth / 2) - gap - halfMed;
+                }
+              } else if (alignment === 'right') {
+                if (layer.ayahSymbolPosition === 'start') {
+                  medX = lineX + gap + halfMed;
+                } else {
+                  medX = lineX - targetLineWidth - gap - halfMed;
+                }
+              } else { // 'left'
+                if (layer.ayahSymbolPosition === 'start') {
+                  medX = lineX + targetLineWidth + gap + halfMed;
+                } else {
+                  medX = lineX - gap - halfMed;
+                }
+              }
+
+              drawCanvasAyahMedallion(
+                ctx,
+                medX,
+                currentY,
+                medH,
+                layer.ayahNum,
+                (clip.ayahDigitType as any) || 'arabic',
+                clip.color || '#ffffff',
+                layer.ayahSymbolStyle || 'ornate-medallion'
+              );
+            }
           });
 
           ctx.restore(); // Restore Canvas Context after Animation Transforms
 
-          // Standalone / Inline Ayah medallion if clip is Arabic and has ayahNumber
-          if (clip.language === 'ar' || /[\u0600-\u06FF]/.test(clip.text || '')) {
+          // Divider Ayah medallion if position === 'divider' (strictly for Quran Arabic!)
+          if (isQuranArabicClip(clip)) {
             const ayahNum = clip.ayahNumber || extractAyahNumberFromClip(clip);
             const ayahSymbolStyle = clip.ayahSymbolStyle && clip.ayahSymbolStyle !== 'none' ? clip.ayahSymbolStyle : 'ornate-medallion';
             const ayahSymbolPosition = clip.ayahSymbolPosition || 'end';
-            const hasDoubleCircleIssue = ayahSymbolStyle === 'ornate-medallion' || ayahSymbolStyle === 'uthmani-circle';
-            if (ayahNum) {
-              if (ayahSymbolPosition === 'divider') {
-                if (!renderedMedallionAyahNumbers.has(ayahNum)) {
-                  renderedMedallionAyahNumbers.add(ayahNum);
-                  const medH = Math.max(30, Math.min(48, Math.round(dimensions.height * 0.048)));
-                  const medY = boxTop + blockH + (medH / 2) + 8;
-                  ctx.save();
-                  ctx.globalAlpha = Math.max(0, Math.min(1, transState.alphaMultiplier));
-                  drawCanvasAyahMedallion(
-                    ctx,
-                    dimensions.width / 2,
-                    medY,
-                    medH,
-                    ayahNum,
-                    'arabic',
-                    clip.color || '#ffffff'
-                  );
-                  ctx.restore();
-                }
-              } else if (hasDoubleCircleIssue) {
-                // Determine size based on text font size, scaled proportionally
-                const medH = Math.max(16, Math.round(fontSize * 0.90));
-                
-                // Use renderLines (active, typed characters) instead of lines (static)
-                const targetLineIdx = ayahSymbolPosition === 'start' ? 0 : renderLines.length - 1;
-                const targetLineText = renderLines[targetLineIdx];
-                
-                if (targetLineText && targetLineText.trim().length > 0) {
-                  // Temporarily set the font on the context to measure the line width correctly
-                  ctx.save();
-                  ctx.font = `bold ${fontSize}px ${fontStack}`;
-                  const targetLineWidth = ctx.measureText(targetLineText).width;
-                  ctx.restore();
-                  
-                   const targetLineY = startY + targetLineIdx * lineGap;
-                  // Optically center the medallion vertically with the text line
-                  // When textBaseline is 'middle', targetLineY is the exact middle of the text,
-                  // so medY should equal targetLineY without subtracting fontSize * 0.35.
-                  const medY = targetLineY;
-                  
-                  let medX = xPos;
-                  // For a compact and beautiful Quran.com alignment, the distance of the medallion's outer edge from the text should be tight.
-                  // The medallion's radius (half-width) is 0.35 * medH.
-                  // We add a small optical gap scaled to the font size (e.g. 7% of font size).
-                  const gap = Math.round(fontSize * 0.07);
-                  const halfMedWidth = medH * 0.35;
-                  
-                  if (alignment === 'center') {
-                    if (ayahSymbolPosition === 'start') {
-                      medX = xPos + (targetLineWidth / 2) + halfMedWidth + gap;
-                    } else {
-                      medX = xPos - (targetLineWidth / 2) - halfMedWidth - gap;
-                    }
-                  } else if (alignment === 'right') {
-                    if (ayahSymbolPosition === 'start') {
-                      medX = xPos + halfMedWidth + gap;
-                    } else {
-                      medX = xPos - targetLineWidth - halfMedWidth - gap;
-                    }
-                  } else { // 'left'
-                    if (ayahSymbolPosition === 'start') {
-                      medX = xPos + targetLineWidth + halfMedWidth + gap;
-                    } else {
-                      medX = xPos - halfMedWidth - gap;
-                    }
-                  }
-                  
-                  ctx.save();
-                  ctx.globalAlpha = Math.max(0, Math.min(1, transState.alphaMultiplier));
-                  drawCanvasAyahMedallion(
-                    ctx,
-                    medX,
-                    medY,
-                    medH,
-                    ayahNum,
-                    'arabic',
-                    clip.color || '#ffffff'
-                  );
-                  ctx.restore();
-                }
+            if (ayahNum && ayahSymbolPosition === 'divider') {
+              if (!renderedMedallionAyahNumbers.has(ayahNum)) {
+                renderedMedallionAyahNumbers.add(ayahNum);
+                const medH = Math.max(30, Math.min(48, Math.round(dimensions.height * 0.048)));
+                const medY = boxTop + blockH + (medH / 2) + 8;
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, Math.min(1, transState.alphaMultiplier));
+                drawCanvasAyahMedallion(
+                  ctx,
+                  dimensions.width / 2,
+                  medY,
+                  medH,
+                  ayahNum,
+                  (clip.ayahDigitType as any) || 'arabic',
+                  clip.color || '#ffffff',
+                  ayahSymbolStyle
+                );
+                ctx.restore();
               }
             }
           }
@@ -2458,11 +2646,99 @@ export default function PreviewPlayer({
             <Scan className="w-3.5 h-3.5" />
           </button>
 
+          {/* Preview Quality Selector (4K / 2K / 1080p / 720p) */}
+          <div className="relative">
+            <button
+              id="btn-preview-quality-toggle"
+              onClick={() => { setShowQualityMenu(!showQualityMenu); setShowRatioMenu(false); }}
+              className={`px-2 py-0.5 rounded border text-[11px] font-semibold transition flex items-center gap-1 cursor-pointer ${
+                previewQuality === '4K'
+                  ? 'border-amber-500/50 text-amber-300 bg-amber-950/40 hover:bg-amber-900/50'
+                  : previewQuality === '2K'
+                  ? 'border-purple-500/50 text-purple-300 bg-purple-950/40 hover:bg-purple-900/50'
+                  : 'border-[#3a3a48] hover:border-cyan-400 bg-[#22222c] hover:bg-[#2c2c38] text-gray-200'
+              }`}
+              title="Player View Quality (Canvas Resolution)"
+            >
+              <Sparkles className="w-3 h-3 text-current" />
+              <span>{previewQuality}</span>
+            </button>
+
+            {showQualityMenu && (
+              <div className="absolute bottom-full right-0 mb-1 w-52 bg-[#1a1a20] border border-[#2a2a34] rounded-lg shadow-2xl p-1 z-50 text-xs text-gray-300 animate-in fade-in duration-150">
+                <div className="px-2.5 py-1 text-[10px] uppercase font-bold text-gray-400 border-b border-gray-800 mb-1 flex items-center justify-between">
+                  <span>Player Resolution</span>
+                  <span className="text-cyan-400 font-mono">{dimensions.width}×{dimensions.height}</span>
+                </div>
+                <button
+                  onClick={() => { setPreviewQuality('4K'); setShowQualityMenu(false); }}
+                  className={`w-full text-left px-2.5 py-1.5 rounded hover:bg-[#2a2a36] flex items-center justify-between transition ${previewQuality === '4K' ? 'text-amber-300 font-bold bg-[#282218]' : ''}`}
+                >
+                  <div className="flex flex-col">
+                    <span className="flex items-center gap-1.5 font-semibold">
+                      4K Ultra HD 
+                      <span className="text-[9px] px-1 py-0.2 bg-amber-500/20 text-amber-300 rounded font-mono border border-amber-500/30">4K UHD</span>
+                    </span>
+                    <span className="text-[10px] text-gray-400 font-mono">
+                      {aspectRatio === '9:16' ? '2160 × 3840' : aspectRatio === '1:1' ? '2160 × 2160' : '3840 × 2160'}
+                    </span>
+                  </div>
+                  {previewQuality === '4K' && <Check className="w-3.5 h-3.5 text-amber-400" />}
+                </button>
+                <button
+                  onClick={() => { setPreviewQuality('2K'); setShowQualityMenu(false); }}
+                  className={`w-full text-left px-2.5 py-1.5 rounded hover:bg-[#2a2a36] flex items-center justify-between transition ${previewQuality === '2K' ? 'text-purple-300 font-bold bg-[#241e2e]' : ''}`}
+                >
+                  <div className="flex flex-col">
+                    <span className="flex items-center gap-1.5 font-semibold">
+                      2K Quad HD 
+                      <span className="text-[9px] px-1 py-0.2 bg-purple-500/20 text-purple-300 rounded font-mono border border-purple-500/30">2K QHD</span>
+                    </span>
+                    <span className="text-[10px] text-gray-400 font-mono">
+                      {aspectRatio === '9:16' ? '1440 × 2560' : aspectRatio === '1:1' ? '1440 × 1440' : '2560 × 1440'}
+                    </span>
+                  </div>
+                  {previewQuality === '2K' && <Check className="w-3.5 h-3.5 text-purple-400" />}
+                </button>
+                <button
+                  onClick={() => { setPreviewQuality('1080p'); setShowQualityMenu(false); }}
+                  className={`w-full text-left px-2.5 py-1.5 rounded hover:bg-[#2a2a36] flex items-center justify-between transition ${previewQuality === '1080p' ? 'text-cyan-400 font-bold bg-[#242430]' : ''}`}
+                >
+                  <div className="flex flex-col">
+                    <span className="flex items-center gap-1.5 font-semibold">
+                      1080p Full HD 
+                      <span className="text-[9px] px-1 py-0.2 bg-cyan-500/20 text-cyan-300 rounded font-mono border border-cyan-500/30">1080p</span>
+                    </span>
+                    <span className="text-[10px] text-gray-400 font-mono">
+                      {aspectRatio === '9:16' ? '1080 × 1920' : aspectRatio === '1:1' ? '1080 × 1080' : '1920 × 1080'}
+                    </span>
+                  </div>
+                  {previewQuality === '1080p' && <Check className="w-3.5 h-3.5 text-cyan-400" />}
+                </button>
+                <button
+                  onClick={() => { setPreviewQuality('720p'); setShowQualityMenu(false); }}
+                  className={`w-full text-left px-2.5 py-1.5 rounded hover:bg-[#2a2a36] flex items-center justify-between transition ${previewQuality === '720p' ? 'text-blue-400 font-bold bg-[#242430]' : ''}`}
+                >
+                  <div className="flex flex-col">
+                    <span className="flex items-center gap-1.5 font-semibold">
+                      720p HD 
+                      <span className="text-[9px] px-1 py-0.2 bg-gray-700 text-gray-300 rounded font-mono">720p</span>
+                    </span>
+                    <span className="text-[10px] text-gray-400 font-mono">
+                      {aspectRatio === '9:16' ? '720 × 1280' : aspectRatio === '1:1' ? '720 × 720' : '1280 × 720'}
+                    </span>
+                  </div>
+                  {previewQuality === '720p' && <Check className="w-3.5 h-3.5 text-blue-400" />}
+                </button>
+              </div>
+            )}
+          </div>
+
           {/* Aspect Ratio Button & Dropdown */}
           <div className="relative">
             <button
               id="btn-aspect-ratio-toggle"
-              onClick={() => setShowRatioMenu(!showRatioMenu)}
+              onClick={() => { setShowRatioMenu(!showRatioMenu); setShowQualityMenu(false); }}
               className="px-2 py-0.5 rounded border border-[#3a3a48] hover:border-cyan-400 bg-[#22222c] hover:bg-[#2c2c38] text-[11px] font-semibold text-gray-200 transition flex items-center gap-1 cursor-pointer"
               title="Aspect Ratio Options"
             >

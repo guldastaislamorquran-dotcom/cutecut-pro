@@ -864,9 +864,11 @@ export async function fetchSingleAyahTranslation(
       const data = await res.json();
       const rawText = data.verse?.translations?.[0]?.text || '';
       const clean = rawText
+        .replace(/<sup[^>]*>.*?<\/sup>/gi, '')
         .replace(/<[^>]*>/g, '')
-        .replace(/[\{\}\[\]\(\)]/g, '')
+        .replace(/[\{\}\[\]]/g, '')
         .replace(/&nbsp;/g, ' ')
+        .replace(/\s*[-–—]\s*$/, '')
         .trim();
       if (clean) {
         try {

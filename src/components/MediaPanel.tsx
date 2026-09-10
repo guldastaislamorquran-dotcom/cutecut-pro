@@ -330,7 +330,7 @@ export default function MediaPanel({
   setQuranArabicLineHeight,
   quranArabicAlign,
   setQuranArabicAlign,
-  quranAyahSymbolStyle = 'uthmani-circle',
+  quranAyahSymbolStyle = 'ornate-medallion',
   setQuranAyahSymbolStyle,
   quranAyahDigitType = 'arabic',
   setQuranAyahDigitType,
@@ -423,7 +423,8 @@ export default function MediaPanel({
   const previewAudioRef = useRef<HTMLAudioElement | null>(null);
 
   // CapCut Audio Subtab & Filter category
-  const [videoCategory, setVideoCategory] = useState<string>('Islamic Stock');
+  const [videoCategory, setVideoCategory] = useState<string>('All');
+  const [videoSearchQuery, setVideoSearchQuery] = useState<string>('');
   const [imageCategory, setImageCategory] = useState<string>('Background');
   const [textCategory, setTextCategory] = useState<string>('Templates');
 
@@ -1050,10 +1051,15 @@ export default function MediaPanel({
 
   const addPresetVideo = (video: typeof STOCK_VIDEOS[0]) => {
     showAddedToast(video.name);
+    const isExplicitImage = video.isImage === true;
     onAddClip({
       name: video.name,
       type: ClipType.VIDEO,
+      isImage: isExplicitImage,
       url: video.url,
+      poster: video.thumbnail,
+      thumbnailUrl: video.thumbnail,
+      fallbackUrl: video.thumbnail,
       duration: video.duration,
       sourceStart: 0,
       sourceDuration: video.duration,
@@ -1097,6 +1103,9 @@ export default function MediaPanel({
       name: image.name,
       type: ClipType.IMAGE,
       url: image.url,
+      poster: image.thumbnail || image.url,
+      thumbnailUrl: image.thumbnail || image.url,
+      fallbackUrl: image.thumbnail || image.url,
       duration: image.duration || 8,
       sourceStart: 0,
       sourceDuration: image.duration || 8,
@@ -1421,37 +1430,82 @@ export default function MediaPanel({
       <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
         {activeTab === 'video' && (
           <div className="flex flex-col h-full space-y-3">
+            {/* Search Bar */}
+            <div className="relative">
+              <input
+                type="text"
+                value={videoSearchQuery}
+                onChange={(e) => setVideoSearchQuery(e.target.value)}
+                placeholder="Search Islamic & Nature videos (Makkah, Rain, Dawn, Stars...)"
+                className="w-full bg-[#181820] border border-gray-800 rounded-lg px-3 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-cyan-500/60"
+              />
+              {videoSearchQuery && (
+                <button
+                  onClick={() => setVideoSearchQuery('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white text-xs"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+
+            {/* Category Filter Pills */}
             <div className="flex items-center gap-1.5 overflow-x-auto pb-1 custom-scrollbar shrink-0">
-              {['All', 'Islamic Stock', 'Green Screen', 'VFX & Loop', 'Cinematic', 'Abstract'].map((cat) => (
+              {['All', 'Islamic & Holy', 'Nature & Skies', 'Rain & Water', 'Cosmic & Stars', 'VFX & Noor', 'Green Screen'].map((cat) => (
                 <button
                   key={cat}
                   onClick={() => setVideoCategory(cat)}
-                  className={`px-2.5 py-0.5 rounded-full text-[10px] font-medium uppercase whitespace-nowrap transition ${videoCategory === cat ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/40' : 'bg-[#202028] text-gray-400 hover:text-white border border-transparent'}`}
+                  className={`px-2.5 py-1 rounded-full text-[10px] font-medium whitespace-nowrap transition ${videoCategory === cat ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/50 shadow-xs' : 'bg-[#202028] text-gray-400 hover:text-white border border-transparent'}`}
                 >
                   {cat}
                 </button>
               ))}
             </div>
 
-            <div className="grid grid-cols-2 gap-2 flex-1 overflow-y-auto pr-1 custom-scrollbar content-start">
-              {STOCK_VIDEOS.filter(v => videoCategory === 'All' || v.category === videoCategory).map((video) => (
+            {/* Video Cards Grid */}
+            <div className="grid grid-cols-2 gap-2.5 flex-1 overflow-y-auto pr-1 custom-scrollbar content-start">
+              {STOCK_VIDEOS.filter((v) => {
+                const matchesCategory = videoCategory === 'All' || v.category === videoCategory;
+                const matchesSearch = !videoSearchQuery.trim() ||
+                  v.name.toLowerCase().includes(videoSearchQuery.toLowerCase()) ||
+                  v.category.toLowerCase().includes(videoSearchQuery.toLowerCase());
+                return matchesCategory && matchesSearch;
+              }).map((video) => (
                 <div
                   key={video.id}
                   id={`stock-video-${video.id}`}
                   onClick={() => addPresetVideo(video)}
-                  className="group bg-[#1e1e26] hover:bg-[#252532] border border-gray-800 hover:border-cyan-500/50 rounded-xl p-2 flex flex-col cursor-pointer transition relative shadow-sm h-28"
+                  className="group bg-[#1a1a22] hover:bg-[#22222d] border border-gray-800/80 hover:border-cyan-500/60 rounded-xl p-2 flex flex-col cursor-pointer transition-all duration-200 relative shadow-sm hover:shadow-cyan-950/30"
                 >
-                  <div className="w-full h-14 bg-slate-800 rounded-lg flex items-center justify-center text-2xl relative overflow-hidden shrink-0 mb-1.5 border border-white/5">
-                    {video.thumbnail}
-                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
-                      <Play className="w-4 h-4 text-white fill-current animate-pulse" />
+                  <div className="w-full h-18 bg-slate-900 rounded-lg flex items-center justify-center relative overflow-hidden shrink-0 mb-1.5 border border-white/5">
+                    {video.thumbnail.startsWith('http') ? (
+                      <img
+                        src={video.thumbnail}
+                        alt={video.name}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        referrerPolicy="no-referrer"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <span className="text-2xl">{video.thumbnail}</span>
+                    )}
+                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="w-7 h-7 rounded-full bg-cyan-500/90 text-white flex items-center justify-center shadow-lg transform group-hover:scale-110 transition-transform">
+                        <Play className="w-3.5 h-3.5 fill-current ml-0.5" />
+                      </div>
                     </div>
-                    <span className="absolute bottom-1 right-1 text-[8px] bg-black/60 px-1 rounded font-mono">{video.duration}s</span>
+                    <span className="absolute bottom-1 right-1 text-[8px] bg-black/75 backdrop-blur-xs text-white px-1.5 py-0.5 rounded font-mono font-bold">
+                      {video.duration}s
+                    </span>
                   </div>
                   <div className="flex-1 min-w-0 flex flex-col justify-between">
-                    <p className="text-[10px] font-semibold text-white line-clamp-1">{video.name}</p>
-                    <div className="flex items-center justify-between mt-1">
-                      <span className="text-[8px] text-cyan-400 uppercase font-mono bg-cyan-950/40 px-1 rounded truncate">{video.category}</span>
+                    <p className="text-[11px] font-medium text-gray-200 group-hover:text-white line-clamp-2 leading-tight">
+                      {video.name}
+                    </p>
+                    <div className="flex items-center justify-between mt-1.5 pt-1 border-t border-gray-800/40">
+                      <span className="text-[8px] text-cyan-400 font-medium tracking-wide bg-cyan-950/60 px-1.5 py-0.5 rounded-full truncate">
+                        {video.category}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -3084,7 +3138,162 @@ export default function MediaPanel({
                   </div>
                 </div>
 
-                {/* BLOCK 5: 🌐 TRANSLATION SCRIPT & TYPOGRAPHY (LIVE CUSTOMIZATION) CONTROLS */}
+                {/* BLOCK 4.5: ⚜️ AYAH NUMBER SYMBOL & MEDALLION (LIVE CUSTOMIZATION) */}
+                <div className="bg-[#121218] border border-amber-500/30 rounded-xl p-3.5 space-y-3.5 mt-2 shadow-lg">
+                  <div className="flex items-center justify-between pb-1 border-b border-gray-800/80">
+                    <label className="text-xs font-extrabold text-amber-400 uppercase tracking-wide flex items-center gap-1.5">
+                      <span className="text-amber-400 text-sm">۝</span>
+                      <span>AYAH END SYMBOL & MEDALLION</span>
+                    </label>
+                    <span className="text-[9px] font-mono px-2 py-0.5 rounded bg-amber-500/10 text-amber-300 font-bold border border-amber-500/20">
+                      Crowned Cartouche
+                    </span>
+                  </div>
+
+                  {/* 1. Toggle Ayah Symbol On/Off */}
+                  <div className="flex items-center justify-between bg-[#0b0b0f] p-2.5 rounded-lg border border-gray-800">
+                    <div className="space-y-0.5">
+                      <p className="text-xs font-bold text-white">Show Ayah End Symbol</p>
+                      <p className="text-[10px] text-gray-400">Display ornate verse medallion on Quranic Ayahs</p>
+                    </div>
+                    <button
+                      type="button"
+                      id="toggle-quran-show-ayah-symbol"
+                      onClick={() => {
+                        const next = !quranShowAyahSymbol;
+                        if (setQuranShowAyahSymbol) setQuranShowAyahSymbol(next);
+                        onApplyQuranStyles({ showAyahSymbol: next });
+                      }}
+                      className={`w-11 h-6 flex items-center rounded-full p-1 transition-colors cursor-pointer border ${
+                        quranShowAyahSymbol ? 'bg-amber-500 border-amber-400 justify-end' : 'bg-gray-800 border-gray-700 justify-start'
+                      }`}
+                    >
+                      <span className="bg-black w-4 h-4 rounded-full shadow-md" />
+                    </button>
+                  </div>
+
+                  {quranShowAyahSymbol && (
+                    <>
+                      {/* Visual Live Reference Badge */}
+                      <div className="bg-[#0b0b12] border border-amber-500/20 rounded-lg p-2.5 flex items-center justify-between">
+                        <div className="space-y-0.5">
+                          <span className="text-[10px] font-bold uppercase text-amber-400">Current Symbol Preview</span>
+                          <p className="text-[9px] text-gray-400">Authentic Mushaf cartouche with verse number</p>
+                        </div>
+                        <div className="flex items-center gap-2 bg-black/60 px-3 py-1.5 rounded border border-amber-500/30">
+                          {/* Mini visual representation */}
+                          <svg className="w-7 h-9 text-amber-300" viewBox="-35 -60 70 120" fill="none" stroke="currentColor">
+                            {/* Outer oval */}
+                            <path d="M 0 -42 C 18 -42 30 -24 30 0 C 30 24 18 43 0 43 C -18 43 -30 24 -30 0 C -30 -24 -18 -42 0 -42 Z" strokeWidth="3" />
+                            {/* Crown crest */}
+                            <path d="M -12 -39 C -12 -47 -6 -48 -4.5 -42.5 C -5.5 -53 5.5 -53 4.5 -42.5 C 6 -48 12 -47 12 -39" strokeWidth="2.5" />
+                            {/* Top scrolls */}
+                            <path d="M -2 -37 C -12 -37 -23 -31 -24.5 -18 C -24.5 -11 -14 -12 -11 -18 C -9 -22 -14 -26 -17 -24" strokeWidth="2.5" />
+                            <path d="M 2 -37 C 12 -37 23 -31 24.5 -18 C 24.5 -11 14 -12 11 -18 C 9 -22 14 -26 17 -24" strokeWidth="2.5" />
+                            {/* Bottom scrolls */}
+                            <path d="M -2 37 C -12 37 -23 31 -24.5 18 C -24.5 11 -14 12 -11 18 C -9 22 -14 26 -17 24" strokeWidth="2.5" />
+                            <path d="M 2 37 C 12 37 23 31 24.5 18 C 24.5 11 14 12 11 18 C 9 22 14 26 17 24" strokeWidth="2.5" />
+                            {/* Center digit 5 */}
+                            <text x="0" y="5" textAnchor="middle" fill="currentColor" fontSize="28" fontWeight="bold" fontFamily="sans-serif">
+                              {quranAyahDigitType === 'latin' ? '5' : '٥'}
+                            </text>
+                          </svg>
+                          <span className="text-xs font-bold text-amber-300 font-mono">
+                            {quranAyahSymbolStyle === 'ornate-medallion' ? 'Classic Medallion' : quranAyahSymbolStyle}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* 2. AYAH SYMBOL STYLE */}
+                      <div className="space-y-1.5">
+                        <span className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider">MEDALLION STYLE</span>
+                        <div className="grid grid-cols-2 gap-1.5">
+                          {[
+                            { key: 'ornate-medallion', label: 'Classic Medallion (۝)', badge: 'Reference Design' },
+                            { key: 'uthmani-circle', label: 'Uthmani Rosette (⊙)', badge: 'Quran.com' },
+                            { key: 'ornate-brackets', label: 'Ornate Brackets ﴿﴾', badge: 'Floral' },
+                            { key: 'parentheses', label: 'Parentheses (5)', badge: 'Simple' }
+                          ].map((item) => (
+                            <button
+                              key={item.key}
+                              type="button"
+                              id={`btn-ayah-symbol-style-${item.key}`}
+                              onClick={() => {
+                                if (setQuranAyahSymbolStyle) setQuranAyahSymbolStyle(item.key as any);
+                                onApplyQuranStyles({ ayahSymbolStyle: item.key, showAyahSymbol: true });
+                              }}
+                              className={`p-2 text-left rounded-lg transition border cursor-pointer ${
+                                quranAyahSymbolStyle === item.key
+                                  ? 'bg-amber-500/20 text-amber-300 border-amber-400 shadow-md'
+                                  : 'bg-[#181822] text-gray-300 hover:text-white hover:bg-gray-800 border-gray-800'
+                              }`}
+                            >
+                              <p className="text-xs font-bold">{item.label}</p>
+                              <span className="text-[9px] text-gray-400">{item.badge}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* 3. SYMBOL POSITION */}
+                      <div className="space-y-1.5">
+                        <span className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider">SYMBOL POSITION</span>
+                        <div className="grid grid-cols-3 gap-1.5">
+                          {[
+                            { key: 'end', label: 'End of Ayah' },
+                            { key: 'divider', label: 'Divider Card' },
+                            { key: 'start', label: 'Start of Ayah' }
+                          ].map((pos) => (
+                            <button
+                              key={pos.key}
+                              type="button"
+                              id={`btn-ayah-symbol-pos-${pos.key}`}
+                              onClick={() => {
+                                if (setQuranAyahSymbolPosition) setQuranAyahSymbolPosition(pos.key as any);
+                                onApplyQuranStyles({ ayahSymbolPosition: pos.key, showAyahSymbol: true });
+                              }}
+                              className={`py-2 px-1 text-center text-xs font-semibold rounded-lg transition border cursor-pointer ${
+                                quranAyahSymbolPosition === pos.key
+                                  ? 'bg-amber-500/20 text-amber-300 border-amber-400 shadow-md font-bold'
+                                  : 'bg-[#181822] text-gray-300 hover:text-white hover:bg-gray-800 border-gray-800'
+                              }`}
+                            >
+                              {pos.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* 4. DIGIT TYPE */}
+                      <div className="space-y-1.5">
+                        <span className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider">VERSE DIGIT NUMERALS</span>
+                        <div className="grid grid-cols-2 gap-1.5">
+                          {[
+                            { key: 'arabic', label: 'Arabic Digits (١، ۲، ۳، ٤، ٥)' },
+                            { key: 'latin', label: 'English Digits (1, 2, 3, 4, 5)' }
+                          ].map((dig) => (
+                            <button
+                              key={dig.key}
+                              type="button"
+                              id={`btn-ayah-digit-${dig.key}`}
+                              onClick={() => {
+                                if (setQuranAyahDigitType) setQuranAyahDigitType(dig.key as any);
+                                onApplyQuranStyles({ ayahDigitType: dig.key, showAyahSymbol: true });
+                              }}
+                              className={`py-2 px-2 text-center text-xs font-semibold rounded-lg transition border cursor-pointer ${
+                                quranAyahDigitType === dig.key
+                                  ? 'bg-amber-500/20 text-amber-300 border-amber-400 shadow-md font-bold'
+                                  : 'bg-[#181822] text-gray-300 hover:text-white hover:bg-gray-800 border-gray-800'
+                              }`}
+                            >
+                              {dig.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
                 <div className="bg-[#121218] border border-cyan-500/30 rounded-xl p-3.5 space-y-3.5 mt-2 shadow-lg">
                   <div className="flex items-center justify-between pb-1 border-b border-gray-800/80">
                     <label className="text-xs font-extrabold text-cyan-400 uppercase tracking-wide flex items-center gap-1.5">
@@ -3815,54 +4024,54 @@ export default function MediaPanel({
                   ? [
                       {
                         id: 'bg-stars',
-                        name: 'Stars & Galaxy Loop',
-                        url: 'https://media.w3.org/2010/05/sintel/trailer.mp4',
-                        duration: 13,
+                        name: 'Stars & Galaxy Loop (Video)',
+                        url: 'https://upload.wikimedia.org/wikipedia/commons/6/63/Milky_Way_Timelapse.webm',
+                        duration: 26,
                         thumbnail: '🌌',
                         category: 'Space',
                         isImage: false,
                       },
                       {
                         id: 'bg-rain',
-                        name: 'Rain On Glass Window',
-                        url: 'https://vjs.zencdn.net/v/oceans.mp4',
-                        duration: 10,
+                        name: 'Rain On Water Ripples (Video)',
+                        url: 'https://upload.wikimedia.org/wikipedia/commons/2/23/Rain_water.webm',
+                        duration: 16,
                         thumbnail: '🌧️',
                         category: 'Nature',
                         isImage: false,
                       },
                       {
                         id: 'bg-clouds',
-                        name: 'Slow Motion Sunset Clouds',
-                        url: 'https://vjs.zencdn.net/v/oceans.mp4',
-                        duration: 15,
+                        name: 'Floating Sunset Clouds Timelapse (Video)',
+                        url: 'https://upload.wikimedia.org/wikipedia/commons/e/ea/Timelapse_of_Clouds_over_Bellevue_Canyon.webm',
+                        duration: 20,
                         thumbnail: '☁️',
                         category: 'Clouds',
                         isImage: false,
                       },
                       {
                         id: 'bg-particles',
-                        name: 'Golden Divine Particles',
-                        url: 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4',
-                        duration: 12,
+                        name: 'Golden Morning Sunbeams (Video)',
+                        url: 'https://upload.wikimedia.org/wikipedia/commons/2/2a/Daybreak_Timelapse_1080p60fps.webm',
+                        duration: 24,
                         thumbnail: '✨',
                         category: 'VFX',
                         isImage: false,
                       },
                       {
                         id: 'bg-waves',
-                        name: 'Ocean Waves Slow Mo',
-                        url: 'https://vjs.zencdn.net/v/oceans.mp4',
-                        duration: 12,
+                        name: 'Ocean Sunset Waves (Video)',
+                        url: 'https://upload.wikimedia.org/wikipedia/commons/6/63/The_blue_sky_kisses_the_green_ocean%2C_as_I_stand_on_the_shore_of_little_brown_sand%2C_watching_evening_melt_into_waves.webm',
+                        duration: 25,
                         thumbnail: '🌊',
                         category: 'Nature',
                         isImage: false,
                       },
                       {
-                        id: 'bg-forest',
-                        name: 'Misty Coniferous Forest',
-                        url: 'https://vjs.zencdn.net/v/oceans.mp4',
-                        duration: 11,
+                        id: 'bg-waterfall',
+                        name: 'Crystal Cascading Waterfall (Video)',
+                        url: 'https://upload.wikimedia.org/wikipedia/commons/2/27/Side_view_video_of_Kawaida_Waterfall_cascading%2C_Cianda%2C_Kiambu_County.webm',
+                        duration: 21,
                         thumbnail: '🌲',
                         category: 'Scenic',
                         isImage: false,
@@ -3959,11 +4168,15 @@ export default function MediaPanel({
                       <button
                         onClick={() => {
                           const safeUrl = resolveTauriAssetUrl(bg.url);
+                          showAddedToast(bg.name);
                           onAddClip({
                             name: bg.name,
                             type: ClipType.VIDEO,
                             isImage: bg.isImage,
                             url: safeUrl,
+                            poster: bg.url,
+                            thumbnailUrl: bg.url,
+                            fallbackUrl: bg.url,
                             duration: bg.duration,
                             sourceStart: 0,
                             sourceDuration: bg.duration,

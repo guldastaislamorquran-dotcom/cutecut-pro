@@ -649,7 +649,7 @@ export function formatAyahSymbol(
 }
 
 /**
- * Strips any pre-existing Ayah numbers / symbols from Arabic scripture
+ * Strips any pre-existing Ayah numbers / symbols from Arabic scripture or translations
  */
 export function stripAyahSymbol(text: string): string {
   if (!text) return '';
@@ -659,6 +659,8 @@ export function stripAyahSymbol(text: string): string {
     .replace(/[\uFD3E][\u0660-\u06690-9\s]*[\uFD3F]/g, '')
     .replace(/﴾[\u0660-\u06690-9\s]*﴿/g, '')
     .replace(/﴿[\u0660-\u06690-9\s]*﴾/g, '')
+    .replace(/\s*\([\u0660-\u06690-9\s:]+\)\s*$/g, '')
+    .replace(/\s*\[[\u0660-\u06690-9\s:]+\]\s*$/g, '')
     .replace(/\([\u0660-\u06690-9\s]+\)/g, '')
     .replace(/\[[\u0660-\u06690-9\s]+\]/g, '')
     .replace(/\s+[\u0660-\u06690-9]+$/g, '')
@@ -667,7 +669,90 @@ export function stripAyahSymbol(text: string): string {
 }
 
 /**
+ * Determines whether a clip represents a translation / subtitle track or clip
+ * (e.g., English, Urdu, Hindi, Indonesian, etc.) rather than original Quran Arabic scripture.
+ */
+export function isTranslationClip(clip?: {
+  language?: string;
+  trackId?: string;
+  id?: string;
+  name?: string;
+  text?: string;
+}): boolean {
+  if (!clip) return false;
+  // If explicitly designated as non-Arabic translation language
+  if (clip.language && clip.language !== 'ar') return true;
+
+  const trackId = (clip.trackId || '').toLowerCase();
+  if (
+    trackId === 'track-quran-english' ||
+    trackId.includes('translation') ||
+    trackId.includes('english') ||
+    trackId.includes('subtitle') ||
+    trackId.includes('quran-en')
+  ) {
+    return true;
+  }
+
+  const id = (clip.id || '').toLowerCase();
+  if (id.startsWith('clip-quran-trans') || id.startsWith('clip-quran-en') || id.includes('-trans-')) {
+    return true;
+  }
+
+  const name = clip.name || '';
+  if (/^(EN|UR|HI|ID|TR|FR|BN|ES|DE|RU|FA|MS|TA|TRANSLATION|TRANS|SUB):\s*/i.test(name)) {
+    return true;
+  }
+
+  const nameLower = name.toLowerCase();
+  if (
+    nameLower.includes('translation') ||
+    nameLower.includes('english') ||
+    nameLower.includes('urdu') ||
+    nameLower.includes('hindi') ||
+    nameLower.includes('tarjuma') ||
+    nameLower.includes('subtitles')
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Determines whether a clip represents original Quranic Arabic scripture Ayah.
+ */
+export function isQuranArabicClip(clip?: {
+  language?: string;
+  trackId?: string;
+  id?: string;
+  name?: string;
+  text?: string;
+}): boolean {
+  if (!clip) return false;
+  if (isTranslationClip(clip)) return false;
+  if (clip.language === 'ar') return true;
+
+  const trackId = (clip.trackId || '').toLowerCase();
+  if (trackId === 'track-quran-arabic' || trackId.includes('quran-ar') || trackId.includes('uthmani')) {
+    return true;
+  }
+
+  const id = (clip.id || '').toLowerCase();
+  if (id.includes('quran-ar') || id.includes('arabic')) return true;
+
+  const name = clip.name || '';
+  if (name.startsWith('AR:') || name.toLowerCase().includes('arabic') || name.toLowerCase().includes('uthmani')) {
+    return true;
+  }
+
+  // Fallback: If text contains Arabic scripture and is not marked as translation
+  return /[\u0600-\u06FF]/.test(clip.text || '');
+}
+
+/**
  * Attaches the configured Ayah number symbol to an Arabic verse string
+ * USER DIRECTIVE: Ayah symbol must NEVER appear on translation text, ONLY on Quran Arabic Ayahs!
  */
 export function attachAyahSymbolToText(
   text: string,
@@ -679,6 +764,12 @@ export function attachAyahSymbolToText(
   if (!text) return '';
   const clean = stripAyahSymbol(text);
   if (symbolStyle === 'none' || !ayahNumber) return clean;
+
+  // Strict guard: Ayah symbol belongs strictly to Quran Arabic scripture, never translations!
+  if (!/[\u0600-\u06FF]/.test(clean)) {
+    return clean;
+  }
+
   // When position is 'divider', the ornate medallion is rendered as a standalone or cinema-card divider on canvas.
   // Never attach an inline symbol to the text string in divider mode to prevent duplicate symbols.
   if (position === 'divider') {
@@ -724,7 +815,7 @@ export function extractAyahNumberFromClip(clip: { name?: string; text?: string }
       if (!isNaN(parsed) && parsed > 0) return parsed;
     }
     // Try to extract Ayah number or Part number from brackets or text, e.g. "Surah Al-Fatihah [Ayah 2]" or "Ayah 3" or "Part 4"
-    const ayahMatch = clip.name.match(/\[?(?:Ayah|Part)\s*(\d+)\]?/i) || clip.name.match(/(?:Ayah|Part)\s*(\d+)/i);
+    const ayahMatch = clip.name.match(/\[?(?:Ayah|Part|Verse|A:)\s*(\d+)\]?/i) || clip.name.match(/(?:Ayah|Part|Verse|A:)\s*(\d+)/i);
     if (ayahMatch && ayahMatch[1]) {
       const parsed = parseInt(ayahMatch[1], 10);
       if (!isNaN(parsed) && parsed > 0) return parsed;
@@ -736,6 +827,13 @@ export function extractAyahNumberFromClip(clip: { name?: string; text?: string }
     if (symbolMatch && symbolMatch[1]) {
       // convert arabic digits to latin if needed
       const latinDigits = symbolMatch[1].replace(/[\u0660-\u0669]/g, (d) => String(d.charCodeAt(0) - 0x0660));
+      const parsed = parseInt(latinDigits, 10);
+      if (!isNaN(parsed) && parsed > 0) return parsed;
+    }
+    // Try trailing digit e.g. "٥" or "5" at the end of Arabic text
+    const trailingMatch = clip.text.trim().match(/[\s\u06DD۝\uFD3E\)]+([\u0660-\u06690-9]+)\s*$/);
+    if (trailingMatch && trailingMatch[1]) {
+      const latinDigits = trailingMatch[1].replace(/[\u0660-\u0669]/g, (d) => String(d.charCodeAt(0) - 0x0660));
       const parsed = parseInt(latinDigits, 10);
       if (!isNaN(parsed) && parsed > 0) return parsed;
     }
@@ -830,7 +928,7 @@ export function runVoiceAlignmentPipeline(
   allVerses.push(...verses);
   if (allVerses.length === 0) return [];
 
-  const symStyle = options?.showAyahSymbol === false ? 'none' : (options?.ayahSymbolStyle || 'uthmani-circle');
+  const symStyle = options?.showAyahSymbol === false ? 'none' : (options?.ayahSymbolStyle || 'ornate-medallion');
   const digitType = options?.ayahDigitType || 'arabic';
   const symPos = options?.ayahSymbolPosition || 'end';
 
@@ -963,9 +1061,11 @@ export async function alignQuranLocalClient(params: {
         const mapped = rawVerses.map((v: any) => {
           const rawTranslation = v.translations?.[0]?.text || '';
           const cleanTranslation = rawTranslation
+            .replace(/<sup[^>]*>.*?<\/sup>/gi, '')
             .replace(/<[^>]*>/g, '')
-            .replace(/[\{\}\[\]\(\)]/g, '')
+            .replace(/[\{\}\[\]]/g, '')
             .replace(/&nbsp;/g, ' ')
+            .replace(/\s*[-–—]\s*$/, '')
             .trim();
           return {
             verse_key: v.verse_key,
@@ -1972,7 +2072,7 @@ export function splitVerseAcrossBreaths(
     return [{
       verse_key: verse.verse_key,
       text_arabic: arText,
-      text_english: verse.text_english || '',
+      text_english: stripAyahSymbol(verse.text_english || ''),
       start: sStart,
       end: sEnd,
       startTime: sStart,
@@ -2004,7 +2104,7 @@ export function splitVerseAcrossBreaths(
   for (let sIdx = 0; sIdx < segs.length; sIdx++) {
     const isLast = (sIdx === segs.length - 1);
     let chunkArabic = arPhrases[sIdx] || '';
-    const chunkEnglish = enPhrases[sIdx] || '';
+    const chunkEnglish = stripAyahSymbol(enPhrases[sIdx] || '');
 
     // Attach Ayah symbol only to the final breath clip of the Ayah
     if (isLast && chunkArabic && !verse.isTaawwuz && !verse.isTasmiyah && showSymbol) {

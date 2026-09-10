@@ -1,104 +1,122 @@
 import { PresetMedia } from '../types';
 
 export const STOCK_VIDEOS: PresetMedia[] = [
+  // ======================== ISLAMIC & HOLY STOCK ========================
   {
-    id: 'vid-makkah',
-    name: 'Makkah/Madinah Ambient Loops',
+    id: 'vid-makkah-tawaf',
+    name: 'Makkah Masjid al-Haram Kaaba Tawaf (Live Video)',
     type: 'video',
-    url: 'https://vjs.zencdn.net/v/oceans.mp4',
-    duration: 15,
-    thumbnail: '🕋',
-    category: 'Islamic Stock'
+    url: 'https://upload.wikimedia.org/wikipedia/commons/4/43/Time_lapse_of_Masjid_al-%E1%B8%A4ar%C4%81m_%28kaaba%29_%26_hajj_rites.webm',
+    duration: 30,
+    thumbnail: 'https://images.unsplash.com/photo-1591604466107-ec97de577aff?auto=format&fit=crop&w=800&q=80',
+    category: 'Islamic & Holy',
+    isImage: false
   },
   {
-    id: 'vid-clouds',
-    name: 'Slow Floating Clouds Video',
+    id: 'vid-makkah-night',
+    name: 'Makkah Kaaba at Night Live Ambience',
     type: 'video',
-    url: 'https://vjs.zencdn.net/v/oceans.mp4',
+    url: 'https://upload.wikimedia.org/wikipedia/commons/3/37/Kaaba_at_Night_%28video%29_-_Sep_28%2C_2016.webm',
     duration: 20,
-    thumbnail: '☁️',
-    category: 'Islamic Stock'
+    thumbnail: 'https://images.unsplash.com/photo-1564769625905-50e93615e769?auto=format&fit=crop&w=800&q=80',
+    category: 'Islamic & Holy',
+    isImage: false
   },
   {
-    id: 'vid-quran-reading',
-    name: 'Quran Reading Close Up',
+    id: 'vid-makkah-ramadan',
+    name: 'Makkah Mukarramah Holy Night Video',
     type: 'video',
-    url: 'https://vjs.zencdn.net/v/oceans.mp4',
-    duration: 12,
-    thumbnail: '📖',
-    category: 'Islamic Stock'
-  },
-  {
-    id: 'vid-green-screen-sub',
-    name: 'Subscribe Button Green Screen',
-    type: 'video',
-    url: 'https://vjs.zencdn.net/v/oceans.mp4',
-    duration: 5,
-    thumbnail: '🟩',
-    category: 'Green Screen'
-  },
-  {
-    id: 'vid-green-screen-birds',
-    name: 'Flying Birds Green Screen',
-    type: 'video',
-    url: 'https://vjs.zencdn.net/v/oceans.mp4',
-    duration: 10,
-    thumbnail: '🦅',
-    category: 'Green Screen'
-  },
-  {
-    id: 'vid-vfx-dust',
-    name: 'Gold Dust Particles Loop',
-    type: 'video',
-    url: 'https://vjs.zencdn.net/v/oceans.mp4',
-    duration: 8,
-    thumbnail: '✨',
-    category: 'VFX & Loop'
-  },
-  {
-    id: 'vid-vfx-light-leak',
-    name: 'Warm Light Leaks Overlay',
-    type: 'video',
-    url: 'https://vjs.zencdn.net/v/oceans.mp4',
-    duration: 10,
-    thumbnail: '☀️',
-    category: 'VFX & Loop'
-  },
-  {
-    id: 'vid-cinematic-drone',
-    name: 'Cinematic Mountains Drone Shot',
-    type: 'video',
-    url: 'https://vjs.zencdn.net/v/oceans.mp4',
+    url: 'https://upload.wikimedia.org/wikipedia/commons/8/81/Makkah_Al-Mukarramah_-Kaaba-_Ramadan_2016.webm',
     duration: 25,
-    thumbnail: '🚁',
-    category: 'Cinematic'
+    thumbnail: 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=800&q=80',
+    category: 'Islamic & Holy',
+    isImage: false
+  },
+
+  // ======================== NATURE & LANDSCAPES ========================
+  {
+    id: 'vid-golden-dawn-noor',
+    name: 'Golden Sunrise Sunbeams Timelapse (Noor Video)',
+    type: 'video',
+    url: 'https://upload.wikimedia.org/wikipedia/commons/2/2a/Daybreak_Timelapse_1080p60fps.webm',
+    duration: 24,
+    thumbnail: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=80',
+    category: 'Nature & Skies',
+    isImage: false
   },
   {
-    id: 'vid-cinematic-forest',
-    name: 'Dark Forest Cinematic Walk',
+    id: 'vid-floating-clouds-timelapse',
+    name: 'Ethereal Floating Clouds Timelapse (Video)',
     type: 'video',
-    url: 'https://vjs.zencdn.net/v/oceans.mp4',
-    duration: 18,
-    thumbnail: '🌲',
-    category: 'Cinematic'
+    url: 'https://upload.wikimedia.org/wikipedia/commons/e/ea/Timelapse_of_Clouds_over_Bellevue_Canyon.webm',
+    duration: 20,
+    thumbnail: 'https://images.unsplash.com/photo-1499346030926-9a72daac6c63?auto=format&fit=crop&w=800&q=80',
+    category: 'Nature & Skies',
+    isImage: false
   },
   {
-    id: 'vid-abstract-fluid',
-    name: 'Fluid Gradient Loop',
+    id: 'vid-misty-alpine-peaks',
+    name: 'Majestic Alpine Mountains Clouds Timelapse',
     type: 'video',
-    url: 'https://vjs.zencdn.net/v/oceans.mp4',
-    duration: 12,
-    thumbnail: '🔮',
-    category: 'Abstract'
+    url: 'https://upload.wikimedia.org/wikipedia/commons/e/ea/Timelapse_of_Clouds_over_Bellevue_Canyon.webm',
+    duration: 28,
+    thumbnail: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=800&q=80',
+    category: 'Nature & Skies',
+    isImage: false
+  },
+
+  // ======================== RAIN & WATER ========================
+  {
+    id: 'vid-rain-green-leaves',
+    name: 'Gentle Rain Water Ripples (Rahmat Rain Video)',
+    type: 'video',
+    url: 'https://upload.wikimedia.org/wikipedia/commons/2/23/Rain_water.webm',
+    duration: 16,
+    thumbnail: 'https://images.unsplash.com/photo-1519692933481-e162a57d6721?auto=format&fit=crop&w=800&q=80',
+    category: 'Rain & Water',
+    isImage: false
   },
   {
-    id: 'vid-abstract-neon',
-    name: 'Neon Grid Retro Loop',
+    id: 'vid-crystal-waterfall',
+    name: 'Crystal Clear Forest Waterfall Cascade (Live Video)',
     type: 'video',
-    url: 'https://vjs.zencdn.net/v/oceans.mp4',
-    duration: 15,
-    thumbnail: '🌌',
-    category: 'Abstract'
+    url: 'https://upload.wikimedia.org/wikipedia/commons/2/27/Side_view_video_of_Kawaida_Waterfall_cascading%2C_Cianda%2C_Kiambu_County.webm',
+    duration: 21,
+    thumbnail: 'https://images.unsplash.com/photo-1432405972618-c60b0225b8f9?auto=format&fit=crop&w=800&q=80',
+    category: 'Rain & Water',
+    isImage: false
+  },
+  {
+    id: 'vid-tranquil-ocean-sunset',
+    name: 'Calm Turquoise Ocean Sunset Waves (Live Video)',
+    type: 'video',
+    url: 'https://upload.wikimedia.org/wikipedia/commons/6/63/The_blue_sky_kisses_the_green_ocean%2C_as_I_stand_on_the_shore_of_little_brown_sand%2C_watching_evening_melt_into_waves.webm',
+    duration: 25,
+    thumbnail: 'https://images.unsplash.com/photo-1505118380757-91f5f5632de0?auto=format&fit=crop&w=800&q=80',
+    category: 'Rain & Water',
+    isImage: false
+  },
+
+  // ======================== COSMIC & STARS ========================
+  {
+    id: 'vid-milkyway-galaxy',
+    name: 'Deep Starry Night & Milky Way Galaxy (Timelapse Video)',
+    type: 'video',
+    url: 'https://upload.wikimedia.org/wikipedia/commons/6/63/Milky_Way_Timelapse.webm',
+    duration: 26,
+    thumbnail: 'https://images.unsplash.com/photo-1506703719100-a0f3a48c0f86?auto=format&fit=crop&w=800&q=80',
+    category: 'Cosmic & Stars',
+    isImage: false
+  },
+  {
+    id: 'vid-moonlit-clouds-night',
+    name: '4K Night Stars & Sky Moving Timelapse Video',
+    type: 'video',
+    url: 'https://upload.wikimedia.org/wikipedia/commons/8/80/JAPAN_Milk_Way_4K_-_Beautiful_Star_and_Sky_at_Night_Time_Lapse.webm',
+    duration: 20,
+    thumbnail: 'https://images.unsplash.com/photo-1532693322450-2cb5c511067d?auto=format&fit=crop&w=800&q=80',
+    category: 'Cosmic & Stars',
+    isImage: false
   }
 ];
 
@@ -160,14 +178,15 @@ export const STOCK_AUDIOS: PresetMedia[] = [
 ];
 
 export const STOCK_IMAGES: PresetMedia[] = [
+  // Islamic & Holy
   {
     id: 'img-makkah-grand-mosque',
     name: 'Makkah Masjid al-Haram Grand Mosque',
     type: 'image',
     url: 'https://images.unsplash.com/photo-1591604466107-ec97de577aff?auto=format&fit=crop&w=1200&q=80',
     duration: 10,
-    thumbnail: '🕋',
-    category: 'Islamic'
+    thumbnail: 'https://images.unsplash.com/photo-1591604466107-ec97de577aff?auto=format&fit=crop&w=600&q=80',
+    category: 'Islamic & Holy'
   },
   {
     id: 'img-madinah-prophet-mosque',
@@ -175,8 +194,8 @@ export const STOCK_IMAGES: PresetMedia[] = [
     type: 'image',
     url: 'https://images.unsplash.com/photo-1564769625905-50e93615e769?auto=format&fit=crop&w=1200&q=80',
     duration: 10,
-    thumbnail: '🕌',
-    category: 'Islamic'
+    thumbnail: 'https://images.unsplash.com/photo-1564769625905-50e93615e769?auto=format&fit=crop&w=600&q=80',
+    category: 'Islamic & Holy'
   },
   {
     id: 'img-quran-book-open',
@@ -184,17 +203,28 @@ export const STOCK_IMAGES: PresetMedia[] = [
     type: 'image',
     url: 'https://images.unsplash.com/photo-1609599006353-e629aaabfeae?auto=format&fit=crop&w=1200&q=80',
     duration: 10,
-    thumbnail: '📖',
-    category: 'Islamic'
+    thumbnail: 'https://images.unsplash.com/photo-1609599006353-e629aaabfeae?auto=format&fit=crop&w=600&q=80',
+    category: 'Islamic & Holy'
   },
+  {
+    id: 'img-mosque-architecture',
+    name: 'Grand Mosque Arches & Pillars',
+    type: 'image',
+    url: 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=1200&q=80',
+    duration: 10,
+    thumbnail: 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=600&q=80',
+    category: 'Islamic & Holy'
+  },
+
+  // Nature & Landscapes
   {
     id: 'img-cinematic-mountains',
     name: 'Cinematic Foggy Mountain Range',
     type: 'image',
     url: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=1200&q=80',
     duration: 10,
-    thumbnail: '🏔️',
-    category: 'Nature'
+    thumbnail: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=600&q=80',
+    category: 'Nature & Skies'
   },
   {
     id: 'img-nature-river',
@@ -202,8 +232,8 @@ export const STOCK_IMAGES: PresetMedia[] = [
     type: 'image',
     url: 'https://images.unsplash.com/photo-1433086966358-54859d0ed716?auto=format&fit=crop&w=1200&q=80',
     duration: 10,
-    thumbnail: '🏞️',
-    category: 'Nature'
+    thumbnail: 'https://images.unsplash.com/photo-1433086966358-54859d0ed716?auto=format&fit=crop&w=600&q=80',
+    category: 'Nature & Skies'
   },
   {
     id: 'img-sunset-clouds',
@@ -211,26 +241,28 @@ export const STOCK_IMAGES: PresetMedia[] = [
     type: 'image',
     url: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1200&q=80',
     duration: 10,
-    thumbnail: '🌅',
-    category: 'Background'
+    thumbnail: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=600&q=80',
+    category: 'Nature & Skies'
   },
   {
-    id: 'img-dark-gradient',
-    name: 'Dark Moody Gradient Background',
+    id: 'img-desert-dunes',
+    name: 'Golden Desert Dunes Sunset',
     type: 'image',
-    url: 'https://images.unsplash.com/photo-1557683311-eac922347aa1?auto=format&fit=crop&w=1200&q=80',
+    url: 'https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?auto=format&fit=crop&w=1200&q=80',
     duration: 10,
-    thumbnail: '⬛',
-    category: 'Background'
+    thumbnail: 'https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?auto=format&fit=crop&w=600&q=80',
+    category: 'Nature & Skies'
   },
+
+  // Space & Cosmos
   {
     id: 'img-starry-galaxy',
     name: 'Milky Way Galaxy Night Sky',
     type: 'image',
     url: 'https://images.unsplash.com/photo-1506703719100-a0f3a48c0f86?auto=format&fit=crop&w=1200&q=80',
     duration: 10,
-    thumbnail: '🌌',
-    category: 'Space'
+    thumbnail: 'https://images.unsplash.com/photo-1506703719100-a0f3a48c0f86?auto=format&fit=crop&w=600&q=80',
+    category: 'Cosmic & Stars'
   },
   {
     id: 'img-nebula',
@@ -238,16 +270,16 @@ export const STOCK_IMAGES: PresetMedia[] = [
     type: 'image',
     url: 'https://images.unsplash.com/photo-1462331940025-496dfbfc7564?auto=format&fit=crop&w=1200&q=80',
     duration: 10,
-    thumbnail: '🔭',
-    category: 'Space'
+    thumbnail: 'https://images.unsplash.com/photo-1462331940025-496dfbfc7564?auto=format&fit=crop&w=600&q=80',
+    category: 'Cosmic & Stars'
   },
   {
-    id: 'img-abstract-geom',
-    name: 'Abstract 3D Geometric Shapes',
+    id: 'img-dark-gradient',
+    name: 'Dark Moody Gradient Background',
     type: 'image',
-    url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=1200&q=80',
+    url: 'https://images.unsplash.com/photo-1557683311-eac922347aa1?auto=format&fit=crop&w=1200&q=80',
     duration: 10,
-    thumbnail: '🧊',
+    thumbnail: 'https://images.unsplash.com/photo-1557683311-eac922347aa1?auto=format&fit=crop&w=600&q=80',
     category: 'Abstract'
   }
 ];
