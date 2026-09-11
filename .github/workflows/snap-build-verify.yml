@@ -137,9 +137,10 @@ jobs:
           echo "=== Unsquashing Snap ==="
           
           SNAP_FILE="${{ steps.find_snap.outputs.SNAP_FILE }}"
-          rm -rf snap-root
+          sudo rm -rf snap-root
           
-          unsquashfs -f -d snap-root "$SNAP_FILE"
+          sudo unsquashfs -f -d snap-root "$SNAP_FILE"
+          sudo chmod -R 777 snap-root || true
           echo "Snap unsquashed successfully"
           
           ls -la snap-root/ | head -20
