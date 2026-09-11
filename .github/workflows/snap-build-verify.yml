@@ -138,9 +138,8 @@ jobs:
           
           SNAP_FILE="${{ steps.find_snap.outputs.SNAP_FILE }}"
           rm -rf snap-root
-          mkdir -p snap-root
           
-          unsquashfs -d snap-root "$SNAP_FILE"
+          unsquashfs -f -d snap-root "$SNAP_FILE"
           echo "Snap unsquashed successfully"
           
           ls -la snap-root/ | head -20
