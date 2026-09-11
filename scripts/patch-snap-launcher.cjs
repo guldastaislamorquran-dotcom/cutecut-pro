@@ -13,9 +13,9 @@ let content = fs.readFileSync(targetPath, 'utf8');
 // 1. Patch buildWithTemplate to write clean command.sh and stage all required GUI libraries (ATK, GTK3, NSS, NSPR, DRM, ALSA)
 const templateTarget = 'const templateDir = await (0, electronGet_1.downloadBuilderToolset)({ releaseName, filenameWithExt, checksums, githubOrgRepo: "electron-userland/electron-builder-binaries" });';
 const templatePatch = `const launcherScript = '#!/bin/bash\\n' +
-          'export LD_LIBRARY_PATH="$SNAP:$SNAP/usr/lib/x86_64-linux-gnu:$SNAP/lib/x86_64-linux-gnu:$SNAP/usr/lib:$SNAP/lib:$SNAP/usr/lib/x86_64-linux-gnu/pulseaudio:$SNAP/usr/lib/x86_64-linux-gnu/mesa:$SNAP/usr/lib/x86_64-linux-gnu/dri:\${LD_LIBRARY_PATH:-}"\\n' +
-          'export PATH="$SNAP/bin:$SNAP/usr/bin:\$PATH"\\n' +
-          'export XDG_DATA_DIRS="$SNAP/usr/share:\${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"\\n' +
+          'export LD_LIBRARY_PATH="$SNAP:$SNAP/usr/lib/x86_64-linux-gnu:$SNAP/lib/x86_64-linux-gnu:$SNAP/usr/lib:$SNAP/lib:/snap/gnome-42-2204/current/usr/lib/x86_64-linux-gnu:/snap/gnome-42-2204/current/usr/lib:/snap/gnome-42-2204/current/lib/x86_64-linux-gnu:/snap/gnome-42-2204/current/lib:/snap/core22/current/usr/lib/x86_64-linux-gnu:/snap/core22/current/lib/x86_64-linux-gnu:$SNAP/usr/lib/x86_64-linux-gnu/pulseaudio:$SNAP/usr/lib/x86_64-linux-gnu/mesa:$SNAP/usr/lib/x86_64-linux-gnu/dri:\${LD_LIBRARY_PATH:-}"\\n' +
+          'export PATH="$SNAP/bin:$SNAP/usr/bin:/snap/gnome-42-2204/current/usr/bin:\$PATH"\\n' +
+          'export XDG_DATA_DIRS="$SNAP/usr/share:/snap/gnome-42-2204/current/usr/share:\${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"\\n' +
           'exec "$SNAP/cutecut-pro" "$@"\\n';
         await (0, promises_1.writeFile)(path.join(templateDir, "command.sh"), launcherScript, { mode: 0o755 });
         const fsSync = require('fs');
@@ -55,9 +55,9 @@ if (content.includes(targetFunc)) {
   const prefix = content.substring(0, index);
   const newFunc = `function buildCommandShContent(opts) {
     return '#!/bin/bash\\n' +
-      'export LD_LIBRARY_PATH="$SNAP:$SNAP/usr/lib/x86_64-linux-gnu:$SNAP/lib/x86_64-linux-gnu:$SNAP/usr/lib:$SNAP/lib:$SNAP/usr/lib/x86_64-linux-gnu/pulseaudio:$SNAP/usr/lib/x86_64-linux-gnu/mesa:$SNAP/usr/lib/x86_64-linux-gnu/dri:\${LD_LIBRARY_PATH:-}"\\n' +
-      'export PATH="$SNAP/bin:$SNAP/usr/bin:\$PATH"\\n' +
-      'export XDG_DATA_DIRS="$SNAP/usr/share:\${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"\\n' +
+      'export LD_LIBRARY_PATH="$SNAP:$SNAP/usr/lib/x86_64-linux-gnu:$SNAP/lib/x86_64-linux-gnu:$SNAP/usr/lib:$SNAP/lib:/snap/gnome-42-2204/current/usr/lib/x86_64-linux-gnu:/snap/gnome-42-2204/current/usr/lib:/snap/gnome-42-2204/current/lib/x86_64-linux-gnu:/snap/gnome-42-2204/current/lib:/snap/core22/current/usr/lib/x86_64-linux-gnu:/snap/core22/current/lib/x86_64-linux-gnu:$SNAP/usr/lib/x86_64-linux-gnu/pulseaudio:$SNAP/usr/lib/x86_64-linux-gnu/mesa:$SNAP/usr/lib/x86_64-linux-gnu/dri:\${LD_LIBRARY_PATH:-}"\\n' +
+      'export PATH="$SNAP/bin:$SNAP/usr/bin:/snap/gnome-42-2204/current/usr/bin:\$PATH"\\n' +
+      'export XDG_DATA_DIRS="$SNAP/usr/share:/snap/gnome-42-2204/current/usr/share:\${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"\\n' +
       'exec "$SNAP/cutecut-pro" "$@"\\n';
 }
 //# sourceMappingURL=coreLegacy.js.map`;
