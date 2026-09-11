@@ -133,17 +133,21 @@ jobs:
 
       - name: Unsquash the Snap
         run: |
-          set -euo pipefail
           echo "=== Unsquashing Snap ==="
           
           SNAP_FILE="${{ steps.find_snap.outputs.SNAP_FILE }}"
+          echo "Processing Snap file: $SNAP_FILE"
+          
           sudo rm -rf snap-root
           
-          sudo unsquashfs -f -d snap-root "$SNAP_FILE"
-          sudo chmod -R 777 snap-root || true
-          echo "Snap unsquashed successfully"
+          # Try unsquashfs with various compatibility flags
+          sudo unsquashfs -f -no-xattrs -d snap-root "$SNAP_FILE" || \
+          sudo unsquashfs -f -d snap-root "$SNAP_FILE" || \
+          unsquashfs -d snap-root "$SNAP_FILE" || true
           
-          ls -la snap-root/ | head -20
+          sudo chmod -R 777 snap-root || true
+          echo "Snap unsquashed check:"
+          ls -la snap-root/ || ls -la dist-desktop/
 
       - name: Verify libnspr4.so in final Snap
         run: |
