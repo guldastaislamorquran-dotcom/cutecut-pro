@@ -59,7 +59,9 @@ jobs:
             libdrm-dev \
             libgbm-dev \
             libasound2-dev \
-            libcups2-dev || true
+            libavahi-client-dev \
+            libgnutls28-dev \
+            libcups2-dev || true || true
           sudo snap install snapcraft --classic || true
           sudo snap install core22 || true
           sudo snap install gtk-common-themes || true

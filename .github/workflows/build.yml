@@ -98,6 +98,8 @@ jobs:
             libdrm-dev \
             libgbm-dev \
             libasound2-dev \
+            libavahi-client-dev \
+            libgnutls28-dev \
             libcups2-dev || true
           sudo snap install snapcraft --classic || true
           sudo snap install core22 || true

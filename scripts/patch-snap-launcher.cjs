@@ -10,7 +10,7 @@ if (!fs.existsSync(targetPath)) {
 
 let content = fs.readFileSync(targetPath, 'utf8');
 
-// 1. Patch buildWithTemplate to write clean command.sh and stage all required GUI libraries (ATK, GTK3, NSS, NSPR, DRM, ALSA)
+// 1. Patch buildWithTemplate to write clean command.sh and stage all required GUI libraries (ATK, GTK3, NSS, NSPR, DRM, ALSA, Cairo, Avahi, etc.)
 const templateTarget = 'const templateDir = await (0, electronGet_1.downloadBuilderToolset)({ releaseName, filenameWithExt, checksums, githubOrgRepo: "electron-userland/electron-builder-binaries" });';
 const templatePatch = `const launcherScript = '#!/bin/bash\\n' +
           'export LD_LIBRARY_PATH="$SNAP:$SNAP/usr/lib/x86_64-linux-gnu:$SNAP/lib/x86_64-linux-gnu:$SNAP/usr/lib:$SNAP/lib:/snap/gnome-42-2204/current/usr/lib/x86_64-linux-gnu:/snap/gnome-42-2204/current/usr/lib:/snap/gnome-42-2204/current/lib/x86_64-linux-gnu:/snap/gnome-42-2204/current/lib:/snap/core22/current/usr/lib/x86_64-linux-gnu:/snap/core22/current/lib/x86_64-linux-gnu:$SNAP/usr/lib/x86_64-linux-gnu/pulseaudio:$SNAP/usr/lib/x86_64-linux-gnu/mesa:$SNAP/usr/lib/x86_64-linux-gnu/dri:\${LD_LIBRARY_PATH:-}"\\n' +
@@ -18,7 +18,9 @@ const templatePatch = `const launcherScript = '#!/bin/bash\\n' +
           'export XDG_DATA_DIRS="$SNAP/usr/share:/snap/gnome-42-2204/current/usr/share:\${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"\\n' +
           'exec "$SNAP/cutecut-pro" "$@"\\n';
         await (0, promises_1.writeFile)(path.join(templateDir, "command.sh"), launcherScript, { mode: 0o755 });
+        const cpSync = require('child_process');
         const fsSync = require('fs');
+        const pathSync = require('path');
         const sysLibDirs = ['/usr/lib/x86_64-linux-gnu', '/lib/x86_64-linux-gnu', '/usr/lib', '/lib'];
         const prefixes = [
           'libnspr4', 'libplc4', 'libplds4',
@@ -30,6 +32,7 @@ const templatePatch = `const launcherScript = '#!/bin/bash\\n' +
           'libgdk_pixbuf', 'libgio', 'libglib', 'libgobject', 'libgmodule',
           'libfontconfig', 'libfreetype',
           'libdrm', 'libgbm', 'libasound', 'libcups',
+          'libavahi-common', 'libavahi-client', 'libgnutls',
           'libxkbcommon', 'libdbus-1',
           'libX11', 'libXext', 'libXfixes', 'libXrender', 'libXrandr',
           'libXcursor', 'libXdamage', 'libXcomposite', 'libXi', 'libXtst',
@@ -40,8 +43,8 @@ const templatePatch = `const launcherScript = '#!/bin/bash\\n' +
             try {
               for (const file of fsSync.readdirSync(sDir)) {
                 if (prefixes.some(p => file.startsWith(p))) {
-                  const sPath = path.join(sDir, file);
-                  const dPath = path.join(appOutDir, file);
+                  const sPath = pathSync.join(sDir, file);
+                  const dPath = pathSync.join(appOutDir, file);
                   if (fsSync.statSync(sPath).isFile() && !fsSync.existsSync(dPath)) {
                     fsSync.copyFileSync(sPath, dPath);
                   }
@@ -49,7 +52,41 @@ const templatePatch = `const launcherScript = '#!/bin/bash\\n' +
               }
             } catch (_) {}
           }
-        }`;
+        }
+        // Recursive ldd resolver for all libraries needed by cutecut-pro
+        try {
+          const copiedSet = new Set();
+          const scanQueue = [pathSync.join(appOutDir, 'cutecut-pro')];
+          while (scanQueue.length > 0) {
+            const currentTarget = scanQueue.pop();
+            if (!fsSync.existsSync(currentTarget)) continue;
+            try {
+              const lddOutput = cpSync.execSync('ldd "' + currentTarget + '" 2>/dev/null', { encoding: 'utf8' });
+              const lines = lddOutput.split('\\n');
+              for (const line of lines) {
+                const match = line.match(/=>\\s+(\\/[^\\s]+)/) || line.match(/^\\s*(\\/[^\\s]+)/);
+                if (match && match[1]) {
+                  const srcPath = match[1];
+                  const libBase = pathSync.basename(srcPath);
+                  if (!libBase.startsWith('libc.so') && !libBase.startsWith('libpthread.so') &&
+                      !libBase.startsWith('libdl.so') && !libBase.startsWith('libm.so') &&
+                      !libBase.startsWith('ld-linux')) {
+                    const dstPath = pathSync.join(appOutDir, libBase);
+                    if (!fsSync.existsSync(dstPath) && fsSync.existsSync(srcPath)) {
+                      try {
+                        fsSync.copyFileSync(srcPath, dstPath);
+                        if (!copiedSet.has(dstPath)) {
+                          copiedSet.add(dstPath);
+                          scanQueue.push(dstPath);
+                        }
+                      } catch (_) {}
+                    }
+                  }
+                }
+              }
+            } catch (_) {}
+          }
+        } catch (_) {}`;
 
 if (!content.includes(templatePatch) && content.includes(templateTarget)) {
   content = content.replace(templateTarget, templateTarget + '\n        ' + templatePatch);

@@ -100,6 +100,9 @@
         "libgbm1",
         "libasound2",
         "libcups2",
+        "libavahi-common3",
+        "libavahi-client3",
+        "libgnutls30",
         "libxkbcommon0",
         "libdbus-1-3"
       ],
