@@ -43,13 +43,19 @@ jobs:
             snapd \
             build-essential \
             python3 \
-            libnspr4 \
             libnspr4-dev \
-            libnss3 \
             libnss3-dev \
             libatk1.0-dev \
             libatk-bridge2.0-dev \
             libgtk-3-dev \
+            libcairo2-dev \
+            libpango1.0-dev \
+            libgdk-pixbuf-2.0-dev \
+            libglib2.0-dev \
+            libfontconfig1-dev \
+            libfreetype6-dev \
+            libxkbcommon-dev \
+            libdbus-1-dev \
             libdrm-dev \
             libgbm-dev \
             libasound2-dev \

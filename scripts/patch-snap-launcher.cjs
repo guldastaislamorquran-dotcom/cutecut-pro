@@ -25,8 +25,15 @@ const templatePatch = `const launcherScript = '#!/bin/bash\\n' +
           'libnss3', 'libnssutil3', 'libsmime3', 'libsoftokn3',
           'libatk-1.0', 'libatk-bridge', 'libatspi',
           'libgtk-3', 'libgdk-3', 'libepoxy',
+          'libcairo', 'libpixman-1',
+          'libpango', 'libpangocairo', 'libpangoft2', 'libharfbuzz',
+          'libgdk_pixbuf', 'libgio', 'libglib', 'libgobject', 'libgmodule',
+          'libfontconfig', 'libfreetype',
           'libdrm', 'libgbm', 'libasound', 'libcups',
-          'libxshmfence', 'libXss', 'libsecret'
+          'libxkbcommon', 'libdbus-1',
+          'libX11', 'libXext', 'libXfixes', 'libXrender', 'libXrandr',
+          'libXcursor', 'libXdamage', 'libXcomposite', 'libXi', 'libXtst',
+          'libxshmfence', 'libXss', 'libxcb', 'libsecret'
         ];
         for (const sDir of sysLibDirs) {
           if (fsSync.existsSync(sDir)) {
