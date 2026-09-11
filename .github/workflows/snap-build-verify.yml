@@ -10,7 +10,7 @@ on:
 jobs:
   build-and-verify:
     name: Build Snap and perform complete verification
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     timeout-minutes: 90
 
     steps:

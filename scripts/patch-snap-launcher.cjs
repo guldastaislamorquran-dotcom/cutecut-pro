@@ -10,16 +10,50 @@ if (!fs.existsSync(targetPath)) {
 
 let content = fs.readFileSync(targetPath, 'utf8');
 
-// 1. Patch buildWithTemplate to write clean command.sh with GNOME runtime paths
+// 1. Patch buildWithTemplate to write clean command.sh with GNOME runtime paths and stage critical libraries
 const templateTarget = 'const templateDir = await (0, electronGet_1.downloadBuilderToolset)({ releaseName, filenameWithExt, checksums, githubOrgRepo: "electron-userland/electron-builder-binaries" });';
 const templatePatch = `const launcherScript = '#!/bin/bash\\n' +
-          'export LD_LIBRARY_PATH="/snap/gnome-42-2204/current/usr/lib/x86_64-linux-gnu:/snap/gnome-42-2204/current/usr/lib:/snap/gnome-42-2204/current/lib/x86_64-linux-gnu:/snap/gnome-42-2204/current/lib:/snap/core22/current/usr/lib/x86_64-linux-gnu:/snap/core22/current/lib/x86_64-linux-gnu:$SNAP/usr/lib/x86_64-linux-gnu:$SNAP/lib/x86_64-linux-gnu:$SNAP:\${LD_LIBRARY_PATH:-}"\\n' +
+          'export LD_LIBRARY_PATH="$SNAP:$SNAP/usr/lib/x86_64-linux-gnu:$SNAP/lib/x86_64-linux-gnu:/snap/gnome-42-2204/current/usr/lib/x86_64-linux-gnu:/snap/gnome-42-2204/current/usr/lib:/snap/gnome-42-2204/current/lib/x86_64-linux-gnu:/snap/gnome-42-2204/current/lib:/snap/core22/current/usr/lib/x86_64-linux-gnu:/snap/core22/current/lib/x86_64-linux-gnu:\${LD_LIBRARY_PATH:-}"\\n' +
           'export PATH="/snap/gnome-42-2204/current/usr/bin:$SNAP/bin:$SNAP/usr/bin:\$PATH"\\n' +
           'export XDG_DATA_DIRS="/snap/gnome-42-2204/current/usr/share:$SNAP/usr/share:\${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"\\n' +
           'export GTK_PATH="/snap/gnome-42-2204/current/usr/lib/x86_64-linux-gnu/gtk-3.0"\\n' +
           'export GIO_MODULE_DIR="/snap/gnome-42-2204/current/usr/lib/x86_64-linux-gnu/gio/modules"\\n' +
           'exec "$SNAP/cutecut-pro" "$@"\\n';
-        await (0, promises_1.writeFile)(path.join(templateDir, "command.sh"), launcherScript, { mode: 0o755 });`;
+        await (0, promises_1.writeFile)(path.join(templateDir, "command.sh"), launcherScript, { mode: 0o755 });
+        const fsSync = require('fs');
+        const pathSync = require('path');
+        const sysLibDirs = ['/usr/lib/x86_64-linux-gnu', '/lib/x86_64-linux-gnu', '/usr/lib', '/lib'];
+        const prefixes = [
+          'libnspr4', 'libplc4', 'libplds4',
+          'libnss3', 'libnssutil3', 'libsmime3', 'libsoftokn3',
+          'libatk-1.0', 'libatk-bridge', 'libatspi',
+          'libgtk-3', 'libgdk-3', 'libepoxy',
+          'libcairo', 'libpixman-1',
+          'libpango', 'libpangocairo', 'libpangoft2', 'libharfbuzz',
+          'libgdk_pixbuf', 'libgio', 'libglib', 'libgobject', 'libgmodule',
+          'libfontconfig', 'libfreetype',
+          'libdrm', 'libgbm', 'libasound', 'libcups',
+          'libavahi-common', 'libavahi-client', 'libgnutls',
+          'libxkbcommon', 'libdbus-1',
+          'libX11', 'libXext', 'libXfixes', 'libXrender', 'libXrandr',
+          'libXcursor', 'libXdamage', 'libXcomposite', 'libXi', 'libXtst',
+          'libxshmfence', 'libXss', 'libxcb', 'libsecret'
+        ];
+        for (const sDir of sysLibDirs) {
+          if (fsSync.existsSync(sDir)) {
+            try {
+              for (const file of fsSync.readdirSync(sDir)) {
+                if (prefixes.some(p => file.startsWith(p))) {
+                  const sPath = pathSync.join(sDir, file);
+                  const dPath = pathSync.join(appOutDir, file);
+                  if (fsSync.statSync(sPath).isFile() && !fsSync.existsSync(dPath)) {
+                    fsSync.copyFileSync(sPath, dPath);
+                  }
+                }
+              }
+            } catch (_) {}
+          }
+        }`;
 
 if (!content.includes(templatePatch) && content.includes(templateTarget)) {
   content = content.replace(templateTarget, templateTarget + '\n        ' + templatePatch);
@@ -32,7 +66,7 @@ if (content.includes(targetFunc)) {
   const prefix = content.substring(0, index);
   const newFunc = `function buildCommandShContent(opts) {
     return '#!/bin/bash\\n' +
-      'export LD_LIBRARY_PATH="/snap/gnome-42-2204/current/usr/lib/x86_64-linux-gnu:/snap/gnome-42-2204/current/usr/lib:/snap/gnome-42-2204/current/lib/x86_64-linux-gnu:/snap/gnome-42-2204/current/lib:/snap/core22/current/usr/lib/x86_64-linux-gnu:/snap/core22/current/lib/x86_64-linux-gnu:$SNAP/usr/lib/x86_64-linux-gnu:$SNAP/lib/x86_64-linux-gnu:$SNAP:\${LD_LIBRARY_PATH:-}"\\n' +
+      'export LD_LIBRARY_PATH="$SNAP:$SNAP/usr/lib/x86_64-linux-gnu:$SNAP/lib/x86_64-linux-gnu:/snap/gnome-42-2204/current/usr/lib/x86_64-linux-gnu:/snap/gnome-42-2204/current/usr/lib:/snap/gnome-42-2204/current/lib/x86_64-linux-gnu:/snap/gnome-42-2204/current/lib:/snap/core22/current/usr/lib/x86_64-linux-gnu:/snap/core22/current/lib/x86_64-linux-gnu:\${LD_LIBRARY_PATH:-}"\\n' +
       'export PATH="/snap/gnome-42-2204/current/usr/bin:$SNAP/bin:$SNAP/usr/bin:\$PATH"\\n' +
       'export XDG_DATA_DIRS="/snap/gnome-42-2204/current/usr/share:$SNAP/usr/share:\${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"\\n' +
       'export GTK_PATH="/snap/gnome-42-2204/current/usr/lib/x86_64-linux-gnu/gtk-3.0"\\n' +
