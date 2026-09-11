@@ -4025,8 +4025,8 @@ export default function MediaPanel({
                       {
                         id: 'bg-stars',
                         name: 'Stars & Galaxy Loop (Video)',
-                        url: 'https://upload.wikimedia.org/wikipedia/commons/6/63/Milky_Way_Timelapse.webm',
-                        duration: 26,
+                        url: '/videos/milkyway_galaxy.mp4',
+                        duration: 20,
                         thumbnail: '🌌',
                         category: 'Space',
                         isImage: false,
@@ -4034,7 +4034,7 @@ export default function MediaPanel({
                       {
                         id: 'bg-rain',
                         name: 'Rain On Water Ripples (Video)',
-                        url: 'https://upload.wikimedia.org/wikipedia/commons/2/23/Rain_water.webm',
+                        url: '/videos/rain_water.mp4',
                         duration: 16,
                         thumbnail: '🌧️',
                         category: 'Nature',
@@ -4043,7 +4043,7 @@ export default function MediaPanel({
                       {
                         id: 'bg-clouds',
                         name: 'Floating Sunset Clouds Timelapse (Video)',
-                        url: 'https://upload.wikimedia.org/wikipedia/commons/e/ea/Timelapse_of_Clouds_over_Bellevue_Canyon.webm',
+                        url: '/videos/floating_clouds.mp4',
                         duration: 20,
                         thumbnail: '☁️',
                         category: 'Clouds',
@@ -4052,8 +4052,8 @@ export default function MediaPanel({
                       {
                         id: 'bg-particles',
                         name: 'Golden Morning Sunbeams (Video)',
-                        url: 'https://upload.wikimedia.org/wikipedia/commons/2/2a/Daybreak_Timelapse_1080p60fps.webm',
-                        duration: 24,
+                        url: '/videos/golden_sunrise.mp4',
+                        duration: 20,
                         thumbnail: '✨',
                         category: 'VFX',
                         isImage: false,
@@ -4061,8 +4061,8 @@ export default function MediaPanel({
                       {
                         id: 'bg-waves',
                         name: 'Ocean Sunset Waves (Video)',
-                        url: 'https://upload.wikimedia.org/wikipedia/commons/6/63/The_blue_sky_kisses_the_green_ocean%2C_as_I_stand_on_the_shore_of_little_brown_sand%2C_watching_evening_melt_into_waves.webm',
-                        duration: 25,
+                        url: '/videos/ocean_sunset.mp4',
+                        duration: 20,
                         thumbnail: '🌊',
                         category: 'Nature',
                         isImage: false,
@@ -4070,8 +4070,8 @@ export default function MediaPanel({
                       {
                         id: 'bg-waterfall',
                         name: 'Crystal Cascading Waterfall (Video)',
-                        url: 'https://upload.wikimedia.org/wikipedia/commons/2/27/Side_view_video_of_Kawaida_Waterfall_cascading%2C_Cianda%2C_Kiambu_County.webm',
-                        duration: 21,
+                        url: '/videos/forest_waterfall.mp4',
+                        duration: 20,
                         thumbnail: '🌲',
                         category: 'Scenic',
                         isImage: false,

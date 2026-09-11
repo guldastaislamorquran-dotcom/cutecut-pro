@@ -63,70 +63,70 @@ const VISUAL_STYLES = [
 const LOCAL_THEMATIC_ASSETS: Record<string, { image: string; video: string; query: string; mood: string; prompt: string }> = {
   dawn: {
     image: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=2560&auto=format&fit=crop&q=90',
-    video: 'https://upload.wikimedia.org/wikipedia/commons/2/2a/Daybreak_Timelapse_1080p60fps.webm',
+    video: '/videos/golden_sunrise.mp4',
     query: 'sunrise golden dawn mountains',
     mood: 'golden-warm',
     prompt: 'Cinematic 4K golden morning sunbeams breaking through misty mountains, spiritual radiance and warm dawn light'
   },
   night: {
     image: 'https://images.unsplash.com/photo-1506703719100-a0f3a48c0f86?w=2560&auto=format&fit=crop&q=90',
-    video: 'https://upload.wikimedia.org/wikipedia/commons/6/63/Milky_Way_Timelapse.webm',
+    video: '/videos/milkyway_galaxy.mp4',
     query: 'starry night galaxy universe',
     mood: 'deep-blue-night',
     prompt: 'Majestic deep night cosmos, countless twinkling stars, celestial milky way galaxy over tranquil silhouetted hills'
   },
   mountains: {
     image: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=2560&auto=format&fit=crop&q=90',
-    video: 'https://upload.wikimedia.org/wikipedia/commons/e/ea/Timelapse_of_Clouds_over_Bellevue_Canyon.webm',
+    video: '/videos/mountain_clouds.mp4',
     query: 'majestic mountain peaks clouds',
     mood: 'emerald-majestic',
     prompt: 'Towering alpine mountain peaks bathed in ethereal sunlight, pine forest valley, pristine contemplation'
   },
   ocean: {
     image: 'https://images.unsplash.com/photo-1505118380757-91f5f5632de0?w=2560&auto=format&fit=crop&q=90',
-    video: 'https://upload.wikimedia.org/wikipedia/commons/6/63/The_blue_sky_kisses_the_green_ocean%2C_as_I_stand_on_the_shore_of_little_brown_sand%2C_watching_evening_melt_into_waves.webm',
+    video: '/videos/ocean_sunset.mp4',
     query: 'calm ocean waves turquoise sea',
     mood: 'aquatic-tranquil',
     prompt: 'Crystal turquoise ocean gently lapping against shore, rolling crystal-clear waves, peaceful horizon'
   },
   rain: {
     image: 'https://images.unsplash.com/photo-1519692933481-e162a57d6721?w=2560&auto=format&fit=crop&q=90',
-    video: 'https://upload.wikimedia.org/wikipedia/commons/2/23/Rain_water.webm',
+    video: '/videos/rain_water.mp4',
     query: 'gentle rain falling fresh greenery',
     mood: 'tranquil-rain',
     prompt: 'Gentle blessing rain falling upon fresh green leaves, raindrops creating ripples on water surface'
   },
   gardens: {
     image: 'https://images.unsplash.com/photo-1518531933037-91b2f5f229cc?w=2560&auto=format&fit=crop&q=90',
-    video: 'https://upload.wikimedia.org/wikipedia/commons/2/27/Side_view_video_of_Kawaida_Waterfall_cascading%2C_Cianda%2C_Kiambu_County.webm',
+    video: '/videos/forest_waterfall.mp4',
     query: 'lush green garden paradise stream',
     mood: 'verdant-peace',
     prompt: 'Lush paradise garden, flowing crystal stream beneath ancient olive trees, blooming flowers in soft daylight'
   },
   desert: {
     image: 'https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?w=2560&auto=format&fit=crop&q=90',
-    video: 'https://upload.wikimedia.org/wikipedia/commons/2/2a/Daybreak_Timelapse_1080p60fps.webm',
+    video: '/videos/golden_sunrise.mp4',
     query: 'golden desert sand dunes horizon',
     mood: 'golden-desert',
     prompt: 'Vast sweeping golden sand dunes under a serene sunset horizon, gentle wind carving ripples in the sand'
   },
   light: {
     image: 'https://images.unsplash.com/photo-1509114397022-ed747cca3f65?w=2560&auto=format&fit=crop&q=90',
-    video: 'https://upload.wikimedia.org/wikipedia/commons/2/2a/Daybreak_Timelapse_1080p60fps.webm',
+    video: '/videos/golden_sunrise.mp4',
     query: 'celestial golden rays beam of light',
     mood: 'heavenly-glow',
     prompt: 'Divine celestial light rays illuminating atmospheric particles in high dynamic range, majestic awe'
   },
   cosmos: {
     image: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=2560&auto=format&fit=crop&q=90',
-    video: 'https://upload.wikimedia.org/wikipedia/commons/8/80/JAPAN_Milk_Way_4K_-_Beautiful_Star_and_Sky_at_Night_Time_Lapse.webm',
+    video: '/videos/night_stars.mp4',
     query: 'earth planet stars nebula galaxy',
     mood: 'cosmic-depth',
     prompt: 'View of Earth from orbit, glowing atmosphere with deep starry nebula in background, cosmic wonder'
   },
   clouds: {
     image: 'https://images.unsplash.com/photo-1534088568595-a066f410bcda?w=2560&auto=format&fit=crop&q=90',
-    video: 'https://upload.wikimedia.org/wikipedia/commons/e/ea/Timelapse_of_Clouds_over_Bellevue_Canyon.webm',
+    video: '/videos/floating_clouds.mp4',
     query: 'epic timelapse clouds sunlight',
     mood: 'ethereal-sky',
     prompt: 'Dramatic cinematic cloudscape in golden hour, billowing white clouds drifting across deep azure sky'

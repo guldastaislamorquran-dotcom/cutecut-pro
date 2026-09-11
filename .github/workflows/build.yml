@@ -85,7 +85,15 @@ jobs:
             libnspr4 \
             libnspr4-dev \
             libnss3 \
-            libnss3-dev || true
+            libnss3-dev \
+            libatk1.0-0 \
+            libatk-bridge2.0-0 \
+            libgtk-3-0 \
+            libgtk-3-dev \
+            libdrm2 \
+            libgbm1 \
+            libasound2 \
+            libcups2 || true
           sudo snap install snapcraft --classic || true
           sudo snap install core22 || true
           sudo snap install gtk-common-themes || true

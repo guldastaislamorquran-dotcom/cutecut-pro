@@ -520,9 +520,13 @@ export default function PreviewPlayer({
             const normUrl = normalizeMediaUrl(clip.url);
             const safeCrossOrigin = getSafeCrossOrigin(clip.url);
 
-            if (clip.isImage || clip.url.startsWith('data:image/') || /\.(jpeg|jpg|png|gif|webp|svg|avif)/i.test(clip.url)) {
+            const isExplicitImg = clip.isImage || clip.url.startsWith('data:image/') || (/\.(jpeg|jpg|png|gif|webp|svg|avif)(\?|$)/i.test(clip.url) && !clip.url.includes('.mp4') && !clip.url.includes('.webm'));
+
+            if (isExplicitImg) {
               const img = document.createElement('img');
-              img.crossOrigin = safeCrossOrigin || 'anonymous';
+              if (safeCrossOrigin) {
+                img.crossOrigin = safeCrossOrigin;
+              }
               img.src = normUrl;
 
               img.addEventListener('error', () => {
@@ -540,17 +544,21 @@ export default function PreviewPlayer({
               media = img;
             } else {
               const video = document.createElement('video');
-              video.crossOrigin = safeCrossOrigin || 'anonymous';
+              if (safeCrossOrigin) {
+                video.crossOrigin = safeCrossOrigin;
+              }
               video.src = normUrl;
               video.muted = isMuted;
               video.playsInline = true;
               video.preload = 'auto';
+              video.loop = true;
               video.setAttribute('webkit-playsinline', 'true');
 
               const handleVideoErr = () => {
                 if (video.crossOrigin) {
                   video.removeAttribute('crossorigin');
                   video.src = normUrl;
+                  video.load();
                 } else {
                   (video as any).hasError = true;
                 }

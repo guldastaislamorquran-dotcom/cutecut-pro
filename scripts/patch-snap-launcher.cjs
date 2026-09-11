@@ -10,12 +10,24 @@ if (!fs.existsSync(targetPath)) {
 
 let content = fs.readFileSync(targetPath, 'utf8');
 
-// 1. Patch buildWithTemplate to write clean command.sh and stage libnspr4 / libnss3
+// 1. Patch buildWithTemplate to write clean command.sh and stage all required GUI libraries (ATK, GTK3, NSS, NSPR, DRM, ALSA)
 const templateTarget = 'const templateDir = await (0, electronGet_1.downloadBuilderToolset)({ releaseName, filenameWithExt, checksums, githubOrgRepo: "electron-userland/electron-builder-binaries" });';
-const templatePatch = `await (0, promises_1.writeFile)(path.join(templateDir, "command.sh"), '#!/bin/bash -e\\nexec "$SNAP/cutecut-pro" "$@"\\n', { mode: 0o755 });
+const templatePatch = `const launcherScript = '#!/bin/bash\\n' +
+          'export LD_LIBRARY_PATH="$SNAP:$SNAP/usr/lib/x86_64-linux-gnu:$SNAP/lib/x86_64-linux-gnu:$SNAP/usr/lib:$SNAP/lib:$SNAP/usr/lib/x86_64-linux-gnu/pulseaudio:$SNAP/usr/lib/x86_64-linux-gnu/mesa:$SNAP/usr/lib/x86_64-linux-gnu/dri:\${LD_LIBRARY_PATH:-}"\\n' +
+          'export PATH="$SNAP/bin:$SNAP/usr/bin:\$PATH"\\n' +
+          'export XDG_DATA_DIRS="$SNAP/usr/share:\${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"\\n' +
+          'exec "$SNAP/cutecut-pro" "$@"\\n';
+        await (0, promises_1.writeFile)(path.join(templateDir, "command.sh"), launcherScript, { mode: 0o755 });
         const fsSync = require('fs');
         const sysLibDirs = ['/usr/lib/x86_64-linux-gnu', '/lib/x86_64-linux-gnu', '/usr/lib', '/lib'];
-        const prefixes = ['libnspr4', 'libplc4', 'libplds4', 'libnss3', 'libnssutil3', 'libsmime3', 'libsoftokn3'];
+        const prefixes = [
+          'libnspr4', 'libplc4', 'libplds4',
+          'libnss3', 'libnssutil3', 'libsmime3', 'libsoftokn3',
+          'libatk-1.0', 'libatk-bridge', 'libatspi',
+          'libgtk-3', 'libgdk-3', 'libepoxy',
+          'libdrm', 'libgbm', 'libasound', 'libcups',
+          'libxshmfence', 'libXss', 'libsecret'
+        ];
         for (const sDir of sysLibDirs) {
           if (fsSync.existsSync(sDir)) {
             try {
@@ -42,7 +54,11 @@ if (content.includes(targetFunc)) {
   const index = content.indexOf(targetFunc);
   const prefix = content.substring(0, index);
   const newFunc = `function buildCommandShContent(opts) {
-    return '#!/bin/bash -e\\nexec "$SNAP/cutecut-pro" "$@"\\n';
+    return '#!/bin/bash\\n' +
+      'export LD_LIBRARY_PATH="$SNAP:$SNAP/usr/lib/x86_64-linux-gnu:$SNAP/lib/x86_64-linux-gnu:$SNAP/usr/lib:$SNAP/lib:$SNAP/usr/lib/x86_64-linux-gnu/pulseaudio:$SNAP/usr/lib/x86_64-linux-gnu/mesa:$SNAP/usr/lib/x86_64-linux-gnu/dri:\${LD_LIBRARY_PATH:-}"\\n' +
+      'export PATH="$SNAP/bin:$SNAP/usr/bin:\$PATH"\\n' +
+      'export XDG_DATA_DIRS="$SNAP/usr/share:\${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"\\n' +
+      'exec "$SNAP/cutecut-pro" "$@"\\n';
 }
 //# sourceMappingURL=coreLegacy.js.map`;
   content = prefix + newFunc;

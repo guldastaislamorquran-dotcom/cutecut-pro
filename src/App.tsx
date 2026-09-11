@@ -1934,16 +1934,33 @@ export default function App() {
 
         // Build video & image caches
         if ((clip.type === ClipType.VIDEO || clip.type === ClipType.IMAGE) && (normalizedUrl || clip.poster || clip.thumbnailUrl)) {
-          const effectiveUrl = normalizedUrl || clip.poster || clip.thumbnailUrl || '';
+          // For video clips, always prioritize the video url; fallback to poster only if url is missing
+          const effectiveUrl = (clip.type === ClipType.VIDEO && normalizedUrl) ? normalizedUrl : (normalizedUrl || clip.poster || clip.thumbnailUrl || '');
+          const isExplicitImage = clip.isImage === true || clip.type === ClipType.IMAGE || (/\.(jpeg|jpg|png|gif|webp|svg|avif)(\?|$)/i.test(effectiveUrl) && !effectiveUrl.includes('.webm') && !effectiveUrl.includes('.mp4'));
+          const isVideo = clip.type === ClipType.VIDEO && !isExplicitImage;
+          const isImg = !isVideo;
+
+          const existingEl = videoElementsRef.current[clip.id];
+          const needsRecreate = existingEl && (
+            (isVideo && !(existingEl instanceof HTMLVideoElement)) ||
+            (isImg && !(existingEl instanceof HTMLImageElement)) ||
+            (existingEl.getAttribute('data-clip-url') !== effectiveUrl)
+          );
+
+          if (needsRecreate) {
+            existingEl.remove();
+            delete videoElementsRef.current[clip.id];
+          }
+
           if (!videoElementsRef.current[clip.id] && effectiveUrl) {
-            const effectiveCrossOrigin = safeCrossOrigin || 'anonymous';
-            const isExplicitImage = clip.isImage === true || clip.type === ClipType.IMAGE || (/\.(jpeg|jpg|png|gif|webp|svg|avif)(\?|$)/i.test(effectiveUrl) && !effectiveUrl.includes('.webm') && !effectiveUrl.includes('.mp4'));
-            const isVideo = clip.type === ClipType.VIDEO && !isExplicitImage;
-            const isImg = !isVideo;
+            const effectiveCrossOrigin = safeCrossOrigin;
 
             if (isImg) {
               const img = document.createElement('img');
-              img.crossOrigin = effectiveCrossOrigin;
+              if (effectiveCrossOrigin) {
+                img.crossOrigin = effectiveCrossOrigin;
+              }
+              img.setAttribute('data-clip-url', effectiveUrl);
               img.src = effectiveUrl;
 
               const handleImgError = () => {
@@ -1961,7 +1978,10 @@ export default function App() {
               mediaPool.appendChild(img);
             } else {
               const video = document.createElement('video');
-              video.crossOrigin = effectiveCrossOrigin;
+              if (effectiveCrossOrigin) {
+                video.crossOrigin = effectiveCrossOrigin;
+              }
+              video.setAttribute('data-clip-url', effectiveUrl);
               video.src = effectiveUrl;
               video.muted = true; // muted to permit background rendering without gesture blocking
               video.playsInline = true;

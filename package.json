@@ -85,7 +85,14 @@
         "libnspr4",
         "libnss3",
         "libxss1",
-        "libsecret-1-0"
+        "libsecret-1-0",
+        "libatk1.0-0",
+        "libatk-bridge2.0-0",
+        "libgtk-3-0",
+        "libdrm2",
+        "libgbm1",
+        "libasound2",
+        "libcups2"
       ],
       "plugs": [
         "desktop",

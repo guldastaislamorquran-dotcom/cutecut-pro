@@ -81,6 +81,18 @@ async function startServer() {
     throw lastError;
   }
 
+  // Enable CORS & Range support for all assets and media streaming
+  app.use((req, res, next) => {
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, Range, X-User-Gemini-Key');
+    res.header('Access-Control-Expose-Headers', 'Content-Range, Accept-Ranges, Content-Length');
+    if (req.method === 'OPTIONS') {
+      return res.sendStatus(200);
+    }
+    next();
+  });
+
   // Middleware
   app.use(express.json({ limit: '500mb' }));
   app.use(express.urlencoded({ limit: '500mb', extended: true }));
@@ -1727,6 +1739,9 @@ Return JSON with format:
       res.redirect(fileUrl);
     }
   });
+
+  // Serve static assets from public folder (including /videos, /fonts, etc.)
+  app.use(express.static(path.join(process.cwd(), 'public')));
 
   // Vite development middleware vs production static server
   if (process.env.NODE_ENV !== 'production') {
