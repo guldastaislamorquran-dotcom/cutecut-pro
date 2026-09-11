@@ -74,7 +74,7 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: |
           sudo apt-get update
-          sudo apt-get install -y \
+          sudo apt-get install -y --no-install-recommends \
             fakeroot \
             dpkg \
             libfuse2 \
@@ -86,14 +86,13 @@ jobs:
             libnspr4-dev \
             libnss3 \
             libnss3-dev \
-            libatk1.0-0 \
-            libatk-bridge2.0-0 \
-            libgtk-3-0 \
+            libatk1.0-dev \
+            libatk-bridge2.0-dev \
             libgtk-3-dev \
-            libdrm2 \
-            libgbm1 \
-            libasound2 \
-            libcups2 || true
+            libdrm-dev \
+            libgbm-dev \
+            libasound2-dev \
+            libcups2-dev || true
           sudo snap install snapcraft --classic || true
           sudo snap install core22 || true
           sudo snap install gtk-common-themes || true
