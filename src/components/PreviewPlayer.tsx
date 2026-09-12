@@ -1364,6 +1364,15 @@ export default function PreviewPlayer({
             animGlowBoost = (Math.sin(clipTime * 6) + 1) * 10;
           }
 
+          // In studio design / pause mode, ensure selected clip is clearly visible to the editor
+          const isSelected = selectedClip?.id === clip.id || (selectedClipIds && selectedClipIds.includes(clip.id));
+          if (!isPlaying && isSelected && !isExporting) {
+            animAlpha = 1.0;
+            animScale = 1.0;
+            animOffsetX = 0;
+            animOffsetY = 0;
+          }
+
           // Save Canvas Context for Animation Transforms
           ctx.save();
           ctx.globalAlpha = Math.max(0, Math.min(1, ctx.globalAlpha * animAlpha));
@@ -1373,7 +1382,7 @@ export default function PreviewPlayer({
 
           // Typewriter Karaoke reveal line text processing
           let renderLines = lines;
-          if (inAnim === 'typewriter') {
+          if (inAnim === 'typewriter' && (!isSelected || isPlaying || isExporting)) {
             const totalChars = lines.join('').length;
             const revealCount = Math.floor(totalChars * cubicEaseOut(inProgress));
             let charAcc = 0;
@@ -1575,6 +1584,59 @@ export default function PreviewPlayer({
 
             ctx.fillStyle = clip.textStyle === 'neon' ? '#FFFFFF' : (clip.textStyle === ('gold-glow' as any) ? '#fbbf24' : (clip.textStyle === ('viral-reels' as any) ? '#facc15' : color));
             ctx.fillText(lineText, lineX, currentY);
+
+            // Real-Time Karaoke Word-by-Word Glow Overlay
+            const isKaraokeActive = (clip.textAnimation?.inAnimation as any) === 'karaoke' || Boolean((clip as any).karaokeHighlight);
+            if (isKaraokeActive && clip.duration > 0 && lineText && lineText.trim().length > 0) {
+              const clipProgress = Math.max(0, Math.min(1, (currentTime - clip.start) / clip.duration));
+              const isRTL = /[\u0600-\u06FF\u0750-\u077F\uFB50-\uFDFF\uFE70-\uFEFF]/.test(lineText);
+              const tokens = lineText.split(/(\s+)/);
+              const wordTokenIndices: number[] = [];
+              tokens.forEach((tok, idx) => {
+                if (tok.trim().length > 0) wordTokenIndices.push(idx);
+              });
+              if (wordTokenIndices.length > 0) {
+                const activeWordPos = Math.min(
+                  wordTokenIndices.length - 1,
+                  Math.floor(clipProgress * wordTokenIndices.length)
+                );
+                const activeTokenIdx = wordTokenIndices[activeWordPos];
+
+                const fullW = ctx.measureText(lineText).width;
+                let wordStartX = lineX;
+                if (alignment === 'center') {
+                  wordStartX = lineX - (fullW / 2);
+                } else if (alignment === 'right') {
+                  wordStartX = lineX - fullW;
+                }
+
+                // Compute exact X offset for the active word (Right-to-Left for Arabic/RTL, Left-to-Right for English/LTR)
+                let runningOffset = 0;
+                if (isRTL) {
+                  // In RTL rendering, words preceding the active word in speech are on the right,
+                  // so the active word's distance from the left edge is the sum of subsequent tokens
+                  for (let i = activeTokenIdx + 1; i < tokens.length; i++) {
+                    runningOffset += ctx.measureText(tokens[i]).width;
+                  }
+                } else {
+                  // In LTR rendering, active word's distance from left is sum of preceding tokens
+                  for (let i = 0; i < activeTokenIdx; i++) {
+                    runningOffset += ctx.measureText(tokens[i]).width;
+                  }
+                }
+
+                const activeTok = tokens[activeTokenIdx];
+                if (activeTok && activeTok.trim().length > 0) {
+                  ctx.save();
+                  ctx.textAlign = 'left';
+                  ctx.shadowColor = (clip as any).karaokeColor || '#F59E0B';
+                  ctx.shadowBlur = 22;
+                  ctx.fillStyle = (clip as any).karaokeColor || '#FBBF24';
+                  ctx.fillText(activeTok, wordStartX + runningOffset, currentY);
+                  ctx.restore();
+                }
+              }
+            }
 
             // Draw inline crowned Ayah medallion on the target line (inside animation transform context)
             if (isTargetLine && layer.ayahNum && lineText && lineText.trim().length > 0) {

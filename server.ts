@@ -4,7 +4,7 @@ import * as fs from 'fs';
 import { exec } from 'child_process';
 import dotenv from 'dotenv';
 import { createServer as createViteServer } from 'vite';
-import { GoogleGenAI, Type, ThinkingLevel, GenerateVideosOperation } from '@google/genai';
+import { GoogleGenAI, Type, ThinkingLevel } from '@google/genai';
 import { FFmpegPipeline } from './src/services/video/ffmpegPipeline';
 import { ScenePlanner } from './src/services/video/scenePlanner';
 import { LayoutEngine } from './src/services/video/layoutEngine';
@@ -610,9 +610,17 @@ async function startServer() {
           ${breathRuleText}
 
           CRITICAL AYAH BOUNDARY PRECISION MANDATE:
+          - Every single Ayah (e.g., Ayah 1, Ayah 2, Ayah 3) MUST have its OWN individual subtitle entry in the output array. NEVER combine or merge multiple Ayahs into one entry, even if recited continuously in a single breath without pause.
+          - SINGLE-BREATH MULTI-AYAH RULE (WASL OF AYAH 1 AND 2):
+            When the reciter joins two or more Ayahs in a single breath without pausing (e.g. Ayah 1 into Ayah 2):
+            * You MUST emit TWO distinct consecutive subtitle entries: one for Ayah 1 and one for Ayah 2.
+            * Entry 1 (Ayah 1): starts when the reciter begins Ayah 1, and ends at the exact transition point where the reciter joins into the first word of Ayah 2.
+            * Entry 2 (Ayah 2): starts immediately at that transition point, and ends when the recitation of Ayah 2 finishes.
+            * NEVER combine them into '1:1-2' or merge both verses into one text block.
+            * NEVER skip or omit Ayah 2. Both Ayah 1 and Ayah 2 must exist as separate entries in the output JSON array.
           - Every Ayah MUST match the spoken audio exactly: start when the reciter begins the first syllable of that Ayah, and end when the reciter finishes reciting the final syllable (including madd/ghunnah prolongation and waqf).
           - Match each spoken verse to its exact corresponding scripture Ayah from the REFERENCE VERSES below.
-          - Never assign an Ayah number to audio that recites a different Ayah.
+          - Never combine Ayah 1, 2, 3 into one text block. Each Ayah must be clearly separated and individually timestamped.
           - If an Ayah begins before the end of this audio chunk and finishes recited in it, mark its start at the beginning of its recitation. If an Ayah finishes during this chunk, mark its end exactly when it finishes.
           - Do NOT drift or accumulate timing errors; every Ayah's boundary must anchor directly to the voice acoustics.
 
@@ -1705,156 +1713,6 @@ Return JSON with format:
         aspectRatio,
         model: 'gemini-3-pro-image-preview (Rate Limit Fallback)',
       });
-    }
-  });
-
-  // API Route: Veo Video Generation (veo-3.1-fast-generate-preview)
-  app.post('/api/ai/generate-video', async (req, res) => {
-    const { prompt, image, aspectRatio = '16:9' } = req.body;
-    const ai = getAiClient(req);
-
-    if (!image) {
-      return res.status(400).json({ error: 'Image base64 is required for image-to-video generation' });
-    }
-
-    // Extract mime type and base64 string
-    let base64Data = image;
-    let mimeType = 'image/png';
-    if (image.includes(';base64,')) {
-      const parts = image.split(';base64,');
-      mimeType = parts[0].replace('data:', '');
-      base64Data = parts[1];
-    }
-
-    if (!ai) {
-      console.log('[Veo Video Gen] No API key loaded, using Mock Mode');
-      return res.json({
-        operationName: `mock_veo_operation_${Date.now()}_${aspectRatio.replace(':', '_')}`
-      });
-    }
-
-    try {
-      console.log(`[Veo Video Gen] Calling generateVideos with veo-3.1-fast-generate-preview. Aspect Ratio: ${aspectRatio}`);
-      
-      const operation = await ai.models.generateVideos({
-        model: 'veo-3.1-fast-generate-preview',
-        prompt: prompt || 'Animate this image with realistic smooth cinematic movement',
-        image: {
-          imageBytes: base64Data,
-          mimeType: mimeType,
-        },
-        config: {
-          numberOfVideos: 1,
-          resolution: '720p',
-          aspectRatio: aspectRatio,
-        }
-      });
-
-      console.log('[Veo Video Gen] Operation created:', operation.name);
-      return res.json({ operationName: operation.name });
-    } catch (error: any) {
-      console.error('[Veo Video Gen] Error starting video generation:', error);
-      // Fallback to mock operation on error
-      return res.json({
-        operationName: `mock_veo_operation_${Date.now()}_${aspectRatio.replace(':', '_')}`,
-        warn: error.message || 'Model fallback triggered'
-      });
-    }
-  });
-
-  // API Route: Veo Video Polling Status
-  app.post('/api/ai/video-status', async (req, res) => {
-    const { operationName } = req.body;
-    const ai = getAiClient(req);
-
-    if (!operationName) {
-      return res.status(400).json({ error: 'operationName is required' });
-    }
-
-    if (operationName.startsWith('mock_veo_operation_')) {
-      const parts = operationName.split('_');
-      const timestamp = parseInt(parts[3]) || Date.now();
-      const elapsed = Date.now() - timestamp;
-      // Simulate 8 seconds of processing
-      const done = elapsed >= 8000;
-      return res.json({ done });
-    }
-
-    if (!ai) {
-      return res.json({ done: true });
-    }
-
-    try {
-      const op = new GenerateVideosOperation();
-      op.name = operationName;
-      const updated = await ai.operations.getVideosOperation({ operation: op });
-      return res.json({ done: !!updated.done, error: updated.error || null });
-    } catch (error: any) {
-      console.error('[Veo Video Gen] Status poll error:', error);
-      return res.status(500).json({ error: error.message || 'Status poll failed' });
-    }
-  });
-
-  // API Route: Veo Video Download & Proxy Stream
-  app.post('/api/ai/video-download', async (req, res) => {
-    const { operationName } = req.body;
-    const ai = getAiClient(req);
-
-    if (!operationName) {
-      return res.status(400).json({ error: 'operationName is required' });
-    }
-
-    if (operationName.startsWith('mock_veo_operation_')) {
-      // Stream local sunset video as mock fallback
-      const fallbackPath = path.join(process.cwd(), 'public', 'videos', 'golden_sunrise.mp4');
-      if (fs.existsSync(fallbackPath)) {
-        res.setHeader('Content-Type', 'video/mp4');
-        return fs.createReadStream(fallbackPath).pipe(res);
-      } else {
-        return res.redirect('https://assets.mixkit.co/videos/preview/mixkit-forest-stream-in-the-sunlight-529-large.mp4');
-      }
-    }
-
-    if (!ai) {
-      return res.status(400).json({ error: 'API key not configured' });
-    }
-
-    try {
-      const op = new GenerateVideosOperation();
-      op.name = operationName;
-      const updated = await ai.operations.getVideosOperation({ operation: op });
-      const uri = updated.response?.generatedVideos?.[0]?.video?.uri;
-      
-      if (!uri) {
-        return res.status(404).json({ error: 'Video URI not found in operation response' });
-      }
-
-      const customKey = req.headers?.['x-user-gemini-key'] as string || req.headers?.['X-User-Gemini-Key'] as string;
-      const currentKey = (customKey && customKey.trim().length >= 10) ? customKey.trim() : process.env.GEMINI_API_KEY;
-
-      const videoRes = await fetch(uri, {
-        headers: { 'x-goog-api-key': currentKey || '' },
-      });
-
-      res.setHeader('Content-Type', 'video/mp4');
-      if (videoRes.body) {
-        if (typeof (videoRes.body as any).pipe === 'function') {
-          (videoRes.body as any).pipe(res);
-        } else {
-          const reader = videoRes.body.getReader();
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            res.write(Buffer.from(value));
-          }
-          res.end();
-        }
-      } else {
-        res.status(500).json({ error: 'Empty video stream from Gemini' });
-      }
-    } catch (error: any) {
-      console.error('[Veo Video Gen] Error downloading/streaming video:', error);
-      return res.status(500).json({ error: error.message || 'Streaming failed' });
     }
   });
 

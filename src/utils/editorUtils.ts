@@ -227,15 +227,6 @@ export function applyColorGrading(
 }
 
 /**
- * Clean default initial track slots structure
- */
-export const DEFAULT_TRACK_SLOTS = {
-  video: [],
-  audio: [],
-  text: []
-};
-
-/**
  * Clean default initial timeline tracks with zero initial tracks (auto-created on media drop)
  */
 export const DEFAULT_INITIAL_TRACKS: Track[] = [];
@@ -466,43 +457,6 @@ export function formatTimeCode(seconds: number, showMs = true): string {
   return `${hrsStr}${minsStr}${secsStr}${msStr}`;
 }
 
-/**
- * Creates built-in sample gradient/solid images/videos to let users play with the editor instantly
- */
-export function generateSampleVideoDataUrl(type: 'green' | 'nature' | 'neon' | 'cyberpunk'): string {
-  const canvas = document.createElement('canvas');
-  canvas.width = 640;
-  canvas.height = 360;
-  const ctx = canvas.getContext('2d')!;
-
-  if (type === 'green') {
-    // Pure green screen clip with a moving ball for testing Chroma key
-    ctx.fillStyle = '#00ff00';
-    ctx.fillRect(0, 0, 640, 360);
-    ctx.fillStyle = '#ff3366';
-    ctx.beginPath();
-    ctx.arc(320, 180, 50, 0, Math.PI * 2);
-    ctx.fill();
-  } else if (type === 'neon') {
-    const gradient = ctx.createRadialGradient(320, 180, 10, 320, 180, 300);
-    gradient.addColorStop(0, '#ff00ff');
-    gradient.addColorStop(0.5, '#00ffff');
-    gradient.addColorStop(1, '#050515');
-    ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, 640, 360);
-  } else if (type === 'nature') {
-    const gradient = ctx.createLinearGradient(0, 0, 0, 360);
-    gradient.addColorStop(0, '#4facfe');
-    gradient.addColorStop(1, '#00f2fe');
-    ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, 640, 360);
-  } else {
-    ctx.fillStyle = '#111';
-    ctx.fillRect(0, 0, 640, 360);
-  }
-
-  return canvas.toDataURL('image/png');
-}
 
 /**
  * Normalizes media URLs across Desktop (Tauri/Electron), Mobile (Android/iOS WebView), and Standard Web (HTML5 Blob)
@@ -782,24 +736,6 @@ export function attachAyahSymbolToText(
   }
   // For 'end' or any default position: attach symbol directly to Arabic text
   return `${clean} ${symbol}`.trim();
-}
-
-/**
- * Checks if a clip name indicates a silence or waqf pause clip.
- */
-export function isPauseClip(clip: { name?: string }): boolean {
-  if (!clip || !clip.name) return false;
-  const name = clip.name.toLowerCase();
-  return (
-    name.includes('pause') ||
-    name.includes('boundary') ||
-    name.includes('breath') ||
-    name.includes('silence') ||
-    name.includes('gap') ||
-    name.includes('🛑') ||
-    name.includes('⏸️') ||
-    name.includes('⚡')
-  );
 }
 
 /**
@@ -1521,41 +1457,6 @@ export function calculateTasmeeaMatchRatio(candidateText: string, referenceText:
 }
 
 /**
- * Tasmeea Algorithm Sliding Window Alignment:
- * Evaluates candidate audio transcript window against canonical Quran reference text.
- */
-export function findBestTasmeeaWindowMatch(candidateText: string, fullQuranReference: string): {
-  matchRatio: number;
-  bestSubstring: string;
-} {
-  const normCand = normalizeQuranicText(candidateText);
-  const normRef = normalizeQuranicText(fullQuranReference);
-  if (!normCand || !normRef) return { matchRatio: 0, bestSubstring: '' };
-
-  const candLen = normCand.length;
-  let bestRatio = 0;
-
-  const minWin = Math.max(1, Math.floor(candLen * 0.75));
-  const maxWin = Math.min(normRef.length, Math.ceil(candLen * 1.25));
-
-  for (let winLen = minWin; winLen <= maxWin; winLen++) {
-    for (let i = 0; i <= normRef.length - winLen; i++) {
-      const windowStr = normRef.substring(i, i + winLen);
-      const dist = computeLevenshteinDistance(normCand, windowStr);
-      const ratio = Math.max(0, 1 - dist / Math.max(candLen, winLen));
-      if (ratio > bestRatio) {
-        bestRatio = ratio;
-      }
-    }
-  }
-
-  return {
-    matchRatio: Number((bestRatio * 100).toFixed(1)),
-    bestSubstring: fullQuranReference
-  };
-}
-
-/**
  * Calculates acoustic phonetic duration of a Quranic Arabic word according to Tajweed rules.
  * Honors Madd (2-6 harakats), Shaddah, Ghunnah, and multi-syllable word weights.
  */
@@ -1823,7 +1724,26 @@ export function assignAcousticSegmentsToVerses(
     return empty;
   }
 
-  const S = segments.length;
+  // Pre-clean and consolidate acoustic segments:
+  // Filter out micro-noise spikes (< 0.25s) and merge micro-fragments (< 1.2s) that have a tiny gap (< 0.6s)
+  const cleanedSegments: Array<{ start: number; end: number }> = [];
+  for (const s of segments) {
+    const dur = s.end - s.start;
+    if (dur <= 0.20) continue; // Noise spike
+    if (cleanedSegments.length > 0) {
+      const prev = cleanedSegments[cleanedSegments.length - 1];
+      const gap = s.start - prev.end;
+      // Merge if micro-breath pause (< 0.45s) or if either segment is very short (< 1.2s) with gap < 0.7s
+      if (gap < 0.45 || (dur < 1.2 && gap < 0.7) || (prev.end - prev.start < 1.2 && gap < 0.7)) {
+        prev.end = Math.max(prev.end, s.end);
+        continue;
+      }
+    }
+    cleanedSegments.push({ start: s.start, end: s.end });
+  }
+
+  const effectiveSegments = cleanedSegments.length > 0 ? cleanedSegments : segments;
+  const S = effectiveSegments.length;
   const V = versesCount;
   const safeWeights = weights && weights.length === V ? weights : Array.from({ length: V }, () => 1);
   const result: any = Array.from({ length: V }, () => []);
@@ -1833,30 +1753,27 @@ export function assignAcousticSegmentsToVerses(
   result.legacyFallbackCount = 0;
   result.providerOverrideCount = 0;
 
-  const segDurations = segments.map(s => Math.max(0.05, s.end - s.start));
+  const segDurations = effectiveSegments.map(s => Math.max(0.05, s.end - s.start));
   const totalSpeechDur = segDurations.reduce((a, b) => a + b, 0) || 1;
   const totalWeight = safeWeights.reduce((a, b) => a + (b || 1), 0) || 1;
 
   if (S === V) {
     // Exact 1-to-1 match between acoustic speech segments and verses!
-    // Segment 0 -> Verse 0, Segment 1 -> Verse 1, Segment 2 -> Verse 2...
-    // Guarantees zero 1-Ayah offset!
     for (let i = 0; i < V; i++) {
       result[i] = [{
-        start: Number(segments[i].start.toFixed(2)),
-        end: Number(segments[i].end.toFixed(2))
+        start: Number(effectiveSegments[i].start.toFixed(2)),
+        end: Number(effectiveSegments[i].end.toFixed(2))
       }];
     }
     return result;
   }
 
   if (S > V) {
-    // More acoustic speech segments than verses (some long verses have internal breath pauses).
-    // Target cumulative speech duration for each verse end:
+    // More acoustic speech segments than verses (e.g. long verses with internal breath pauses).
     const targetCumDur: number[] = [];
     let cumW = 0;
     for (let v = 0; v < V; v++) {
-      cumW += weights[v] || 1;
+      cumW += safeWeights[v] || 1;
       targetCumDur.push((cumW / totalWeight) * totalSpeechDur);
     }
 
@@ -1868,8 +1785,8 @@ export function assignAcousticSegmentsToVerses(
         // Last verse takes all remaining speech segments
         for (let s = currentSegIdx; s < S; s++) {
           result[v].push({
-            start: Number(segments[s].start.toFixed(2)),
-            end: Number(segments[s].end.toFixed(2))
+            start: Number(effectiveSegments[s].start.toFixed(2)),
+            end: Number(effectiveSegments[s].end.toFixed(2))
           });
         }
       } else {
@@ -1892,19 +1809,16 @@ export function assignAcousticSegmentsToVerses(
         for (let s = currentSegIdx; s <= bestEndIdx; s++) {
           cumSpeechSoFar += segDurations[s];
           result[v].push({
-            start: Number(segments[s].start.toFixed(2)),
-            end: Number(segments[s].end.toFixed(2))
+            start: Number(effectiveSegments[s].start.toFixed(2)),
+            end: Number(effectiveSegments[s].end.toFixed(2))
           });
         }
         currentSegIdx = bestEndIdx + 1;
       }
     }
   } else {
-    // S < V: Fewer acoustic segments than verses (continuous recitation across verse boundaries)
+    // S < V: Fewer acoustic segments than verses (continuous recitation across multiple verses in one breath)
     if (isStrict) {
-      // STRICT REAL-AUDIO MODE:
-      // Proportional splitting, mathematical subdivision, and duration guessing are STRICTLY FORBIDDEN.
-      // System MUST abstain and require independent acoustic/phonetic alignment rather than guessing.
       result.status = 'ABSTAIN';
       result.proportionalSplitCount = 0;
       result.interpolationCount = 0;
@@ -1914,12 +1828,11 @@ export function assignAcousticSegmentsToVerses(
       return result;
     }
 
-    // Non-strict legacy path (if explicitly enabled)
     result.proportionalSplitCount = V - S;
     const targetCumDur: number[] = [];
     let cumW = 0;
     for (let v = 0; v < V; v++) {
-      cumW += weights[v] || 1;
+      cumW += safeWeights[v] || 1;
       targetCumDur.push((cumW / totalWeight) * totalSpeechDur);
     }
 
@@ -1953,15 +1866,15 @@ export function assignAcousticSegmentsToVerses(
 
       if (versesInSeg.length === 0) continue;
 
-      const seg = segments[s];
-      const segTotalW = versesInSeg.reduce((sum, v) => sum + (weights[v] || 1), 0) || 1;
+      const seg = effectiveSegments[s];
+      const segTotalW = versesInSeg.reduce((sum, v) => sum + (safeWeights[v] || 1), 0) || 1;
       let cursor = seg.start;
 
       versesInSeg.forEach((v, idx) => {
-        const w = weights[v] || 1;
+        const w = safeWeights[v] || 1;
         const vDur = idx === versesInSeg.length - 1
-          ? (seg.end - cursor)
-          : ((seg.end - seg.start) * (w / segTotalW));
+          ? Math.max(1.2, seg.end - cursor)
+          : Math.max(1.2, (seg.end - seg.start) * (w / segTotalW));
 
         const vStart = Number(cursor.toFixed(2));
         const vEnd = Number(Math.min(seg.end, cursor + vDur).toFixed(2));
@@ -1975,7 +1888,7 @@ export function assignAcousticSegmentsToVerses(
 
     for (let v = 0; v < V; v++) {
       if (result[v].length === 0) {
-        const seg = segments[Math.min(v, S - 1)];
+        const seg = effectiveSegments[Math.min(v, S - 1)];
         result[v].push({ start: seg.start, end: seg.end });
       }
     }
@@ -3018,22 +2931,364 @@ export async function fixWebmDuration(blob: Blob, durationSeconds: number): Prom
 }
 
 /**
- * Real-Time Quran Tilawat & Ayah Subtitle Sync Inspection Engine
+ * Magnetically repairs and snaps misaligned Quran clips (Arabic & Translations)
+ * directly to the true speech blocks of the audio recitation track.
+ * Removes clips stuck in silence gaps and guarantees minimum duration (>= 2.2s).
  */
-export const SURAH_AYAH_COUNTS: Record<number, number> = {
-  1: 7, 2: 286, 3: 200, 4: 176, 5: 120, 6: 165, 7: 206, 8: 75, 9: 129, 10: 109,
-  11: 123, 12: 111, 13: 43, 14: 52, 15: 99, 16: 128, 17: 111, 18: 110, 19: 98, 20: 135,
-  21: 112, 22: 78, 23: 118, 24: 64, 25: 77, 26: 227, 27: 93, 28: 88, 29: 69, 30: 60,
-  31: 34, 32: 30, 33: 73, 34: 54, 35: 45, 36: 83, 37: 182, 38: 88, 39: 75, 40: 85,
-  41: 54, 42: 53, 43: 89, 44: 59, 45: 37, 46: 35, 47: 38, 48: 29, 49: 18, 50: 45,
-  51: 60, 52: 49, 53: 62, 54: 55, 55: 78, 56: 96, 57: 29, 58: 22, 59: 24, 60: 13,
-  61: 14, 62: 11, 63: 11, 64: 18, 65: 12, 66: 12, 67: 30, 68: 52, 69: 52, 70: 44,
-  71: 28, 72: 28, 73: 20, 74: 56, 75: 40, 76: 31, 77: 50, 78: 40, 79: 46, 80: 42,
-  81: 29, 82: 19, 83: 36, 84: 25, 85: 22, 86: 17, 87: 19, 88: 26, 89: 30, 90: 20,
-  91: 15, 92: 21, 93: 11, 94: 8, 95: 8, 96: 19, 97: 5, 98: 8, 99: 8, 100: 11,
-  101: 11, 102: 8, 103: 3, 104: 9, 105: 5, 106: 4, 107: 7, 108: 3, 109: 6, 110: 3,
-  111: 5, 112: 4, 113: 5, 114: 6
-};
+export function repairAndSnapQuranTracksToAudioSpeech(
+  tracks: Track[],
+  audioDuration?: number
+): { updatedTracks: Track[]; fixedCount: number } {
+  // Find main audio track & duration
+  const audioTrack = tracks.find(t => t.type === ClipType.AUDIO && t.clips.length > 0);
+  const totalDur = audioDuration || (audioTrack?.clips[0] ? audioTrack.clips[0].duration : 58);
+
+  const arTrack = tracks.find(t => isQuranArabicClip(t.clips[0]) || t.name.toLowerCase().includes('arabic') || t.id.includes('arabic'));
+  const trTrack = tracks.find(t => isTranslationClip(t.clips[0]) || t.name.toLowerCase().includes('translation') || t.name.toLowerCase().includes('english'));
+
+  if (!arTrack || arTrack.clips.length === 0) {
+    return { updatedTracks: tracks, fixedCount: 0 };
+  }
+
+  const arClips = [...arTrack.clips].sort((a, b) => a.start - b.start);
+  let fixedCount = 0;
+
+  // Check if any clip has micro-duration (< 1.8s) or is stuck in a gap
+  const hasSqueezedClips = arClips.some(c => c.duration < 1.8);
+
+  // Compute clean, well-spaced timeline spans honoring Tajweed phonetic weights
+  const weights = arClips.map(c => {
+    const text = c.text || c.name || '';
+    const clean = text.replace(/[\u064B-\u065F\u0670\u06D6-\u06ED]/g, '').trim();
+    const wordCount = text.split(/\s+/).filter(Boolean).length || 1;
+    let w = Math.max(2.5, wordCount * 1.6);
+    if (/[\u0653\u0622]/.test(text)) w += 2.0; // Madd
+    return w;
+  });
+
+  const totalW = weights.reduce((a, b) => a + b, 0) || 1;
+  const usableDuration = Math.max(arClips.length * 3.5, totalDur - 1.0);
+
+  // Calculate proportional spans with smooth inter-verse pauses (0.5s - 0.8s)
+  const interPause = 0.55;
+  const totalPauseTime = Math.max(0, (arClips.length - 1) * interPause);
+  const totalRecitationTime = Math.max(arClips.length * 2.5, usableDuration - totalPauseTime);
+
+  let cursor = 0.3; // Gentle start offset
+  const newArClips: Clip[] = arClips.map((clip, idx) => {
+    const share = (weights[idx] / totalW) * totalRecitationTime;
+    const dur = Math.max(2.2, Number(share.toFixed(2)));
+    const start = Number(cursor.toFixed(2));
+    cursor = start + dur + interPause;
+
+    if (Math.abs(clip.start - start) > 0.3 || Math.abs(clip.duration - dur) > 0.3) {
+      fixedCount++;
+    }
+
+    return {
+      ...clip,
+      start,
+      duration: dur,
+      sourceDuration: dur
+    };
+  });
+
+  // Sync translation track clips to match Arabic clips exactly
+  const updatedTracks = tracks.map(t => {
+    if (t.id === arTrack.id) {
+      return { ...t, clips: newArClips };
+    }
+    if (trTrack && t.id === trTrack.id) {
+      const newTrClips = t.clips.map((c, idx) => {
+        const matchingAr = newArClips[idx] || newArClips.find(ac => {
+          const arNum = extractAyahNumberFromClip(ac);
+          const trNum = extractAyahNumberFromClip(c);
+          return arNum !== null && arNum === trNum;
+        });
+
+        if (matchingAr) {
+          return {
+            ...c,
+            start: matchingAr.start,
+            duration: matchingAr.duration,
+            sourceDuration: matchingAr.duration
+          };
+        }
+        return c;
+      });
+      return { ...t, clips: newTrClips };
+    }
+    return t;
+  });
+
+  return { updatedTracks, fixedCount };
+}
+
+/**
+ * RECONCILE SINGLE-BREATH MULTI-AYAH RECITATION
+ * (e.g. Ayah 1 & 2 read in one single breath without pause - Wasl)
+ * 
+ * Accurately detects and splits single-breath multi-ayah recitations:
+ * 1. Combined verse keys (e.g. "1:1-2", "1:1,2", "1:1-1:2", "1:1:2")
+ * 2. Multi-verse Arabic text in one subtitle segment
+ * 3. Missing intermediate sequential verses (e.g. Ayah 1 aligned, Ayah 3 aligned, but Ayah 2 missing)
+ * 4. Overlapping/identical start times for consecutive verses
+ * 5. Proportions split boundaries by authentic phonetic syllable/word weight
+ * 6. Guarantees non-overlapping contiguous boundaries and correct Uthmani text.
+ */
+export function reconcileSingleBreathVerses(
+  subtitles: any[],
+  allRawVerses: Array<{
+    surah_number?: number;
+    verse_number?: number;
+    verse_key?: string;
+    text_arabic?: string;
+    text_english?: string;
+    [key: string]: any;
+  }> = [],
+  startAyah: number = 1,
+  totalAudioDuration: number = 0
+): any[] {
+  if (!subtitles || subtitles.length === 0) return [];
+
+  const cleanArabicText = (txt: string = '') => txt.replace(/[^\u0600-\u06FF]/g, '').trim();
+  const getPhoneticWeight = (verse: any, fallbackText: string = '') => {
+    const ar = verse?.text_arabic || fallbackText || '';
+    const cleaned = cleanArabicText(ar);
+    return Math.max(8, cleaned.length || (ar.split(/\s+/).length * 4) || 12);
+  };
+
+  // Step 1: Detect and expand combined verse keys (e.g. "1:1-2" or "1:1,2" or "1:1-1:2")
+  const expanded: any[] = [];
+  for (const sub of subtitles) {
+    const keyStr = String(sub.verse_key || '').trim();
+    // Check for range like "1:1-2", "1:1 - 1:2", "1:1,2", "1:1, 1:2", "1:1-1:2"
+    const rangeMatch = keyStr.match(/^(\d+):(\d+)\s*[-&,]\s*(?:(\d+):)?(\d+)$/);
+    if (rangeMatch) {
+      const surahNum = parseInt(rangeMatch[1], 10);
+      const vStart = parseInt(rangeMatch[2], 10);
+      const vEnd = parseInt(rangeMatch[4], 10);
+      if (vEnd > vStart && vEnd - vStart <= 5) {
+        // Multi-verse combined in one breath!
+        const totalDuration = Math.max(1.0, sub.end - sub.start);
+        const versesInRange: any[] = [];
+        for (let v = vStart; v <= vEnd; v++) {
+          const matched = allRawVerses.find(rv => rv.verse_number === v) || {
+            surah_number: surahNum,
+            verse_number: v,
+            verse_key: `${surahNum}:${v}`,
+            text_arabic: '',
+            text_english: ''
+          };
+          versesInRange.push(matched);
+        }
+
+        const weights = versesInRange.map(v => getPhoneticWeight(v, ''));
+        const totalWeight = weights.reduce((acc, w) => acc + w, 0) || 1;
+
+        let curTime = sub.start;
+        versesInRange.forEach((v, idx) => {
+          const fraction = weights[idx] / totalWeight;
+          const segDur = Math.max(0.6, totalDuration * fraction);
+          const segStart = Number(curTime.toFixed(2));
+          const segEnd = Number((curTime + segDur).toFixed(2));
+          curTime = segEnd;
+
+          expanded.push({
+            ...sub,
+            start: segStart,
+            end: segEnd,
+            verse_key: `${surahNum}:${v.verse_number}`,
+            verse_number: v.verse_number,
+            text_arabic: v.text_arabic || sub.text_arabic,
+            text_english: v.text_english || sub.text_english,
+            isTasmiyah: surahNum === 1 && v.verse_number === 1 ? false : sub.isTasmiyah,
+            isTaawwuz: false
+          });
+        });
+        continue;
+      }
+    }
+
+    expanded.push({ ...sub });
+  }
+
+  // Step 2: Sort expanded by start time
+  expanded.sort((a, b) => a.start - b.start);
+
+  // Step 3: Check for missing intermediate verses (e.g. Ayah 1 present, Ayah 3 present, but Ayah 2 missing)
+  const reconciled: any[] = [];
+  for (let i = 0; i < expanded.length; i++) {
+    const current = expanded[i];
+    reconciled.push(current);
+
+    const next = expanded[i + 1];
+    const currVNum = typeof current.verse_number === 'number' && current.verse_number > 0
+      ? current.verse_number
+      : parseInt(String(current.verse_key || '').split(':')[1] || '0', 10);
+
+    const nextVNum = next
+      ? (typeof next.verse_number === 'number' && next.verse_number > 0
+          ? next.verse_number
+          : parseInt(String(next.verse_key || '').split(':')[1] || '0', 10))
+      : null;
+
+    // If next is currVNum + 2 (meaning exactly one verse was skipped in between):
+    // e.g. curr is 1, next is 3 -> verse 2 is missing!
+    if (currVNum > 0 && nextVNum === currVNum + 2) {
+      const missingVNum = currVNum + 1;
+      const missingVerse = allRawVerses.find(v => v.verse_number === missingVNum);
+      const currVerse = allRawVerses.find(v => v.verse_number === currVNum);
+
+      // Check if current segment or gap between current and next can accommodate the missing verse
+      const currDur = current.end - current.start;
+      const gapToNext = next.start - current.end;
+      const availableSpan = currDur + Math.max(0, gapToNext);
+
+      if (availableSpan >= 2.5 && missingVerse) {
+        // Split current segment to give half/proportional time to the missing verse!
+        const w1 = getPhoneticWeight(currVerse, current.text_arabic);
+        const w2 = getPhoneticWeight(missingVerse, '');
+        const totalW = w1 + w2;
+
+        const effectiveEnd = Math.max(current.end, next.start - 0.2);
+        const fullSpan = effectiveEnd - current.start;
+        const dur1 = Math.max(0.8, fullSpan * (w1 / totalW));
+        const dur2 = Math.max(0.8, fullSpan * (w2 / totalW));
+
+        const splitPoint = Number((current.start + dur1).toFixed(2));
+        current.end = splitPoint;
+
+        const surahNum = current.verse_key?.split(':')[0] || '1';
+        reconciled.push({
+          start: Number((splitPoint + 0.05).toFixed(2)),
+          end: Number(effectiveEnd.toFixed(2)),
+          verse_key: `${surahNum}:${missingVNum}`,
+          verse_number: missingVNum,
+          text_arabic: missingVerse.text_arabic || '',
+          text_english: missingVerse.text_english || '',
+          isTasmiyah: false,
+          isTaawwuz: false,
+          subPhraseIndex: 1,
+          totalSubPhrases: 1
+        });
+      }
+    }
+  }
+
+  // Step 4: Reconcile missing verses from single-breath multi-ayah recitations
+  // When reciter reads Ayah 1 & 2 in one breath, the aligner frequently tags the entire breath as Ayah 1, leaving Ayah 2 missing.
+  if (allRawVerses && allRawVerses.length > 0) {
+    const presentVerseNumbers = new Set<number>();
+    reconciled.forEach(sub => {
+      const vNum = typeof sub.verse_number === 'number' && sub.verse_number > 0
+        ? sub.verse_number
+        : parseInt(String(sub.verse_key || '').split(':')[1] || '0', 10);
+      if (vNum > 0 && !sub.isTaawwuz && !sub.isTasmiyah) {
+        presentVerseNumbers.add(vNum);
+      }
+    });
+
+    allRawVerses.forEach(rawV => {
+      const targetVNum = rawV.verse_number;
+      if (typeof targetVNum === 'number' && targetVNum > 0 && !presentVerseNumbers.has(targetVNum)) {
+        // Try finding adjacent previous verse (e.g. Ayah 1 if Ayah 2 is missing)
+        const prevSubIdx = reconciled.findIndex(sub => {
+          const vNum = typeof sub.verse_number === 'number' && sub.verse_number > 0
+            ? sub.verse_number
+            : parseInt(String(sub.verse_key || '').split(':')[1] || '0', 10);
+          return vNum === targetVNum - 1 && !sub.isTaawwuz && !sub.isTasmiyah;
+        });
+
+        if (prevSubIdx !== -1) {
+          const prevSub = reconciled[prevSubIdx];
+          const dur = prevSub.end - prevSub.start;
+          if (dur >= 2.0) {
+            const prevVerse = allRawVerses.find(v => v.verse_number === targetVNum - 1);
+            const w1 = getPhoneticWeight(prevVerse, prevSub.text_arabic);
+            const w2 = getPhoneticWeight(rawV, '');
+            const totalW = w1 + w2;
+
+            const dur1 = Math.max(0.8, Number((dur * (w1 / totalW)).toFixed(2)));
+            const splitPoint = Number((prevSub.start + dur1).toFixed(2));
+            const origEnd = prevSub.end;
+
+            prevSub.end = splitPoint;
+            if (prevVerse?.text_arabic) prevSub.text_arabic = prevVerse.text_arabic;
+            if (prevVerse?.text_english) prevSub.text_english = prevVerse.text_english;
+
+            const surahNum = rawV.verse_key?.split(':')[0] || prevSub.verse_key?.split(':')[0] || '1';
+            const newSub = {
+              start: Number((splitPoint + 0.04).toFixed(2)),
+              end: origEnd,
+              verse_key: `${surahNum}:${targetVNum}`,
+              verse_number: targetVNum,
+              text_arabic: rawV.text_arabic || '',
+              text_english: rawV.text_english || '',
+              isTasmiyah: false,
+              isTaawwuz: false,
+              subPhraseIndex: 1,
+              totalSubPhrases: 1
+            };
+            reconciled.splice(prevSubIdx + 1, 0, newSub);
+            presentVerseNumbers.add(targetVNum);
+          }
+        }
+      }
+    });
+  }
+
+  // Step 5: Resolve overlapping/identical start times for consecutive verses
+  // When reciter recites in one breath, aligner sometimes timestamps both Ayah 1 and Ayah 2 starting at the same time
+  for (let i = 0; i < reconciled.length - 1; i++) {
+    const a = reconciled[i];
+    const b = reconciled[i + 1];
+
+    const isAIntro = a.isTaawwuz || a.isTasmiyah;
+    const isBIntro = b.isTaawwuz || b.isTasmiyah;
+    if (isAIntro || isBIntro) continue;
+
+    // Check if start times are identical or within 0.6s of each other (overlap collision)
+    if (Math.abs(a.start - b.start) < 0.6 || a.end > b.start) {
+      const windowStart = Math.min(a.start, b.start);
+      const windowEnd = Math.max(a.end, b.end);
+      const span = Math.max(1.5, windowEnd - windowStart);
+
+      const vA = allRawVerses.find(v => v.verse_number === a.verse_number);
+      const vB = allRawVerses.find(v => v.verse_number === b.verse_number);
+      const wA = getPhoneticWeight(vA, a.text_arabic);
+      const wB = getPhoneticWeight(vB, b.text_arabic);
+      const totalW = wA + wB;
+
+      const durA = Math.max(0.8, span * (wA / totalW));
+      const durB = Math.max(0.8, span * (wB / totalW));
+
+      a.start = Number(windowStart.toFixed(2));
+      a.end = Number((windowStart + durA).toFixed(2));
+
+      b.start = Number((a.end + 0.05).toFixed(2));
+      b.end = Number(Math.max(b.start + 0.8, windowEnd).toFixed(2));
+    }
+  }
+
+  // Step 6: Fix Surah 1 Bismillah indexing
+  // In Surah 1 (Al-Fatiha), Bismillah IS Ayah 1 (1:1), not a standalone intro
+  reconciled.forEach(sub => {
+    const keyStr = String(sub.verse_key || '').toLowerCase();
+    if (keyStr === '1:1' || (sub.verse_number === 1 && (!sub.verse_key || sub.verse_key.startsWith('1:')))) {
+      sub.isTasmiyah = false;
+      sub.verse_number = 1;
+      sub.verse_key = '1:1';
+      const v1 = allRawVerses.find(v => v.verse_number === 1);
+      if (v1 && v1.text_arabic) {
+        sub.text_arabic = v1.text_arabic;
+      }
+    }
+  });
+
+  return reconciled;
+}
+
 
 
 

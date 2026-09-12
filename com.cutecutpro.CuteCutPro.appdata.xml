@@ -32,6 +32,16 @@
     </screenshot>
   </screenshots>
   <releases>
+    <release version="2.3.10" date="2026-09-12">
+      <description>
+        <p>Transition speed real-time sync, dual translation subtitle tracks generation, dynamic secondary language switching, and micro-aligned Uthmani Quran engine enhancements.</p>
+      </description>
+    </release>
+    <release version="2.3.9" date="2026-09-08">
+      <description>
+        <p>Enhanced Quran AI alignment and typography animation engine.</p>
+      </description>
+    </release>
     <release version="2.3.8" date="2026-09-03">
       <description>
         <p>Added Islamic AI Calligraphy generator, real-time Gemini subtitle translator, and optimized local voice tracking alignment.</p>

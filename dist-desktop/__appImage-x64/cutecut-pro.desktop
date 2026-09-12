@@ -5,6 +5,6 @@ Terminal=false
 Type=Application
 Icon=cutecut-pro
 StartupWMClass=CuteCut Pro
-X-AppImage-Version=2.3.9
+X-AppImage-Version=2.3.10
 Comment=CuteCut Pro is a powerful desktop video editing application featuring multi-track timeline management, real-time audio visualization, and precise Quranic audio-to-text synchronization.
 Categories=AudioVideo;

@@ -98,6 +98,8 @@ export interface Clip {
   textBackgroundStyle?: 'none' | 'box' | 'strip' | 'glow';
   confidenceScore?: number; // Tasmeea alignment confidence match ratio (0-100%)
   textAnimation?: TextAnimationConfig;
+  karaokeHighlight?: boolean;
+  karaokeColor?: string;
   linkedClipId?: string; // Two-Track Anchor Lock: Links Arabic clip and Translation clip together on timeline
   groupId?: string; // Unified Group Container / Compound Clip ID for synchronized selection & movement
 

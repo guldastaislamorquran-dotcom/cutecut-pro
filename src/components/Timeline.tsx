@@ -113,6 +113,7 @@ interface TimelineProps {
   onAutoSyncVideoToAyahs?: () => void;
   onAutoRemoveSilence?: (clipId?: string) => void;
   onAutoSegmentRhythm?: (clipId?: string, interval?: number) => void;
+  onRepairQuranSync?: () => void;
 }
 
 export default function Timeline({
@@ -167,6 +168,7 @@ export default function Timeline({
   onAutoSyncVideoToAyahs,
   onAutoRemoveSilence,
   onAutoSegmentRhythm,
+  onRepairQuranSync,
   snapToGrid: propSnapToGrid = true,
   onToggleSnapToGrid,
 }: TimelineProps) {
@@ -1940,6 +1942,60 @@ export default function Timeline({
                       <div>
                         <p className="font-bold text-[11px] leading-tight">Fixed Rhythm Cut (3s)</p>
                         <p className="text-[9px] text-gray-400">Equal beat intervals</p>
+                      </div>
+                    </button>
+                  )}
+
+                  {onAutoSyncVideoToAyahs && (
+                    <button
+                      type="button"
+                      id="btn-timeline-sync-video-ayahs"
+                      onClick={() => {
+                        onAutoSyncVideoToAyahs();
+                        setShowAutoSegmentMenu(false);
+                      }}
+                      className="w-full text-left p-1.5 rounded-lg hover:bg-purple-500/20 text-purple-200 hover:text-purple-100 transition cursor-pointer flex items-center gap-2 border-t border-purple-800/60 mt-1 bg-purple-950/20"
+                    >
+                      <span className="text-sm">🎬</span>
+                      <div>
+                        <p className="font-bold text-[11px] leading-tight text-purple-300">Auto-Sync B-Roll to Ayahs</p>
+                        <p className="text-[9px] text-purple-400/70">Cut background video per Ayah</p>
+                      </div>
+                    </button>
+                  )}
+
+                  {onAutoRemoveSilence && (
+                    <button
+                      type="button"
+                      id="btn-timeline-remove-silence"
+                      onClick={() => {
+                        onAutoRemoveSilence(selectedClipId || undefined);
+                        setShowAutoSegmentMenu(false);
+                      }}
+                      className="w-full text-left p-1.5 rounded-lg hover:bg-rose-500/20 text-rose-200 hover:text-rose-100 transition cursor-pointer flex items-center gap-2 border-t border-rose-800/60 mt-1 bg-rose-950/20"
+                    >
+                      <span className="text-sm">🔇</span>
+                      <div>
+                        <p className="font-bold text-[11px] leading-tight text-rose-300">Strip Silence Gaps</p>
+                        <p className="text-[9px] text-rose-400/70">Remove dead pauses between speech</p>
+                      </div>
+                    </button>
+                  )}
+
+                  {onRepairQuranSync && (
+                    <button
+                      type="button"
+                      id="btn-timeline-snap-quran"
+                      onClick={() => {
+                        onRepairQuranSync();
+                        setShowAutoSegmentMenu(false);
+                      }}
+                      className="w-full text-left p-1.5 rounded-lg hover:bg-emerald-500/20 text-emerald-200 hover:text-emerald-100 transition cursor-pointer flex items-center gap-2 border-t border-emerald-800/60 mt-1 bg-emerald-950/30"
+                    >
+                      <span className="text-sm">🧲</span>
+                      <div>
+                        <p className="font-bold text-[11px] leading-tight text-emerald-300">Snap Ayahs to Waveform</p>
+                        <p className="text-[9px] text-emerald-400/70">Fix silence gaps & min duration</p>
                       </div>
                     </button>
                   )}

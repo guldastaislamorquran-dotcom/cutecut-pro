@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Upload, Film, Music, Type, Sliders, Play, Pause, Plus, Trash2, BookOpen, Sparkles, Terminal, Globe, ExternalLink, Search, Download, Shield, Image as ImageIcon, Brain, ChevronLeft, ChevronRight, Wand2, Zap, Eye, Flame, Cpu, Scissors, Activity, CheckCircle2, Layers, Volume2, Mic, RefreshCw, Languages, Check, Radio, Square, LayoutGrid, List, Smile, Blend, Palette } from 'lucide-react';
+import { Upload, Film, Music, Type, Sliders, Play, Pause, Plus, Trash2, BookOpen, Sparkles, Globe, ExternalLink, Search, Download, Shield, Image as ImageIcon, Brain, Wand2, Zap, CheckCircle2, Layers, Volume2, Mic, RefreshCw, Languages, Check, Square, LayoutGrid, List, Smile, Blend, Palette } from 'lucide-react';
 import { Clip, ClipType, Track, WatermarkSettings, QuranTranslationOption } from '../types';
 import { STOCK_VIDEOS, STOCK_AUDIOS, STOCK_IMAGES, TEXT_PRESETS, PRESET_LUTS } from '../data/presetAssets';
 import {
@@ -195,6 +195,9 @@ interface MediaPanelProps {
     surahEnd?: number;
     surahList?: string;
     introMode?: 'both' | 'taawwuz-only' | 'bismillah-only' | 'none';
+    recitationPace?: 'slow-tartil' | 'standard' | 'fast-hadr';
+    enableDualTranslation?: boolean;
+    dualTranslationLanguage?: string;
   }) => Promise<void> | void;
   aligningStatus: {
     status: 'idle' | 'running' | 'success' | 'error';
@@ -271,8 +274,38 @@ interface MediaPanelProps {
   setQuranIntroMode?: (m: 'both' | 'taawwuz-only' | 'bismillah-only' | 'none') => void;
   quranBreathSegmentationMode?: 'full-ayah' | 'split-breaths';
   setQuranBreathSegmentationMode?: (m: 'full-ayah' | 'split-breaths') => void;
+  quranRecitationPace?: 'slow-tartil' | 'standard' | 'fast-hadr';
+  setQuranRecitationPace?: (p: 'slow-tartil' | 'standard' | 'fast-hadr') => void;
+  quranEnableDualTranslation?: boolean;
+  setQuranEnableDualTranslation?: (e: boolean) => void;
+  quranDualTranslationLang?: string;
+  setQuranDualTranslationLang?: (lang: string) => void;
+  quranDualFont?: string;
+  setQuranDualFont?: (f: string) => void;
+  quranDualSize?: number;
+  setQuranDualSize?: (s: number) => void;
+  quranDualColor?: string;
+  setQuranDualColor?: (c: string) => void;
+  quranDualStyle?: 'normal' | 'shadow' | 'outline' | 'neon' | 'gold-glow' | 'viral-reels';
+  setQuranDualStyle?: (s: 'normal' | 'shadow' | 'outline' | 'neon' | 'gold-glow' | 'viral-reels') => void;
+  quranDualY?: number;
+  setQuranDualY?: (y: number) => void;
+  quranDualLineHeight?: number;
+  setQuranDualLineHeight?: (lh: number) => void;
+  quranDualMaxWidth?: number;
+  setQuranDualMaxWidth?: (w: number) => void;
+  quranDualWrap?: boolean;
+  setQuranDualWrap?: (w: boolean) => void;
+  quranDualAlign?: 'left' | 'center' | 'right';
+  setQuranDualAlign?: (a: 'left' | 'center' | 'right') => void;
+  onAutoSeparateDualTracks?: () => void;
+  quranKaraokeHighlight?: boolean;
+  setQuranKaraokeHighlight?: (k: boolean) => void;
+  quranKaraokeColor?: string;
+  setQuranKaraokeColor?: (c: string) => void;
   onReplaceBismillahWithTabarakallazi?: () => void;
   onApplyTranslationToTimeline?: (translationId?: string) => Promise<void> | void;
+  onApplyDualTranslationToTimeline?: (dualLangId?: string) => Promise<void> | void;
   onApplyQuranStyles: (customParams?: any) => void;
   onApplyGlobalFontSize?: (size: number) => void;
   onApplyGlobalTextCase?: (casing: 'uppercase' | 'lowercase' | 'capitalize') => void;
@@ -304,6 +337,7 @@ interface MediaPanelProps {
   onReplaceTracks?: (tracks: Track[]) => void;
   onSeekTime?: (time: number) => void;
   currentTime?: number;
+  onRepairQuranSync?: () => void;
 }
 
 export default function MediaPanel({
@@ -382,8 +416,38 @@ export default function MediaPanel({
   setQuranIntroMode,
   quranBreathSegmentationMode = 'split-breaths',
   setQuranBreathSegmentationMode,
+  quranRecitationPace = 'standard',
+  setQuranRecitationPace,
+  quranEnableDualTranslation = false,
+  setQuranEnableDualTranslation,
+  quranDualTranslationLang = 'en-sahih',
+  setQuranDualTranslationLang,
+  quranDualFont = 'Jameel Noori Nastaleeq',
+  setQuranDualFont,
+  quranDualSize = 18,
+  setQuranDualSize,
+  quranDualColor = '#E0F2FE',
+  setQuranDualColor,
+  quranDualStyle = 'shadow',
+  setQuranDualStyle,
+  quranDualY = 86,
+  setQuranDualY,
+  quranDualLineHeight = 1.3,
+  setQuranDualLineHeight,
+  quranDualMaxWidth = 85,
+  setQuranDualMaxWidth,
+  quranDualWrap = true,
+  setQuranDualWrap,
+  quranDualAlign = 'center',
+  setQuranDualAlign,
+  onAutoSeparateDualTracks,
+  quranKaraokeHighlight = false,
+  setQuranKaraokeHighlight,
+  quranKaraokeColor = '#F59E0B',
+  setQuranKaraokeColor,
   onReplaceBismillahWithTabarakallazi,
   onApplyTranslationToTimeline,
+  onApplyDualTranslationToTimeline,
   onApplyQuranStyles,
   onApplyGlobalFontSize,
   onApplyGlobalTextCase,
@@ -402,6 +466,7 @@ export default function MediaPanel({
   onReplaceTracks,
   onSeekTime,
   currentTime = 0,
+  onRepairQuranSync,
 }: MediaPanelProps) {
   const [activeTab, setActiveTab] = useState<'upload' | 'video' | 'audio' | 'image' | 'text' | 'stickers' | 'effects' | 'transitions' | 'filters' | 'adjustment' | 'quran-visuals' | 'quran' | 'background' | 'watermark'>('upload');
   const [addedFeedback, setAddedFeedback] = useState<string | null>(null);
@@ -2804,6 +2869,114 @@ export default function MediaPanel({
                   </p>
                 </div>
 
+                {/* BLOCK 2.95: RECITATION PACE & TEMPO SELECTOR */}
+                <div className="bg-[#101016] border border-amber-500/30 rounded-xl p-3 space-y-2 shadow-md">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-extrabold text-amber-400 uppercase tracking-wide flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                      <span>RECITATION PACE & TEMPO</span>
+                    </label>
+                    <span className="text-[10px] text-amber-300 font-mono font-bold">
+                      {quranRecitationPace === 'slow-tartil' ? '🐢 Slow Tartil' : quranRecitationPace === 'fast-hadr' ? '⚡ Fast Hadr' : '⚖️ Standard'}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {[
+                      { id: 'slow-tartil', label: '🐢 Tartil (Slow)', desc: 'Abdul Basit, Husary' },
+                      { id: 'standard', label: '⚖️ Standard', desc: 'Mishary, Ghamdi' },
+                      { id: 'fast-hadr', label: '⚡ Hadr (Fast)', desc: 'Sudais, Shuraim' },
+                    ].map((p) => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        id={`btn-pace-${p.id}`}
+                        onClick={() => {
+                          if (setQuranRecitationPace) {
+                            setQuranRecitationPace(p.id as any);
+                          }
+                        }}
+                        className={`py-2 px-1.5 rounded-lg text-xs font-bold transition flex flex-col items-center justify-center border cursor-pointer text-center ${
+                          quranRecitationPace === p.id
+                            ? 'bg-black text-white border-white shadow-md'
+                            : 'bg-[#15151e] border-gray-800 text-gray-300 hover:text-white hover:bg-gray-800/80'
+                        }`}
+                      >
+                        <span className="text-[10px] font-extrabold leading-tight">{p.label}</span>
+                        <span className={`text-[8px] mt-0.5 ${quranRecitationPace === p.id ? 'text-white/80' : 'text-gray-400'}`}>
+                          {p.desc}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* BLOCK 2.98: DUAL TRANSLATION SIMULTANEOUS TRACKS */}
+                <div className="bg-[#101016] border border-cyan-500/30 rounded-xl p-3 space-y-2 shadow-md">
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <label className="text-xs font-extrabold text-cyan-400 uppercase tracking-wide flex items-center gap-1.5">
+                        <Languages className="w-3.5 h-3.5 text-cyan-400" />
+                        <span>DUAL SUBTITLE TRACKS</span>
+                      </label>
+                      <p className="text-[9px] text-gray-400">Generate 2nd translation simultaneously (Urdu + English)</p>
+                    </div>
+                    <button
+                      type="button"
+                      id="toggle-dual-translation"
+                      onClick={() => {
+                        if (setQuranEnableDualTranslation) {
+                          setQuranEnableDualTranslation(!quranEnableDualTranslation);
+                        }
+                      }}
+                      className={`w-10 h-5 flex items-center rounded-full p-0.5 transition-colors cursor-pointer border ${
+                        quranEnableDualTranslation ? 'bg-cyan-500 border-cyan-400 justify-end' : 'bg-gray-800 border-gray-700 justify-start'
+                      }`}
+                    >
+                      <span className="bg-black w-3.5 h-3.5 rounded-full shadow-md" />
+                    </button>
+                  </div>
+                  {quranEnableDualTranslation && (
+                    <div className="space-y-2 pt-1 border-t border-gray-800">
+                      <div>
+                        <span className="text-[10px] text-gray-300 font-semibold">Secondary Translation:</span>
+                        <select
+                          id="select-secondary-translation"
+                          value={quranDualTranslationLang}
+                          onChange={(e) => {
+                            const newLang = e.target.value;
+                            if (setQuranDualTranslationLang) {
+                              setQuranDualTranslationLang(newLang);
+                            }
+                            if (onApplyDualTranslationToTimeline) {
+                              onApplyDualTranslationToTimeline(newLang);
+                            }
+                          }}
+                          className="w-full mt-1 bg-[#0a0a0d] border border-cyan-500/40 focus:border-cyan-400 rounded-md p-1.5 text-xs text-cyan-200 font-medium focus:outline-none cursor-pointer"
+                        >
+                          <option value="en-sahih">🇬🇧 English (Sahih International)</option>
+                          <option value="ur-jalandhry">🇵🇰 Urdu (Fateh Muhammad Jalandhry)</option>
+                          <option value="hi-suhel">🇮🇳 Hindi (Suhel Farooq Khan)</option>
+                          <option value="id-kemenag">🇮🇩 Indonesian (Kemenag)</option>
+                          <option value="tr-diyanet">🇹🇷 Turkish (Diyanet)</option>
+                        </select>
+                      </div>
+                      <button
+                        type="button"
+                        id="btn-apply-dual-translation"
+                        onClick={() => {
+                          if (onApplyDualTranslationToTimeline) {
+                            onApplyDualTranslationToTimeline(quranDualTranslationLang);
+                          }
+                        }}
+                        className="w-full py-1.5 px-2 bg-gradient-to-r from-cyan-950/80 to-blue-950/80 hover:from-cyan-900 hover:to-blue-900 border border-cyan-500/50 hover:border-cyan-400 text-cyan-200 font-bold rounded-lg text-[11px] transition flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
+                      >
+                        <Sparkles className="w-3 h-3 text-cyan-400" />
+                        <span>Apply Dual Translation Track Now</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+
                 {/* BLOCK 3: ✨ 1-CLICK AUTO-GENERATE CAPTIONS BUTTON */}
                 <button
                   type="button"
@@ -2819,6 +2992,9 @@ export default function MediaPanel({
                       surahList: quranSurahList,
                       surahEnd: quranSurahEnd,
                       introMode: quranIntroMode,
+                      recitationPace: quranRecitationPace,
+                      enableDualTranslation: quranEnableDualTranslation,
+                      dualTranslationLanguage: quranDualTranslationLang,
                     });
                   }}
                   className="w-full py-3.5 px-4 bg-black text-white hover:bg-gray-900 font-extrabold rounded-xl text-xs sm:text-sm transition-all shadow-lg active:scale-[0.99] flex items-center justify-center gap-2 cursor-pointer border border-amber-400/80"
@@ -2831,9 +3007,22 @@ export default function MediaPanel({
                       : quranSelectionType === 'all'
                       ? 'Whole Surah'
                       : `Ayah ${quranStartAyah}`}
-                    {' '}• Arabic + {currentTranslation.language.split(' ')[0]})
+                    {' '}• Arabic + {currentTranslation.language.split(' ')[0]}
+                    {quranEnableDualTranslation ? ' + Dual Track' : ''})
                   </span>
                 </button>
+
+                {/* AUTO-SYNC B-ROLL VIDEO CLIP CUTS TO AYAH BOUNDARIES */}
+                {onAutoSyncVideoToAyahs && (
+                  <button
+                    type="button"
+                    id="btn-media-sync-video-ayahs"
+                    onClick={onAutoSyncVideoToAyahs}
+                    className="w-full py-2.5 px-3 bg-purple-950/40 hover:bg-purple-900/50 border border-purple-500/40 hover:border-purple-400 text-purple-200 font-bold rounded-xl text-xs transition flex items-center justify-center gap-2 cursor-pointer shadow-sm"
+                  >
+                    <span>🎬 Auto-Sync B-Roll Video to Ayahs (B-Roll Switcher)</span>
+                  </button>
+                )}
 
 
 
@@ -3613,6 +3802,335 @@ export default function MediaPanel({
                   </div>
                 </div>
 
+                {/* DUAL TRANSLATION TRACK STYLING & POSITION ADJUSTMENTS (2nd Track / Urdu) */}
+                <div className="bg-[#121218] border border-sky-500/30 rounded-xl p-3.5 space-y-3.5 mt-2 shadow-lg">
+                  <div className="flex items-center justify-between pb-1 border-b border-gray-800/80">
+                    <label className="text-xs font-extrabold text-sky-400 uppercase tracking-wide flex items-center gap-1.5">
+                      <Languages className="w-3.5 h-3.5 text-sky-400" />
+                      <span>DUAL TRANSLATION ADJUSTMENT (2ND TRACK / URDU)</span>
+                    </label>
+                    <span className="text-[10px] font-mono bg-sky-950/60 border border-sky-600/40 text-sky-300 px-2 py-0.5 rounded-full font-bold">
+                      {quranDualTranslationLang.toUpperCase()}
+                    </span>
+                  </div>
+
+                  {/* Auto-Separate / Spacing helper button */}
+                  <div className="bg-sky-950/30 border border-sky-500/30 rounded-lg p-2.5 flex items-center justify-between gap-2">
+                    <div className="text-[11px] text-gray-300 leading-tight">
+                      <span className="font-bold text-sky-300 block">Auto-Separate Tracks</span>
+                      Automatically prevents English & Urdu captions from overlapping.
+                    </div>
+                    <button
+                      type="button"
+                      id="btn-auto-separate-dual-tracks"
+                      onClick={() => {
+                        if (onAutoSeparateDualTracks) {
+                          onAutoSeparateDualTracks();
+                        } else {
+                          const targetDualY = Math.min(95, quranEnglishY + 14);
+                          if (setQuranDualY) setQuranDualY(targetDualY);
+                          onApplyQuranStyles({ dualY: targetDualY });
+                        }
+                      }}
+                      className="px-2.5 py-1.5 bg-sky-500 hover:bg-sky-400 text-black font-bold text-[11px] rounded-md transition shadow flex items-center gap-1 cursor-pointer shrink-0"
+                    >
+                      <Sparkles className="w-3 h-3" />
+                      <span>Auto-Separate</span>
+                    </button>
+                  </div>
+
+                  {/* 1. DUAL FONT FAMILY */}
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">SECONDARY FONT FAMILY</span>
+                      <span className="font-mono text-sky-400 font-bold text-[11px] truncate max-w-[130px]">{quranDualFont}</span>
+                    </div>
+                    <select
+                      id="select-quran-dual-font"
+                      value={quranDualFont}
+                      onChange={(e) => {
+                        const font = e.target.value;
+                        if (setQuranDualFont) setQuranDualFont(font);
+                        onApplyQuranStyles({ dualFont: font });
+                      }}
+                      className="w-full bg-[#181822] border border-gray-700/80 rounded-lg px-2.5 py-2 text-xs text-gray-200 focus:outline-none focus:border-sky-500 font-sans"
+                    >
+                      <optgroup label="Urdu & Nastaleeq (Recommended for Urdu)">
+                        <option value="Jameel Noori Nastaleeq">Jameel Noori Nastaleeq (Classic Urdu)</option>
+                        <option value="Noto Nastaliq Urdu">Noto Nastaliq Urdu (Google)</option>
+                        <option value="Lateef">Lateef (Flowing Indo-Pak)</option>
+                        <option value="Gulzar">Gulzar (Ornate Nastaleeq)</option>
+                        <option value="Scheherazade New">Scheherazade New</option>
+                      </optgroup>
+                      <optgroup label="Hindi & Devanagari">
+                        <option value="Noto Sans Devanagari">Noto Sans Devanagari</option>
+                        <option value="Rozha One">Rozha One</option>
+                        <option value="Poppins">Poppins</option>
+                      </optgroup>
+                      <optgroup label="Bengali & Regional">
+                        <option value="Noto Sans Bengali">Noto Sans Bengali</option>
+                        <option value="Galada">Galada</option>
+                      </optgroup>
+                      <optgroup label="English & Latin">
+                        <option value="Inter">Inter (Clean Modern)</option>
+                        <option value="Outfit">Outfit (Geometric Bold)</option>
+                        <option value="Cinzel">Cinzel (Regal Serif)</option>
+                        <option value="Montserrat">Montserrat (Modern Sans)</option>
+                        <option value="Lora">Lora (Literary Book Serif)</option>
+                        <option value="Playfair Display">Playfair Display (High Fashion)</option>
+                      </optgroup>
+                    </select>
+                  </div>
+
+                  {/* 2. DUAL FONT SIZE */}
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">SECONDARY FONT SIZE</span>
+                      <span className="font-mono text-sky-400 font-bold text-xs">{quranDualSize}PX</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="range"
+                        id="slider-quran-dual-size"
+                        min="10"
+                        max="60"
+                        step="1"
+                        value={quranDualSize}
+                        onChange={(e) => {
+                          const size = parseInt(e.target.value) || 18;
+                          if (setQuranDualSize) setQuranDualSize(size);
+                          onApplyQuranStyles({ dualSize: size });
+                        }}
+                        className="w-full h-1.5 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-sky-400"
+                      />
+                      <span className="text-[11px] font-mono text-gray-400 w-8 text-right">{quranDualSize}px</span>
+                    </div>
+                  </div>
+
+                  {/* 3. DUAL FONT COLOR */}
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">SECONDARY FONT COLOR</span>
+                      <span className="font-mono text-sky-400 font-bold text-xs uppercase">{quranDualColor}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="color"
+                        id="picker-quran-dual-color"
+                        value={quranDualColor}
+                        onChange={(e) => {
+                          const color = e.target.value;
+                          if (setQuranDualColor) setQuranDualColor(color);
+                          onApplyQuranStyles({ dualColor: color });
+                        }}
+                        className="w-8 h-8 rounded-lg border border-gray-700 bg-transparent cursor-pointer p-0.5 shrink-0"
+                      />
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {['#E0F2FE', '#FEF08A', '#A7F3D0', '#FFFFFF', '#FBCFE8', '#38BDF8', '#FBBF24'].map((swatch) => (
+                          <button
+                            key={swatch}
+                            type="button"
+                            onClick={() => {
+                              if (setQuranDualColor) setQuranDualColor(swatch);
+                              onApplyQuranStyles({ dualColor: swatch });
+                            }}
+                            className="w-5 h-5 rounded-md border border-gray-600/70 hover:scale-110 transition shadow cursor-pointer"
+                            style={{ backgroundColor: swatch }}
+                            title={swatch}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 4. DUAL TEXT EFFECT / GLOW */}
+                  <div className="space-y-1.5">
+                    <span className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider">TEXT EFFECT / GLOW</span>
+                    <div className="grid grid-cols-4 gap-1.5">
+                      {(['normal', 'shadow', 'outline', 'neon'] as const).map((styleKey) => (
+                        <button
+                          key={styleKey}
+                          type="button"
+                          id={`btn-dual-style-${styleKey}`}
+                          onClick={() => {
+                            if (setQuranDualStyle) setQuranDualStyle(styleKey);
+                            onApplyQuranStyles({ dualStyle: styleKey });
+                          }}
+                          className={`py-1.5 px-2 text-[11px] font-semibold rounded-lg transition capitalize border cursor-pointer ${
+                            quranDualStyle === styleKey
+                              ? 'bg-sky-500/20 text-sky-300 border-sky-400 shadow-md font-bold'
+                              : 'bg-[#181822] text-gray-300 hover:text-white hover:bg-gray-800 border-gray-800'
+                          }`}
+                        >
+                          {styleKey}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* 5. VERTICAL POSITION (Y-AXIS) */}
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">VERTICAL POSITION (Y-AXIS)</span>
+                      <span className="font-mono text-sky-400 font-bold text-xs">{quranDualY}%</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="range"
+                        id="slider-quran-dual-y"
+                        min="10"
+                        max="98"
+                        step="1"
+                        value={quranDualY}
+                        onChange={(e) => {
+                          const y = parseInt(e.target.value) || 86;
+                          if (setQuranDualY) setQuranDualY(y);
+                          onApplyQuranStyles({ dualY: y });
+                        }}
+                        className="w-full h-1.5 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-sky-400"
+                      />
+                      <span className="text-[11px] font-mono text-gray-400 w-8 text-right">{quranDualY}%</span>
+                    </div>
+                    <div className="grid grid-cols-4 gap-1.5 pt-1">
+                      {[
+                        { label: 'Top', val: 25 },
+                        { label: 'Mid', val: 50 },
+                        { label: 'Bottom', val: 86 },
+                        { label: 'Sub-Low', val: 92 },
+                      ].map((preset) => (
+                        <button
+                          key={preset.label}
+                          type="button"
+                          onClick={() => {
+                            if (setQuranDualY) setQuranDualY(preset.val);
+                            onApplyQuranStyles({ dualY: preset.val });
+                          }}
+                          className={`py-1 text-[10px] font-semibold rounded border cursor-pointer transition ${
+                            quranDualY === preset.val
+                              ? 'bg-sky-500/20 text-sky-300 border-sky-400 font-bold'
+                              : 'bg-[#181822] text-gray-400 border-gray-800 hover:text-white'
+                          }`}
+                        >
+                          {preset.label} ({preset.val}%)
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* 6. LINE SPACING (HEIGHT) */}
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">LINE SPACING (HEIGHT)</span>
+                      <span className="font-mono text-sky-400 font-bold text-xs">{quranDualLineHeight}X</span>
+                    </div>
+                    <input
+                      type="range"
+                      id="slider-quran-dual-line-height"
+                      min="1.0"
+                      max="2.5"
+                      step="0.1"
+                      value={quranDualLineHeight}
+                      onChange={(e) => {
+                        const val = parseFloat(e.target.value) || 1.3;
+                        if (setQuranDualLineHeight) setQuranDualLineHeight(val);
+                        onApplyQuranStyles({ dualLineHeight: val });
+                      }}
+                      className="w-full h-1.5 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-sky-400"
+                    />
+                  </div>
+
+                  {/* 7. MAX WIDTH & WORD WRAP */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-[10px] font-bold text-gray-400 uppercase">MAX WIDTH</span>
+                        <span className="font-mono text-sky-400 font-bold text-[10px]">{quranDualMaxWidth}%</span>
+                      </div>
+                      <input
+                        type="range"
+                        id="slider-quran-dual-max-width"
+                        min="40"
+                        max="100"
+                        step="5"
+                        value={quranDualMaxWidth}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value) || 85;
+                          if (setQuranDualMaxWidth) setQuranDualMaxWidth(val);
+                          onApplyQuranStyles({ dualMaxWidth: val });
+                        }}
+                        className="w-full h-1.5 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-sky-400"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <span className="block text-[10px] font-bold text-gray-400 uppercase">WORD WRAP</span>
+                      <button
+                        type="button"
+                        id="btn-toggle-dual-wrap"
+                        onClick={() => {
+                          const val = !quranDualWrap;
+                          if (setQuranDualWrap) setQuranDualWrap(val);
+                          onApplyQuranStyles({ dualWrap: val });
+                        }}
+                        className={`w-full py-1.5 px-2 text-xs font-semibold rounded-lg transition border cursor-pointer ${
+                          quranDualWrap
+                            ? 'bg-sky-500/20 text-sky-300 border-sky-400 font-bold'
+                            : 'bg-[#181822] text-gray-400 border-gray-800 hover:text-white'
+                        }`}
+                      >
+                        {quranDualWrap ? 'Wrap ON' : 'Wrap OFF'}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 8. TEXT ALIGNMENT */}
+                  <div className="space-y-1.5">
+                    <span className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider">TEXT ALIGNMENT</span>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {(['left', 'center', 'right'] as const).map((alignKey) => (
+                        <button
+                          key={alignKey}
+                          type="button"
+                          id={`btn-dual-align-${alignKey}`}
+                          onClick={() => {
+                            if (setQuranDualAlign) setQuranDualAlign(alignKey);
+                            onApplyQuranStyles({ dualAlign: alignKey });
+                          }}
+                          className={`py-2 px-2 text-xs font-semibold rounded-lg transition capitalize border cursor-pointer ${
+                            quranDualAlign === alignKey
+                              ? 'bg-sky-500/20 text-sky-300 border-sky-400 shadow-md font-bold'
+                              : 'bg-[#181822] text-gray-300 hover:text-white hover:bg-gray-800 border-gray-800'
+                          }`}
+                        >
+                          {alignKey}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* 9. APPLY TO ALL DUAL CLIPS */}
+                  <button
+                    type="button"
+                    id="btn-apply-dual-styles-timeline"
+                    onClick={() => {
+                      onApplyQuranStyles({
+                        dualFont: quranDualFont,
+                        dualSize: quranDualSize,
+                        dualColor: quranDualColor,
+                        dualStyle: quranDualStyle,
+                        dualY: quranDualY,
+                        dualLineHeight: quranDualLineHeight,
+                        dualMaxWidth: quranDualMaxWidth,
+                        dualWrap: quranDualWrap,
+                        dualAlign: quranDualAlign
+                      });
+                    }}
+                    className="w-full py-2 bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-500 hover:to-blue-500 text-white font-bold text-xs rounded-lg transition shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>Apply Style to Dual Track Clips</span>
+                  </button>
+                </div>
+
                 {/* BLOCK 6: MASTER APPLY ACTION BUTTON */}
                 {/* BLOCK 5.5: ANIMATIONS & KEYFRAMING */}
                 <div className="bg-[#121218] border border-cyan-500/30 rounded-xl p-3.5 space-y-3.5 mt-2 shadow-lg">
@@ -3638,6 +4156,7 @@ export default function MediaPanel({
                       className="w-full bg-[#0a0a0c] border border-cyan-900/50 rounded-lg text-white text-xs px-3 py-2.5 focus:outline-none focus:border-cyan-500 transition-colors shadow-inner"
                     >
                       <option value="none">None (Instant)</option>
+                      <option value="karaoke">🎤 Karaoke Word Glow (Real-Time)</option>
                       <option value="fade">Fade In</option>
                       <option value="pop">Scale Pop</option>
                       <option value="slide-up">Slide Up</option>
@@ -3648,6 +4167,58 @@ export default function MediaPanel({
                       <option value="zoom-in">Zoom In Blur</option>
                       <option value="bounce">Bounce</option>
                     </select>
+                  </div>
+
+                  {/* KARAOKE WORD-BY-WORD HIGHLIGHT TOGGLE */}
+                  <div className="bg-[#0a0a0e] border border-amber-500/30 rounded-lg p-2.5 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <span className="text-[11px] font-bold text-amber-300 uppercase tracking-wider flex items-center gap-1">
+                          <span>🎤 KARAOKE WORD GLOW</span>
+                        </span>
+                        <p className="text-[9px] text-gray-400">Highlight each word as recited in real-time</p>
+                      </div>
+                      <button
+                        type="button"
+                        id="toggle-karaoke-highlight"
+                        onClick={() => {
+                          const nextState = !quranKaraokeHighlight;
+                          if (setQuranKaraokeHighlight) setQuranKaraokeHighlight(nextState);
+                          onApplyQuranStyles({
+                            karaokeHighlight: nextState,
+                            karaokeColor: quranKaraokeColor,
+                            animationIn: nextState ? 'karaoke' : quranAnimationIn
+                          });
+                        }}
+                        className={`w-10 h-5 flex items-center rounded-full p-0.5 transition-colors cursor-pointer border ${
+                          quranKaraokeHighlight ? 'bg-amber-500 border-amber-400 justify-end' : 'bg-gray-800 border-gray-700 justify-start'
+                        }`}
+                      >
+                        <span className="bg-black w-3.5 h-3.5 rounded-full shadow-md" />
+                      </button>
+                    </div>
+
+                    {quranKaraokeHighlight && (
+                      <div className="flex items-center justify-between pt-1 border-t border-gray-800">
+                        <span className="text-[10px] text-gray-300 font-semibold">Highlight Glow Color:</span>
+                        <div className="flex items-center gap-1.5">
+                          {['#F59E0B', '#10B981', '#06B6D4', '#EC4899', '#FFFFFF'].map((color) => (
+                            <button
+                              key={color}
+                              type="button"
+                              onClick={() => {
+                                if (setQuranKaraokeColor) setQuranKaraokeColor(color);
+                                onApplyQuranStyles({ karaokeColor: color });
+                              }}
+                              className={`w-5 h-5 rounded-full border cursor-pointer transition ${
+                                quranKaraokeColor === color ? 'border-white scale-110 shadow-md' : 'border-transparent opacity-70 hover:opacity-100'
+                              }`}
+                              style={{ backgroundColor: color }}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   <div className="space-y-1.5">
@@ -3837,6 +4408,19 @@ export default function MediaPanel({
                   <Sliders className="w-4 h-4 text-amber-300" />
                   <span>⚡ Apply Style to All Existing Quran Clips</span>
                 </button>
+
+                {onRepairQuranSync && (
+                  <button
+                    type="button"
+                    id="btn-snap-quran-speech-silence"
+                    onClick={onRepairQuranSync}
+                    className="w-full py-3 px-4 bg-gradient-to-r from-emerald-800/80 via-teal-800/80 to-emerald-900/80 hover:from-emerald-700 hover:to-teal-700 text-white font-bold rounded-xl text-xs transition-all shadow-md active:scale-[0.99] flex items-center justify-center gap-2 cursor-pointer border border-emerald-500/30 mt-1"
+                    title="Snap & fit all Arabic Ayah text and translations to the active recitation audio waveform, removing any clips squeezed in silence gaps."
+                  >
+                    <Sparkles className="w-4 h-4 text-emerald-300" />
+                    <span>🧲 Snap Captions to Recitation (Fix Silence Gaps)</span>
+                  </button>
+                )}
 
                 {/* Status Notifications */}
                 {aligningStatus?.status === 'success' && (

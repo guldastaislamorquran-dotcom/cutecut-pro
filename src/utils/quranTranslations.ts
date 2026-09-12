@@ -641,20 +641,20 @@ export const OFFLINE_SURAH_TRANSLATIONS: Record<string, Record<string, string>> 
   // Surah Al-Fatihah (1)
   '1:1': {
     en: 'In the name of Allah, the Entirely Merciful, the Especially Merciful.',
-    ur: 'سب تعریفیں اللہ کے لیے ہیں جو تمام جہانوں کا پروردگار ہے۔',
-    hi: 'सब तारीफ़ अल्लाह के लिए है जो सारे जहां का पालने वाला है।',
-    id: 'Segala puji bagi Allah, Tuhan semesta alam.',
-    tr: 'Hamd, âlemlerin Rabbi olan Allah\'a mahsustur.',
-    fr: 'Louange à Allah, Seigneur de l\'univers.',
-    bn: 'সমস্ত প্রশংসা আল্লাহর জন্য, যিনি সকল সৃষ্টির প্রতিপালক।',
-    es: 'Alabado sea Dios, Señor de los mundos.',
-    de: 'Alles Lob gebührt Allah, dem Herrn der Welten.',
-    ru: 'Хвала Аллаху, Господу миров.',
-    fa: 'ستایش خدایی را که پروردگار جهانیان است.'
+    ur: 'شروع اللہ کے نام سے جو بڑا مہربان نہایت رحم والا ہے۔',
+    hi: 'शुरू अल्लाह के नाम से जो बड़ा मेहरबान और निहायत रहम वाला है।',
+    id: 'Dengan nama Allah Yang Maha Pengasih, Maha Penyayang.',
+    tr: 'Rahmân ve Rahîm olan Allah\'ın adıyla.',
+    fr: 'Au nom d\'Allah, le Tout Miséricordieux, le Très Miséricordieux.',
+    bn: 'শুরু করছি আল্লাহর নামে যিনি পরম করুণাময়, অসীম দয়ালু।',
+    es: 'En el nombre de Dios, el Compasivo, el Misericordioso.',
+    de: 'Im Namen Allahs, des Allerbarmers, des Barmherzigen.',
+    ru: 'Во имя Аллаха, Милостивого, Милосердного!',
+    fa: 'به نام خداوند بخشنده و مهربان.'
   },
   '1:2': {
-    en: '[All] praise is [due] to Allah, Lord of the worlds -',
-    ur: 'بڑا مہربان نہایت رحم والا ہے۔',
+    en: '[All] praise is [due] to Allah, Lord of the worlds.',
+    ur: 'سب تعریفیں اللہ کے لیے ہیں جو تمام جہانوں کا پروردگار ہے۔',
     hi: 'बड़ा मेहरबान और निहायत रहम वाला है।',
     id: 'Yang Maha Pengasih, Maha Penyayang.',
     tr: 'O, Rahmândır, Rahîmdir.',
@@ -666,8 +666,8 @@ export const OFFLINE_SURAH_TRANSLATIONS: Record<string, Record<string, string>> 
     fa: 'آن بخشنده و مهربان.'
   },
   '1:3': {
-    en: 'The Entirely Merciful, the Especially Merciful,',
-    ur: 'روزِ جزا کا مالک و مختار ہے۔',
+    en: 'The Entirely Merciful, the Especially Merciful.',
+    ur: 'بڑا مہربان نہایت رحم والا ہے۔',
     hi: 'इंसाफ़ और बदले के दिन का मालिक।',
     id: 'Pemilik hari pembalasan.',
     tr: 'Ceza (hesap) gününün sahibidir.',
@@ -680,7 +680,7 @@ export const OFFLINE_SURAH_TRANSLATIONS: Record<string, Record<string, string>> 
   },
   '1:4': {
     en: 'Sovereign of the Day of Recompense.',
-    ur: 'ہم تیری ہی عبادت کرتے ہیں اور تجھ ہی سے مدد مانگتے ہیں۔',
+    ur: 'روزِ جزا کا مالک و مختار ہے۔',
     hi: 'हम तेरी ही इबादत करते हैं और तुझ ही से मदद माँगते हैं।',
     id: 'Hanya kepada Engkaulah kami menyembah dan hanya kepada Engkaulah kami mohon pertolongan.',
     tr: '(Rabbimiz!) Yalnız sana kulluk eder ve yalnız senden yardım dileriz.',
@@ -693,7 +693,7 @@ export const OFFLINE_SURAH_TRANSLATIONS: Record<string, Record<string, string>> 
   },
   '1:5': {
     en: 'It is You we worship and You we ask for help.',
-    ur: 'ہمیں سیدھے راستے پر چلا۔',
+    ur: 'ہم تیری ہی عبادت کرتے ہیں اور تجھ ہی سے مدد مانگتے ہیں۔',
     hi: 'हमें सीधा और सच्चा रास्ता दिखा।',
     id: 'Tunjukilah kami jalan yang lurus,',
     tr: 'Bizi doğru yola ilet;',
@@ -706,7 +706,7 @@ export const OFFLINE_SURAH_TRANSLATIONS: Record<string, Record<string, string>> 
   },
   '1:6': {
     en: 'Guide us to the straight path -',
-    ur: 'ان لوگوں کا راستہ جن پر تو نے اپنا فضل و انعام فرمایا۔',
+    ur: 'ہمیں سیدھے راستے پر چلا۔',
     hi: 'उन लोगों का रास्ता जिन पर तूने इनाम फ़रमाया।',
     id: '(yaitu) jalan orang-orang yang telah Engkau beri nikmat kepadanya;',
     tr: 'Kendilerine nimet verdiklerinin yoluna;',
@@ -719,7 +719,7 @@ export const OFFLINE_SURAH_TRANSLATIONS: Record<string, Record<string, string>> 
   },
   '1:7': {
     en: 'The path of those upon whom You have bestowed favor, not of those who have evoked [Your] anger or of those who are astray.',
-    ur: 'نہ کہ ان کا جن پر غضب نازل ہوا اور نہ گمراہوں کا۔',
+    ur: 'ان لوگوں کا راستہ جن پر تو نے انعام فرمایا، نہ کہ ان کا جن پر غضب نازل ہوا اور نہ گمراہوں کا۔',
     hi: 'ना उनका जिन पर ग़ज़ब हुआ और ना बहके हुए गुमराहों का।',
     id: 'bukan (jalan) mereka yang dimurkai dan bukan (pula jalan) mereka yang sesat.',
     tr: 'Gazaba uğramışların ve sapmışların yoluna değil.',

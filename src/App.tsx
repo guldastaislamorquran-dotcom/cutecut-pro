@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Sparkles, Scissors, Trash2, Download, RefreshCw, Film, Volume2, Music, Type, Code, Terminal, Save, User, Crown, FolderOpen, Brain, Mic, Heart, Cloud, CloudUpload, CheckCircle2, Minimize2, Maximize2, X, LogOut, Check, ChevronDown, Loader2, Keyboard, Cpu, Zap, Wifi, WifiOff, Settings, Bell } from 'lucide-react';
-import { Clip, ClipType, Track, TimelineState, WatermarkSettings, VisualStylePreset } from './types';
+import { Scissors, Download, RefreshCw, Film, Type, Code, Terminal, Save, User, FolderOpen, Brain, Mic, Heart, Cloud, CloudUpload, X, LogOut, Check, ChevronDown, Loader2, Keyboard, Zap, Wifi, WifiOff, Settings } from 'lucide-react';
+import { Clip, ClipType, Track, WatermarkSettings, VisualStylePreset } from './types';
 import MediaPanel from './components/MediaPanel';
 import PreviewPlayer from './components/PreviewPlayer';
 import Timeline from './components/Timeline';
@@ -12,12 +12,39 @@ import VoiceAssistantModal from './components/VoiceAssistantModal';
 import { GeminiAIIntelligenceModal } from './components/GeminiAIIntelligenceModal';
 import KeyboardShortcutsModal from './components/KeyboardShortcutsModal';
 import ExportModal, { ExportConfig } from './components/ExportModal';
+import { PreferencesModal } from './components/PreferencesModal';
 import { Quran100ProtocolsModal } from './components/Quran100ProtocolsModal';
 import { VideoExport } from './components/video/VideoExport';
 import LandingPortal from './components/LandingPortal';
 import { MobileCapCutLayout } from './components/MobileCapCutLayout';
 import { AdMobService } from './utils/admobService';
-import { applyPixelFilters, formatTimeCode, normalizeMediaUrl, getSafeCrossOrigin, DEFAULT_INITIAL_TRACKS, insertTrackInProperOrder, alignQuranLocalClient, runVoiceAlignmentPipeline, convertToArabicDigits, analyzeVoiceActivityRMS, fitAcousticSegmentsToVerses, splitTextIntoPhrases, assignAcousticSegmentsToVerses, splitVerseAcrossBreaths, autoSegmentAudioClipsBySilence, autoSyncVideoClipsToAyahs, autoSegmentClipByRhythm, enforceStrictNonOverlappingClips, AyahSymbolStyle, AyahDigitType, AyahSymbolPosition, attachAyahSymbolToText, extractAyahNumberFromClip, formatAyahSymbol, stripAyahSymbol, isTranslationClip, isQuranArabicClip, getExportResolutionDimensions, fixWebmDuration, calculateTasmeeaMatchRatio, normalizeQuranicText, getTajweedPhoneticWeight, runQuranAlignmentEngine, QuranVerseInput } from './utils/editorUtils';
+import {
+  normalizeMediaUrl,
+  getSafeCrossOrigin,
+  DEFAULT_INITIAL_TRACKS,
+  insertTrackInProperOrder,
+  alignQuranLocalClient,
+  analyzeVoiceActivityRMS,
+  splitVerseAcrossBreaths,
+  autoSegmentAudioClipsBySilence,
+  autoSyncVideoClipsToAyahs,
+  autoSegmentClipByRhythm,
+  enforceStrictNonOverlappingClips,
+  AyahSymbolStyle,
+  AyahDigitType,
+  AyahSymbolPosition,
+  attachAyahSymbolToText,
+  extractAyahNumberFromClip,
+  stripAyahSymbol,
+  isTranslationClip,
+  isQuranArabicClip,
+  getExportResolutionDimensions,
+  fixWebmDuration,
+  runQuranAlignmentEngine,
+  QuranVerseInput,
+  repairAndSnapQuranTracksToAudioSpeech,
+  reconcileSingleBreathVerses
+} from './utils/editorUtils';
 import { QURAN_TRANSLATION_OPTIONS, getTranslationOptionById, fetchSingleAyahTranslation, getTaawwuzTranslation, getTasmiyahTranslation, OFFLINE_SURAH_TRANSLATIONS } from './utils/quranTranslations';
 import { auth, googleProvider, saveUserTimelineProject, getUserTimelineProject } from './utils/firebaseConfig';
 import { getSystemSpecs, SystemSpecs } from './utils/systemPerformance';
@@ -25,8 +52,6 @@ import { signInWithPopup, signOut, onAuthStateChanged, User as FirebaseUser } fr
 
 // Default initial timeline state with Zero Initial Tracks / Clips
 const INITIAL_TRACKS: Track[] = DEFAULT_INITIAL_TRACKS;
-
-import { PreferencesModal } from "./components/PreferencesModal";
 
 export default function App() {
   const [tracks, setTracks] = useState<Track[]>(INITIAL_TRACKS);
@@ -1286,6 +1311,17 @@ export default function App() {
   // Quran Breath & Waqf Segmentation Mode: 'full-ayah' (Full Ayah Display) | 'split-breaths' (Split Breath Phrases)
   const [quranBreathSegmentationMode, setQuranBreathSegmentationMode] = useState<'full-ayah' | 'split-breaths'>('split-breaths');
 
+  // Quran Recitation Pace Selector: 'slow-tartil' | 'standard' | 'fast-hadr'
+  const [quranRecitationPace, setQuranRecitationPace] = useState<'slow-tartil' | 'standard' | 'fast-hadr'>('standard');
+
+  // Dual Translation Subtitles (e.g. Urdu + English simultaneously)
+  const [quranEnableDualTranslation, setQuranEnableDualTranslation] = useState<boolean>(false);
+  const [quranDualTranslationLang, setQuranDualTranslationLang] = useState<string>('en-sahih');
+
+  // Karaoke Word-by-Word Highlight & Glow Sync
+  const [quranKaraokeHighlight, setQuranKaraokeHighlight] = useState<boolean>(false);
+  const [quranKaraokeColor, setQuranKaraokeColor] = useState<string>('#F59E0B');
+
   // ⚡ Dedicated Instant Action: Replace Bismillah with Surah 67:1 (Tabarakallazi) across the timeline
   const handleReplaceBismillahWithTabarakallazi = async () => {
     const transOpt = getTranslationOptionById(quranTranslation);
@@ -1406,6 +1442,25 @@ export default function App() {
   const [quranEnglishMaxWidth, setQuranEnglishMaxWidth] = useState<number>(85);
   const [quranEnglishLineHeight, setQuranEnglishLineHeight] = useState<number>(1.3);
   const [quranEnglishAlign, setQuranEnglishAlign] = useState<'left' | 'center' | 'right'>('center');
+
+  // Dual Translation Track State (Urdu / 2nd Translation Track)
+  const [quranDualFont, setQuranDualFont] = useState<string>('Jameel Noori Nastaleeq');
+  const [quranDualSize, setQuranDualSize] = useState<number>(18);
+  const [quranDualColor, setQuranDualColor] = useState<string>('#E0F2FE');
+  const [quranDualStyle, setQuranDualStyle] = useState<'normal' | 'shadow' | 'outline' | 'neon' | 'gold-glow' | 'viral-reels'>('shadow');
+  const [quranDualY, setQuranDualY] = useState<number>(86);
+  const [quranDualLineHeight, setQuranDualLineHeight] = useState<number>(1.3);
+  const [quranDualMaxWidth, setQuranDualMaxWidth] = useState<number>(85);
+  const [quranDualWrap, setQuranDualWrap] = useState<boolean>(true);
+  const [quranDualAlign, setQuranDualAlign] = useState<'left' | 'center' | 'right'>('center');
+
+  const handleAutoSeparateDualTracks = () => {
+    const targetEnY = Math.min(quranEnglishY, 72);
+    const targetDualY = Math.min(95, Math.max(targetEnY + 14, 84));
+    setQuranEnglishY(targetEnY);
+    setQuranDualY(targetDualY);
+    applyQuranStylesToTimeline({ englishY: targetEnY, dualY: targetDualY });
+  };
   // Global Quran Animations
   const [quranAnimationIn, setQuranAnimationIn] = useState<any>('fade');
   const [quranAnimationOut, setQuranAnimationOut] = useState<any>('fade');
@@ -1445,9 +1500,20 @@ export default function App() {
     englishMaxWidth?: number;
     englishLineHeight?: number;
     englishAlign?: 'left' | 'center' | 'right';
+    dualFont?: string;
+    dualSize?: number;
+    dualColor?: string;
+    dualStyle?: 'normal' | 'shadow' | 'outline' | 'neon' | 'gold-glow' | 'viral-reels';
+    dualY?: number;
+    dualLineHeight?: number;
+    dualMaxWidth?: number;
+    dualWrap?: boolean;
+    dualAlign?: 'left' | 'center' | 'right';
     animationIn?: any;
     animationOut?: any;
     animationDuration?: number;
+    karaokeHighlight?: boolean;
+    karaokeColor?: string;
     bgStyle?: any;
     bgColor?: string;
     bgOpacity?: number;
@@ -1480,9 +1546,21 @@ export default function App() {
     const enMaxW = customParams?.englishMaxWidth !== undefined ? customParams.englishMaxWidth : quranEnglishMaxWidth;
     const enLH = customParams?.englishLineHeight !== undefined ? customParams.englishLineHeight : quranEnglishLineHeight;
     const enAlign = customParams?.englishAlign !== undefined ? customParams.englishAlign : quranEnglishAlign;
+
+    const dFont = customParams?.dualFont !== undefined ? customParams.dualFont : quranDualFont;
+    const dSize = customParams?.dualSize !== undefined ? customParams.dualSize : quranDualSize;
+    const dColor = customParams?.dualColor !== undefined ? customParams.dualColor : quranDualColor;
+    const dStyleVal = customParams?.dualStyle !== undefined ? customParams.dualStyle : quranDualStyle;
+    const dY = customParams?.dualY !== undefined ? customParams.dualY : quranDualY;
+    const dLH = customParams?.dualLineHeight !== undefined ? customParams.dualLineHeight : quranDualLineHeight;
+    const dMaxW = customParams?.dualMaxWidth !== undefined ? customParams.dualMaxWidth : quranDualMaxWidth;
+    const dWrap = customParams?.dualWrap !== undefined ? customParams.dualWrap : quranDualWrap;
+    const dAlign = customParams?.dualAlign !== undefined ? customParams.dualAlign : quranDualAlign;
     const animIn = customParams?.animationIn !== undefined ? customParams.animationIn : quranAnimationIn;
     const animOut = customParams?.animationOut !== undefined ? customParams.animationOut : quranAnimationOut;
     const animDur = customParams?.animationDuration !== undefined ? customParams.animationDuration : quranAnimationDuration;
+    const kHighlight = customParams?.karaokeHighlight !== undefined ? customParams.karaokeHighlight : quranKaraokeHighlight;
+    const kColor = customParams?.karaokeColor !== undefined ? customParams.karaokeColor : quranKaraokeColor;
     const bgS = customParams?.bgStyle !== undefined ? customParams.bgStyle : quranBgStyle;
     const bgC = customParams?.bgColor !== undefined ? customParams.bgColor : quranBgColor;
     const bgO = customParams?.bgOpacity !== undefined ? customParams.bgOpacity : quranBgOpacity;
@@ -1524,7 +1602,11 @@ export default function App() {
                              track.id.toLowerCase().includes('english') || 
                              track.name.toLowerCase().includes('english') || 
                              track.name.toLowerCase().includes('subtitles') ||
-                             track.name.toLowerCase().includes('translation');
+                             (track.name.toLowerCase().includes('translation') && !track.id.includes('dual') && !track.name.toLowerCase().includes('dual'));
+
+      const isDualTrack = track.id === 'track-quran-dual-translation' ||
+                          track.id.toLowerCase().includes('dual') ||
+                          track.name.toLowerCase().includes('dual');
 
       if (isArabicTrack) {
         return {
@@ -1535,7 +1617,10 @@ export default function App() {
               return {
                 ...clip,
                 text: stripAyahSymbol(clip.text || ''),
-                ayahSymbolStyle: 'none'
+                ayahSymbolStyle: 'none',
+                karaokeHighlight: kHighlight,
+                karaokeColor: kColor,
+                textAnimation: { inAnimation: animIn, outAnimation: animOut, inDuration: animDur, outDuration: animDur }
               };
             }
             return {
@@ -1558,9 +1643,40 @@ export default function App() {
               textBackgroundRadius: bgR,
               textBackgroundBlur: bgB,
               textBackgroundStyle: bgS,
+              karaokeHighlight: kHighlight,
+              karaokeColor: kColor,
               textAnimation: { inAnimation: animIn, outAnimation: animOut, inDuration: animDur, outDuration: animDur }
             };
           })
+        };
+      }
+
+      if (isDualTrack) {
+        return {
+          ...track,
+          clips: track.clips.map(clip => ({
+            ...clip,
+            text: stripAyahSymbol(clip.text || ''),
+            ayahSymbolStyle: 'none',
+            fontFamily: dFont,
+            fontSize: dSize,
+            color: dColor,
+            textStyle: dStyleVal,
+            textY: dY,
+            textWrap: dWrap,
+            textMaxWidth: dMaxW,
+            textLineHeight: dLH,
+            textAlignment: dAlign,
+            textBackgroundColor: bgC,
+            textBackgroundOpacity: bgO,
+            textBackgroundPadding: bgP,
+            textBackgroundRadius: bgR,
+            textBackgroundBlur: bgB,
+            textBackgroundStyle: bgS,
+            karaokeHighlight: kHighlight,
+            karaokeColor: kColor,
+            textAnimation: { inAnimation: animIn, outAnimation: animOut, inDuration: animDur, outDuration: animDur }
+          }))
         };
       }
 
@@ -1587,6 +1703,8 @@ export default function App() {
             textBackgroundRadius: bgR,
             textBackgroundBlur: bgB,
             textBackgroundStyle: bgS,
+            karaokeHighlight: kHighlight,
+            karaokeColor: kColor,
             textAnimation: { inAnimation: animIn, outAnimation: animOut, inDuration: animDur, outDuration: animDur }
           }))
         };
@@ -1626,6 +1744,8 @@ export default function App() {
                 textBackgroundRadius: bgR,
                 textBackgroundBlur: bgB,
                 textBackgroundStyle: bgS,
+                karaokeHighlight: kHighlight,
+                karaokeColor: kColor,
                 textAnimation: { inAnimation: animIn, outAnimation: animOut, inDuration: animDur, outDuration: animDur }
               };
             } else if (isEnglishClip) {
@@ -1649,16 +1769,127 @@ export default function App() {
                 textBackgroundRadius: bgR,
                 textBackgroundBlur: bgB,
                 textBackgroundStyle: bgS,
+                karaokeHighlight: kHighlight,
+                karaokeColor: kColor,
                 textAnimation: { inAnimation: animIn, outAnimation: animOut, inDuration: animDur, outDuration: animDur }
               };
             }
-            return clip;
+            return {
+              ...clip,
+              karaokeHighlight: kHighlight,
+              karaokeColor: kColor,
+              textAnimation: { inAnimation: animIn, outAnimation: animOut, inDuration: animDur, outDuration: animDur }
+            };
           })
         };
       }
 
       return track;
     }));
+  };
+
+  // ⚡ Dedicated Instant Action: Apply Dual Translation to Existing Timeline
+  const handleApplyDualTranslationToTimeline = async (targetLangId?: string) => {
+    const langIdToUse = targetLangId || quranDualTranslationLang || 'en-sahih';
+    const dualTransOpt = getTranslationOptionById(langIdToUse);
+    if (!dualTransOpt) return;
+
+    // Find base clips from Arabic or English track
+    const arTrack = tracks.find(t => t.id === 'track-quran-arabic' || t.name.toLowerCase().includes('arabic') || t.name.toLowerCase().includes('uthmani'));
+    const transTrack = tracks.find(t => t.id === 'track-quran-english' || t.name.toLowerCase().includes('translation') || t.name.toLowerCase().includes('english') || t.name.toLowerCase().includes('urdu'));
+
+    const baseClips = (arTrack && arTrack.clips.length > 0) ? arTrack.clips : (transTrack ? transTrack.clips : []);
+    if (baseClips.length === 0) {
+      return;
+    }
+
+    const dualClips: Clip[] = [];
+    for (let i = 0; i < baseClips.length; i++) {
+      const clip = baseClips[i];
+      const clipName = clip.name || '';
+
+      let translatedText = '';
+      if (clipName.includes("Ta'awwuz") || clip.id.includes('taawwuz') || clip.text?.includes('أَعُوذُ')) {
+        translatedText = getTaawwuzTranslation(dualTransOpt.languageCode);
+      } else if (clipName.includes("Tasmiyah") || clip.id.includes('tasmiyah') || clip.text?.includes('بِسْمِ اللَّهِ')) {
+        translatedText = getTasmiyahTranslation(dualTransOpt.languageCode);
+      } else {
+        const match = clipName.match(/(\d+:\d+)/);
+        let vKey = match ? match[1] : '';
+        if (!vKey) {
+          const ayahNum = extractAyahNumberFromClip({ name: clip.name, text: clip.text });
+          if (ayahNum !== null) {
+            vKey = `1:${ayahNum}`;
+          }
+        }
+        if (vKey) {
+          translatedText = await fetchSingleAyahTranslation(vKey, dualTransOpt);
+        } else {
+          translatedText = clip.text || '';
+        }
+      }
+
+      const fontToUse = quranDualFont || (
+        (quranEnglishFont === 'Inter' || quranEnglishFont === 'Lateef')
+          ? dualTransOpt.defaultFont
+          : quranEnglishFont
+      );
+
+      const dualY = quranDualY;
+
+      dualClips.push({
+        id: `clip-quran-dual-${Date.now()}-${i}`,
+        trackId: 'track-quran-dual-translation',
+        linkedClipId: clip.id,
+        name: clipName.includes("Ta'awwuz")
+          ? `${dualTransOpt.languageCode.toUpperCase()}: Ta'awwuz`
+          : clipName.includes("Tasmiyah")
+          ? `${dualTransOpt.languageCode.toUpperCase()}: Tasmiyah`
+          : `${dualTransOpt.languageCode.toUpperCase()}: ${clipName.replace(/^(AR|EN|UR|HI|ID|TR|FR|BN|ES|DE|RU|FA|MS|TA):\s*/i, '')}`,
+        type: ClipType.TEXT,
+        start: clip.start,
+        duration: clip.duration,
+        sourceStart: 0,
+        sourceDuration: clip.duration,
+        playbackRate: 1.0,
+        volume: 1.0,
+        language: dualTransOpt.languageCode || 'en',
+        text: stripAyahSymbol(translatedText),
+        ayahSymbolStyle: 'none',
+        fontFamily: fontToUse,
+        fontSize: quranDualSize,
+        color: quranDualColor,
+        textStyle: quranDualStyle,
+        textX: 50,
+        textY: dualY,
+        textTransform: 'none',
+        textWrap: quranDualWrap,
+        textMaxWidth: quranDualMaxWidth,
+        textLineHeight: quranDualLineHeight,
+        textAlignment: quranDualAlign,
+        textBackgroundColor: quranBgColor || '#000000',
+        textBackgroundOpacity: quranBgOpacity ?? 0.65,
+        textBackgroundPadding: quranBgPadding ?? 18,
+        textBackgroundRadius: quranBgRadius ?? 20,
+        textBackgroundBlur: quranBgBlur ?? 0,
+        textBackgroundStyle: quranBgStyle,
+        textAnimation: { inAnimation: quranAnimationIn, outAnimation: quranAnimationOut, inDuration: quranAnimationDuration, outDuration: quranAnimationDuration },
+        karaokeHighlight: quranKaraokeHighlight,
+        karaokeColor: quranKaraokeColor
+      });
+    }
+
+    const dualTrack: Track = {
+      id: 'track-quran-dual-translation',
+      name: `Quran Dual Translation (${dualTransOpt.language})`,
+      type: ClipType.TEXT,
+      clips: dualClips
+    };
+
+    setTracks(prev => {
+      const filtered = prev.filter(t => t.id !== 'track-quran-dual-translation' && !t.name.toLowerCase().includes('dual'));
+      return insertTrackInProperOrder(filtered, dualTrack);
+    });
   };
 
   // ------------------ GLOBAL TYPOGRAPHY & TEXT TRANSFORMATION CONTROLLERS ------------------
@@ -3463,6 +3694,13 @@ export default function App() {
     }
   };
 
+  const handleRepairAndSnapQuranClips = () => {
+    const { updatedTracks, fixedCount } = repairAndSnapQuranTracksToAudioSpeech(tracks, duration);
+    if (fixedCount > 0) {
+      setTracks(updatedTracks);
+    }
+  };
+
   const handleAutoRemoveSilence = async (targetClipId?: string) => {
     let targetClip: Clip | null = null;
     if (targetClipId) {
@@ -3835,9 +4073,28 @@ export default function App() {
     surahList?: string;
     introMode?: 'both' | 'taawwuz-only' | 'bismillah-only' | 'none';
     breathMode?: 'full-ayah' | 'split-breaths';
+    recitationPace?: 'slow-tartil' | 'standard' | 'fast-hadr';
+    enableDualTranslation?: boolean;
+    dualTranslationLanguage?: string;
   }) => {
-    const { surah, startAyah = 1, mode = 'batch', style = 'Imperial Gold', selectionType = 'single', surahEnd, surahList, introMode, breathMode } = params;
+    const {
+      surah,
+      startAyah = 1,
+      mode = 'batch',
+      style = 'Imperial Gold',
+      selectionType = 'single',
+      surahEnd,
+      surahList,
+      introMode,
+      breathMode,
+      recitationPace,
+      enableDualTranslation,
+      dualTranslationLanguage
+    } = params;
     const effectiveBreathMode = breathMode || quranBreathSegmentationMode;
+    const effectivePace = recitationPace || quranRecitationPace || 'standard';
+    const isDualTrans = enableDualTranslation !== undefined ? enableDualTranslation : quranEnableDualTranslation;
+    const dualTransLang = dualTranslationLanguage || quranDualTranslationLang || 'en-sahih';
     
     // Initialize the Diagnostics Terminal
     setAligningStatus({
@@ -4138,9 +4395,10 @@ export default function App() {
               totalAudioDuration = Math.max(targetClip.duration || 0, audioBuffer.duration || 0);
               audioCtx.close();
 
-              // Adaptive multi-scale RMS voice activity analysis tailored for Quranic recitation with natural Waqf pauses
+              // Adaptive multi-scale RMS voice activity analysis tailored for Quranic recitation with natural Waqf pauses and pace selection
+              const vadSensitivity = effectivePace === 'slow-tartil' ? 'tartil' : (effectivePace === 'fast-hadr' ? 'hadr' : 'quran-ayah');
               acousticSpeechSegments = analyzeVoiceActivityRMS(pcmData, sampleRate, {
-                noiseFloorSensitivity: 'quran-ayah'
+                noiseFloorSensitivity: vadSensitivity
               });
 
               addLog(`[RMS Voice Analyzer] Extracted ${acousticSpeechSegments.length} natural voice speech segments with breathing pause gaps across ${totalAudioDuration.toFixed(1)}s audio.`, 65);
@@ -4586,14 +4844,15 @@ export default function App() {
         const alignMode = effectiveBreathMode === 'split-breaths' ? 'split-breaths' : 'full-ayah';
         const alignedEngineSegments = runQuranAlignmentEngine(engineInputs, {
           mode: alignMode,
+          recitationPaceEstimate: effectivePace,
           startOffset: speechOnset,
           audioDuration: totalAudioDuration,
           acousticSegments: acousticSpeechSegments,
           confidenceThreshold: 85,
           repetitionThreshold: 80,
-          minSilenceMs: 250,
-          minIntraAyahSilenceMs: 250,
-          microPauseMs: 150,
+          minSilenceMs: effectivePace === 'slow-tartil' ? 350 : (effectivePace === 'fast-hadr' ? 180 : 250),
+          minIntraAyahSilenceMs: effectivePace === 'slow-tartil' ? 350 : (effectivePace === 'fast-hadr' ? 180 : 250),
+          microPauseMs: effectivePace === 'fast-hadr' ? 100 : 150,
           edgePaddingMs: 30,
           showAyahSymbol: quranShowAyahSymbol,
           ayahSymbolStyle: quranAyahSymbolStyle,
@@ -4642,6 +4901,9 @@ export default function App() {
         }
       }
 
+      // Reconcile and split single-breath multi-ayah recitations (e.g. Ayah 1 & 2 read in one breath without pause)
+      subtitles = reconcileSingleBreathVerses(subtitles, allRawVerses, startAyah, totalAudioDuration);
+
       addLog(`[Quran AI] Successfully compiled Mukammal Surah (${subtitles.length} total verse segments across ${totalAudioDuration.toFixed(1)}s audio).`, 80);
 
       // Step 4: Map Quran Data onto separate visual Text Tracks (Arabic & Translation stacked!)
@@ -4649,8 +4911,9 @@ export default function App() {
       
       const trackArId = 'track-quran-arabic';
       const trackEnId = 'track-quran-english';
+      const trackDualId = 'track-quran-dual-translation';
       
-      const filteredTracks = tracks.filter(t => t.id !== trackArId && t.id !== trackEnId);
+      const filteredTracks = tracks.filter(t => t.id !== trackArId && t.id !== trackEnId && t.id !== trackDualId);
       
       const arColor = quranArabicColor;
       const enColor = quranEnglishColor;
@@ -4671,7 +4934,8 @@ export default function App() {
         const timestamp = Date.now();
         return {
           arId: `clip-quran-ar-${timestamp}-${idx}-${rand}`,
-          transId: `clip-quran-trans-${timestamp}-${idx}-${rand}`
+          transId: `clip-quran-trans-${timestamp}-${idx}-${rand}`,
+          dualId: `clip-quran-dual-${timestamp}-${idx}-${rand}`
         };
       });
 
@@ -4743,6 +5007,8 @@ export default function App() {
           textBackgroundBlur: quranBgBlur ?? 0,
           textBackgroundStyle: quranBgStyle,
           textAnimation: { inAnimation: quranAnimationIn, outAnimation: quranAnimationOut, inDuration: quranAnimationDuration, outDuration: quranAnimationDuration },
+          karaokeHighlight: quranKaraokeHighlight,
+          karaokeColor: quranKaraokeColor,
           confidenceScore: Number(realConfidence.toFixed(1))
         };
       });
@@ -4805,12 +5071,81 @@ export default function App() {
           textBackgroundBlur: quranBgBlur ?? 0,
           textBackgroundStyle: quranBgStyle,
           textAnimation: { inAnimation: quranAnimationIn, outAnimation: quranAnimationOut, inDuration: quranAnimationDuration, outDuration: quranAnimationDuration },
+          karaokeHighlight: quranKaraokeHighlight,
+          karaokeColor: quranKaraokeColor,
           confidenceScore: Number(realConfidence.toFixed(1))
         };
       });
 
+      // Generate Dual Translation Clips if enabled
+      let dualTranslationClips: Clip[] = [];
+      const dualTransOpt = isDualTrans ? getTranslationOptionById(dualTransLang) : null;
+      if (isDualTrans && dualTransOpt) {
+        addLog(`[Quran AI] Fetching dual secondary translation (${dualTransOpt.language})...`, 86);
+        const prefix2 = dualTransOpt.languageCode.toUpperCase();
+        const font2 = (enFont === 'Inter' && dualTransOpt.direction === 'rtl') ? dualTransOpt.defaultFont : enFont;
+        const dualY = Math.min(94, enY + 12);
+
+        dualTranslationClips = await Promise.all(subtitles.map(async (sub: any, idx: number) => {
+          const clipStart = targetClip!.start + sub.start;
+          const clipDuration = Math.max(0.8, sub.end - sub.start);
+          let textDual = '';
+          if (sub.isTaawwuz) {
+            textDual = getTaawwuzTranslation(dualTransOpt.languageCode);
+          } else if (sub.isTasmiyah) {
+            textDual = getTasmiyahTranslation(dualTransOpt.languageCode);
+          } else {
+            const vKey = sub.verse_key || `1:${sub.verse_number || (idx + startAyah)}`;
+            textDual = await fetchSingleAyahTranslation(vKey, dualTransOpt);
+          }
+          const { arId, dualId } = pairedIds[idx];
+
+          return {
+            id: dualId,
+            linkedClipId: arId,
+            surahNumber: Number(surah),
+            ayahNumber: sub.verse_number || idx + startAyah,
+            ayahKey: sub.verse_key,
+            language: dualTransOpt.languageCode || 'en',
+            name: sub.isTaawwuz ? `${prefix2}: Ta'awwuz` : sub.isTasmiyah ? `${prefix2}: Tasmiyah` : `${prefix2}: ${sub.verse_key}`,
+            type: ClipType.TEXT,
+            trackId: trackDualId,
+            start: clipStart,
+            duration: clipDuration,
+            sourceStart: 0,
+            sourceDuration: clipDuration,
+            playbackRate: 1.0,
+            volume: 1.0,
+            text: stripAyahSymbol(textDual || ''),
+            ayahSymbolStyle: 'none',
+            fontSize: Math.max(16, enSize - 4),
+            color: '#E0F2FE',
+            fontFamily: font2,
+            textStyle: enGlow,
+            textX: 50,
+            textY: dualY,
+            textTransform: enUpper && dualTransOpt.direction !== 'rtl' ? 'uppercase' : 'none',
+            textWrap: quranEnglishWrap,
+            textMaxWidth: quranEnglishMaxWidth,
+            textLineHeight: quranEnglishLineHeight,
+            textAlignment: quranEnglishAlign,
+            textBackgroundColor: quranBgColor || '#000000',
+            textBackgroundOpacity: quranBgOpacity ?? 0.65,
+            textBackgroundPadding: quranBgPadding ?? 18,
+            textBackgroundRadius: quranBgRadius ?? 20,
+            textBackgroundBlur: quranBgBlur ?? 0,
+            textBackgroundStyle: quranBgStyle,
+            textAnimation: { inAnimation: quranAnimationIn, outAnimation: quranAnimationOut, inDuration: quranAnimationDuration, outDuration: quranAnimationDuration },
+            karaokeHighlight: quranKaraokeHighlight,
+            karaokeColor: quranKaraokeColor,
+            confidenceScore: 90
+          };
+        }));
+      }
+
       const sanitizedArabicClips = enforceStrictNonOverlappingClips(arabicClips, 0.2);
       const sanitizedTranslationClips = enforceStrictNonOverlappingClips(translationClips, 0.2);
+      const sanitizedDualClips = isDualTrans && dualTranslationClips.length > 0 ? enforceStrictNonOverlappingClips(dualTranslationClips, 0.2) : [];
 
       const arTrack: Track = {
         id: trackArId,
@@ -4826,12 +5161,21 @@ export default function App() {
         clips: sanitizedTranslationClips
       };
 
-      const tracksWithAr = insertTrackInProperOrder(filteredTracks, arTrack);
-      if (transOpt.id === 'none') {
-        setTracks(tracksWithAr);
-      } else {
-        setTracks(insertTrackInProperOrder(tracksWithAr, transTrack));
+      const dualTrack: Track = {
+        id: trackDualId,
+        name: `Quran Dual Translation (${dualTransOpt?.language || 'Secondary'})`,
+        type: ClipType.TEXT,
+        clips: sanitizedDualClips
+      };
+
+      let finalTracks = insertTrackInProperOrder(filteredTracks, arTrack);
+      if (transOpt.id !== 'none') {
+        finalTracks = insertTrackInProperOrder(finalTracks, transTrack);
       }
+      if (isDualTrans && dualTransOpt && sanitizedDualClips.length > 0) {
+        finalTracks = insertTrackInProperOrder(finalTracks, dualTrack);
+      }
+      setTracks(finalTracks);
       setSelectedClipId(sanitizedArabicClips[0]?.id || null);
 
       const maxClipEnd = Math.max(
@@ -5736,6 +6080,7 @@ export default function App() {
               onAutoSyncVideoToAyahs={handleAutoSyncVideoToAyahs}
               onAutoRemoveSilence={handleAutoRemoveSilence}
               onAutoSegmentRhythm={handleAutoSegmentRhythm}
+              onRepairQuranSync={handleRepairAndSnapQuranClips}
             />
           )}
           renderMediaPanel={() => (
@@ -5815,8 +6160,38 @@ export default function App() {
               setQuranIntroMode={setQuranIntroMode}
               quranBreathSegmentationMode={quranBreathSegmentationMode}
               setQuranBreathSegmentationMode={setQuranBreathSegmentationMode}
+              quranRecitationPace={quranRecitationPace}
+              setQuranRecitationPace={setQuranRecitationPace}
+              quranEnableDualTranslation={quranEnableDualTranslation}
+              setQuranEnableDualTranslation={setQuranEnableDualTranslation}
+              quranDualTranslationLang={quranDualTranslationLang}
+              setQuranDualTranslationLang={setQuranDualTranslationLang}
+              quranDualFont={quranDualFont}
+              setQuranDualFont={setQuranDualFont}
+              quranDualSize={quranDualSize}
+              setQuranDualSize={setQuranDualSize}
+              quranDualColor={quranDualColor}
+              setQuranDualColor={setQuranDualColor}
+              quranDualStyle={quranDualStyle}
+              setQuranDualStyle={setQuranDualStyle}
+              quranDualY={quranDualY}
+              setQuranDualY={setQuranDualY}
+              quranDualLineHeight={quranDualLineHeight}
+              setQuranDualLineHeight={setQuranDualLineHeight}
+              quranDualMaxWidth={quranDualMaxWidth}
+              setQuranDualMaxWidth={setQuranDualMaxWidth}
+              quranDualWrap={quranDualWrap}
+              setQuranDualWrap={setQuranDualWrap}
+              quranDualAlign={quranDualAlign}
+              setQuranDualAlign={setQuranDualAlign}
+              onAutoSeparateDualTracks={handleAutoSeparateDualTracks}
+              quranKaraokeHighlight={quranKaraokeHighlight}
+              setQuranKaraokeHighlight={setQuranKaraokeHighlight}
+              quranKaraokeColor={quranKaraokeColor}
+              setQuranKaraokeColor={setQuranKaraokeColor}
               onReplaceBismillahWithTabarakallazi={handleReplaceBismillahWithTabarakallazi}
               onApplyTranslationToTimeline={handleApplyTranslationToTimeline}
+              onApplyDualTranslationToTimeline={handleApplyDualTranslationToTimeline}
               onApplyQuranStyles={applyQuranStylesToTimeline}
               onApplyGlobalFontSize={handleApplyGlobalFontSize}
               onApplyGlobalTextCase={handleApplyGlobalTextCase}
@@ -5835,6 +6210,7 @@ export default function App() {
               onReplaceTracks={setTracks}
               onSeekTime={setCurrentTime}
               currentTime={currentTime}
+              onRepairQuranSync={handleRepairAndSnapQuranClips}
             />
           )}
           renderInspector={() => (
@@ -6324,8 +6700,38 @@ export default function App() {
             setQuranIntroMode={setQuranIntroMode}
             quranBreathSegmentationMode={quranBreathSegmentationMode}
             setQuranBreathSegmentationMode={setQuranBreathSegmentationMode}
+            quranRecitationPace={quranRecitationPace}
+            setQuranRecitationPace={setQuranRecitationPace}
+            quranEnableDualTranslation={quranEnableDualTranslation}
+            setQuranEnableDualTranslation={setQuranEnableDualTranslation}
+            quranDualTranslationLang={quranDualTranslationLang}
+            setQuranDualTranslationLang={setQuranDualTranslationLang}
+            quranDualFont={quranDualFont}
+            setQuranDualFont={setQuranDualFont}
+            quranDualSize={quranDualSize}
+            setQuranDualSize={setQuranDualSize}
+            quranDualColor={quranDualColor}
+            setQuranDualColor={setQuranDualColor}
+            quranDualStyle={quranDualStyle}
+            setQuranDualStyle={setQuranDualStyle}
+            quranDualY={quranDualY}
+            setQuranDualY={setQuranDualY}
+            quranDualLineHeight={quranDualLineHeight}
+            setQuranDualLineHeight={setQuranDualLineHeight}
+            quranDualMaxWidth={quranDualMaxWidth}
+            setQuranDualMaxWidth={setQuranDualMaxWidth}
+            quranDualWrap={quranDualWrap}
+            setQuranDualWrap={setQuranDualWrap}
+            quranDualAlign={quranDualAlign}
+            setQuranDualAlign={setQuranDualAlign}
+            onAutoSeparateDualTracks={handleAutoSeparateDualTracks}
+            quranKaraokeHighlight={quranKaraokeHighlight}
+            setQuranKaraokeHighlight={setQuranKaraokeHighlight}
+            quranKaraokeColor={quranKaraokeColor}
+            setQuranKaraokeColor={setQuranKaraokeColor}
             onReplaceBismillahWithTabarakallazi={handleReplaceBismillahWithTabarakallazi}
             onApplyTranslationToTimeline={handleApplyTranslationToTimeline}
+            onApplyDualTranslationToTimeline={handleApplyDualTranslationToTimeline}
             onApplyQuranStyles={applyQuranStylesToTimeline}
             onApplyGlobalFontSize={handleApplyGlobalFontSize}
             onApplyGlobalTextCase={handleApplyGlobalTextCase}
@@ -6342,6 +6748,7 @@ export default function App() {
             onAutoSegmentRhythm={handleAutoSegmentRhythm}
             onReplaceVideoTrackClips={handleReplaceVideoTrackClips}
             currentTime={currentTime}
+            onRepairQuranSync={handleRepairAndSnapQuranClips}
           />
 
           {/* Media Side-Panel Splitter Handle */}
@@ -6465,6 +6872,7 @@ export default function App() {
         onAutoSyncVideoToAyahs={handleAutoSyncVideoToAyahs}
         onAutoRemoveSilence={handleAutoRemoveSilence}
         onAutoSegmentRhythm={handleAutoSegmentRhythm}
+        onRepairQuranSync={handleRepairAndSnapQuranClips}
       />
       </div>
 
