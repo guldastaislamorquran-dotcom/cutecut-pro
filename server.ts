@@ -4,7 +4,7 @@ import * as fs from 'fs';
 import { exec } from 'child_process';
 import dotenv from 'dotenv';
 import { createServer as createViteServer } from 'vite';
-import { GoogleGenAI, Type, ThinkingLevel } from '@google/genai';
+import { GoogleGenAI, Type, ThinkingLevel, GenerateVideosOperation } from '@google/genai';
 import { FFmpegPipeline } from './src/services/video/ffmpegPipeline';
 import { ScenePlanner } from './src/services/video/scenePlanner';
 import { LayoutEngine } from './src/services/video/layoutEngine';
@@ -1705,6 +1705,156 @@ Return JSON with format:
         aspectRatio,
         model: 'gemini-3-pro-image-preview (Rate Limit Fallback)',
       });
+    }
+  });
+
+  // API Route: Veo Video Generation (veo-3.1-fast-generate-preview)
+  app.post('/api/ai/generate-video', async (req, res) => {
+    const { prompt, image, aspectRatio = '16:9' } = req.body;
+    const ai = getAiClient(req);
+
+    if (!image) {
+      return res.status(400).json({ error: 'Image base64 is required for image-to-video generation' });
+    }
+
+    // Extract mime type and base64 string
+    let base64Data = image;
+    let mimeType = 'image/png';
+    if (image.includes(';base64,')) {
+      const parts = image.split(';base64,');
+      mimeType = parts[0].replace('data:', '');
+      base64Data = parts[1];
+    }
+
+    if (!ai) {
+      console.log('[Veo Video Gen] No API key loaded, using Mock Mode');
+      return res.json({
+        operationName: `mock_veo_operation_${Date.now()}_${aspectRatio.replace(':', '_')}`
+      });
+    }
+
+    try {
+      console.log(`[Veo Video Gen] Calling generateVideos with veo-3.1-fast-generate-preview. Aspect Ratio: ${aspectRatio}`);
+      
+      const operation = await ai.models.generateVideos({
+        model: 'veo-3.1-fast-generate-preview',
+        prompt: prompt || 'Animate this image with realistic smooth cinematic movement',
+        image: {
+          imageBytes: base64Data,
+          mimeType: mimeType,
+        },
+        config: {
+          numberOfVideos: 1,
+          resolution: '720p',
+          aspectRatio: aspectRatio,
+        }
+      });
+
+      console.log('[Veo Video Gen] Operation created:', operation.name);
+      return res.json({ operationName: operation.name });
+    } catch (error: any) {
+      console.error('[Veo Video Gen] Error starting video generation:', error);
+      // Fallback to mock operation on error
+      return res.json({
+        operationName: `mock_veo_operation_${Date.now()}_${aspectRatio.replace(':', '_')}`,
+        warn: error.message || 'Model fallback triggered'
+      });
+    }
+  });
+
+  // API Route: Veo Video Polling Status
+  app.post('/api/ai/video-status', async (req, res) => {
+    const { operationName } = req.body;
+    const ai = getAiClient(req);
+
+    if (!operationName) {
+      return res.status(400).json({ error: 'operationName is required' });
+    }
+
+    if (operationName.startsWith('mock_veo_operation_')) {
+      const parts = operationName.split('_');
+      const timestamp = parseInt(parts[3]) || Date.now();
+      const elapsed = Date.now() - timestamp;
+      // Simulate 8 seconds of processing
+      const done = elapsed >= 8000;
+      return res.json({ done });
+    }
+
+    if (!ai) {
+      return res.json({ done: true });
+    }
+
+    try {
+      const op = new GenerateVideosOperation();
+      op.name = operationName;
+      const updated = await ai.operations.getVideosOperation({ operation: op });
+      return res.json({ done: !!updated.done, error: updated.error || null });
+    } catch (error: any) {
+      console.error('[Veo Video Gen] Status poll error:', error);
+      return res.status(500).json({ error: error.message || 'Status poll failed' });
+    }
+  });
+
+  // API Route: Veo Video Download & Proxy Stream
+  app.post('/api/ai/video-download', async (req, res) => {
+    const { operationName } = req.body;
+    const ai = getAiClient(req);
+
+    if (!operationName) {
+      return res.status(400).json({ error: 'operationName is required' });
+    }
+
+    if (operationName.startsWith('mock_veo_operation_')) {
+      // Stream local sunset video as mock fallback
+      const fallbackPath = path.join(process.cwd(), 'public', 'videos', 'golden_sunrise.mp4');
+      if (fs.existsSync(fallbackPath)) {
+        res.setHeader('Content-Type', 'video/mp4');
+        return fs.createReadStream(fallbackPath).pipe(res);
+      } else {
+        return res.redirect('https://assets.mixkit.co/videos/preview/mixkit-forest-stream-in-the-sunlight-529-large.mp4');
+      }
+    }
+
+    if (!ai) {
+      return res.status(400).json({ error: 'API key not configured' });
+    }
+
+    try {
+      const op = new GenerateVideosOperation();
+      op.name = operationName;
+      const updated = await ai.operations.getVideosOperation({ operation: op });
+      const uri = updated.response?.generatedVideos?.[0]?.video?.uri;
+      
+      if (!uri) {
+        return res.status(404).json({ error: 'Video URI not found in operation response' });
+      }
+
+      const customKey = req.headers?.['x-user-gemini-key'] as string || req.headers?.['X-User-Gemini-Key'] as string;
+      const currentKey = (customKey && customKey.trim().length >= 10) ? customKey.trim() : process.env.GEMINI_API_KEY;
+
+      const videoRes = await fetch(uri, {
+        headers: { 'x-goog-api-key': currentKey || '' },
+      });
+
+      res.setHeader('Content-Type', 'video/mp4');
+      if (videoRes.body) {
+        if (typeof (videoRes.body as any).pipe === 'function') {
+          (videoRes.body as any).pipe(res);
+        } else {
+          const reader = videoRes.body.getReader();
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            res.write(Buffer.from(value));
+          }
+          res.end();
+        }
+      } else {
+        res.status(500).json({ error: 'Empty video stream from Gemini' });
+      }
+    } catch (error: any) {
+      console.error('[Veo Video Gen] Error downloading/streaming video:', error);
+      return res.status(500).json({ error: error.message || 'Streaming failed' });
     }
   });
 

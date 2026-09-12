@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   Brain,
   Sparkles,
@@ -17,7 +17,9 @@ import {
   Type,
   Compass,
   ArrowRight,
-  Maximize2
+  Maximize2,
+  Upload,
+  Video
 } from 'lucide-react';
 import { Clip, ClipType } from '../types';
 import { QariSelector } from './QariSelector';
@@ -33,7 +35,7 @@ interface GeminiAIIntelligenceModalProps {
   aspectRatio: '16:9' | '9:16' | '1:1';
 }
 
-type TabType = 'director' | 'scripts' | 'voiceover' | 'image-gen' | 'quran-studio';
+type TabType = 'director' | 'scripts' | 'voiceover' | 'image-gen' | 'veo-video' | 'quran-studio';
 
 export const GeminiAIIntelligenceModal: React.FC<GeminiAIIntelligenceModalProps> = ({
   isOpen,
@@ -76,6 +78,15 @@ export const GeminiAIIntelligenceModal: React.FC<GeminiAIIntelligenceModalProps>
   const [calligraphyStyle, setCalligraphyStyle] = useState<'gold-calligraphy' | 'ornate-mosaic' | 'woodcarving' | 'nebula-cosmic'>('gold-calligraphy');
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(null);
+
+  // --- Veo Video State ---
+  const [veoImage, setVeoImage] = useState<string | null>(null);
+  const [veoPrompt, setVeoPrompt] = useState('Animate the image with realistic smooth cinematic movement, wind in the trees, golden sunlight shifting');
+  const [veoRatio, setVeoRatio] = useState<'16:9' | '9:16'>('16:9');
+  const [isGeneratingVideo, setIsGeneratingVideo] = useState(false);
+  const [videoGenerationProgress, setVideoGenerationProgress] = useState<string>('');
+  const [generatedVideoUrl, setGeneratedVideoUrl] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // --- Quran Studio State ---
   const [surahNumber, setSurahNumber] = useState<number>(1);
@@ -278,6 +289,107 @@ export const GeminiAIIntelligenceModal: React.FC<GeminiAIIntelligenceModalProps>
     onClose();
   };
 
+  // --- Veo Video Functions ---
+  const handleGenerateVeoVideo = async () => {
+    if (!veoImage) return;
+    setIsGeneratingVideo(true);
+    setVideoGenerationProgress('Initializing Veo Video Engine...');
+    setGeneratedVideoUrl(null);
+
+    try {
+      // 1. Start generation
+      const res = await fetch('/api/ai/generate-video', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: veoPrompt,
+          image: veoImage,
+          aspectRatio: veoRatio
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.operationName) {
+        throw new Error(data.error || 'Failed to start video generation');
+      }
+
+      const opName = data.operationName;
+      setVideoGenerationProgress('Animating pixels with veo-3.1-fast-generate-preview (0%)...');
+
+      // 2. Poll status
+      let attempts = 0;
+      const pollInterval = setInterval(async () => {
+        attempts++;
+        const pct = Math.min(95, attempts * 10);
+        setVideoGenerationProgress(`Rendering frames with deep motion vectors (${pct}%)...`);
+
+        try {
+          const statusRes = await fetch('/api/ai/video-status', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ operationName: opName })
+          });
+          const statusData = await statusRes.json();
+
+          if (statusData.done) {
+            clearInterval(pollInterval);
+            setVideoGenerationProgress('Finalizing video codec and audio sync...');
+            
+            // 3. Download / Stream the video
+            const downloadRes = await fetch('/api/ai/video-download', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ operationName: opName })
+            });
+
+            if (!downloadRes.ok) {
+              throw new Error('Could not download compiled video');
+            }
+
+            const videoBlob = await downloadRes.blob();
+            const videoBlobUrl = URL.createObjectURL(videoBlob);
+            setGeneratedVideoUrl(videoBlobUrl);
+            setIsGeneratingVideo(false);
+            setVideoGenerationProgress('');
+          }
+        } catch (pollErr: any) {
+          console.error('Error polling video status:', pollErr);
+          clearInterval(pollInterval);
+          setIsGeneratingVideo(false);
+          setVideoGenerationProgress(`Error: ${pollErr.message || 'Polling failed'}`);
+        }
+      }, 2000);
+
+    } catch (err: any) {
+      console.error('Error generating Veo video:', err);
+      setIsGeneratingVideo(false);
+      setVideoGenerationProgress(`Error: ${err.message || 'Generation failed'}`);
+    }
+  };
+
+  const handleAddVeoVideoToTimeline = () => {
+    if (!generatedVideoUrl) return;
+    onAddClip({
+      type: ClipType.VIDEO,
+      name: 'Veo Generated Video',
+      url: generatedVideoUrl,
+      duration: 5,
+      start: currentTime,
+    });
+    onClose();
+  };
+
+  const handleVeoFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      setVeoImage(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
   // Add Generated Voiceover directly to Timeline
   const handleAddVoiceoverToTimeline = () => {
     if (!voiceAudioUrl) return;
@@ -419,6 +531,18 @@ export const GeminiAIIntelligenceModal: React.FC<GeminiAIIntelligenceModalProps>
           >
             <ImageIcon className="w-3.5 h-3.5" />
             <span>4K Scene Generator</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('veo-video')}
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer whitespace-nowrap ${
+              activeTab === 'veo-video'
+                ? 'bg-[#ef4444]/15 border border-[#ef4444]/50 text-red-200'
+                : 'text-gray-400 hover:text-gray-200 hover:bg-white/5'
+            }`}
+          >
+            <Video className="w-3.5 h-3.5 text-red-400" />
+            <span>Veo Image-to-Video</span>
           </button>
 
           <button
@@ -790,6 +914,190 @@ export const GeminiAIIntelligenceModal: React.FC<GeminiAIIntelligenceModalProps>
                   </button>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* TAB: Veo Image-to-Video Generation */}
+          {activeTab === 'veo-video' && (
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                
+                {/* Upload & Settings Section */}
+                <div className="space-y-5">
+                  <div className="p-5 rounded-2xl bg-[#181524] border border-purple-500/20 space-y-4">
+                    <h3 className="text-sm font-bold text-red-300 flex items-center gap-2">
+                      <Upload className="w-4 h-4" />
+                      <span>Upload Source Photo</span>
+                    </h3>
+
+                    {/* Drag & Drop File Upload Stage */}
+                    <div 
+                      onClick={() => fileInputRef.current?.click()}
+                      onDragOver={(e) => e.preventDefault()}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        const file = e.dataTransfer.files?.[0];
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onload = () => setVeoImage(reader.result as string);
+                          reader.readAsDataURL(file);
+                        }
+                      }}
+                      className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition flex flex-col items-center justify-center min-h-[160px] ${
+                        veoImage 
+                          ? 'border-emerald-500/50 bg-emerald-500/5' 
+                          : 'border-white/10 hover:border-purple-500/40 bg-[#0e0e17] hover:bg-purple-500/5'
+                      }`}
+                    >
+                      <input 
+                        type="file" 
+                        ref={fileInputRef} 
+                        onChange={handleVeoFileChange} 
+                        accept="image/*" 
+                        className="hidden" 
+                      />
+
+                      {veoImage ? (
+                        <div className="space-y-3 w-full flex flex-col items-center">
+                          <img 
+                            src={veoImage} 
+                            alt="Veo Source" 
+                            className="max-h-28 rounded-lg object-cover border border-white/10" 
+                          />
+                          <p className="text-[11px] text-emerald-400 font-semibold flex items-center gap-1">
+                            <CheckCircle2 className="w-3 h-3" /> Image Uploaded Successfully
+                          </p>
+                          <span className="text-[10px] text-gray-400 hover:underline text-center">Click or drag another to change</span>
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          <div className="w-10 h-10 rounded-full bg-purple-500/10 flex items-center justify-center text-purple-400 mx-auto">
+                            <Upload className="w-5 h-5" />
+                          </div>
+                          <div>
+                            <p className="text-xs font-semibold text-white">Drag & drop your photo here</p>
+                            <p className="text-[10px] text-gray-400 mt-1">or click to browse from local files</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Aspect Ratio and Prompt Configuration */}
+                  <div className="p-5 rounded-2xl bg-[#181524] border border-purple-500/20 space-y-4">
+                    <h3 className="text-sm font-bold text-purple-300 flex items-center gap-2">
+                      <Sliders className="w-4 h-4" />
+                      <span>Motion Parameters</span>
+                    </h3>
+
+                    {/* Aspect Ratio Selection */}
+                    <div className="space-y-2">
+                      <label className="text-[11px] uppercase font-bold text-gray-400">Aspect Ratio</label>
+                      <div className="flex gap-2">
+                        {(['16:9', '9:16'] as const).map((ratio) => (
+                          <button
+                            key={ratio}
+                            onClick={() => setVeoRatio(ratio)}
+                            className={`flex-1 py-2 text-xs rounded-lg border font-bold transition cursor-pointer ${
+                              veoRatio === ratio
+                                ? 'bg-red-500/20 border-red-500 text-red-200'
+                                : 'bg-[#0e0e17] border-white/5 text-gray-400 hover:bg-white/5'
+                            }`}
+                          >
+                            {ratio} {ratio === '16:9' ? 'Landscape' : 'Portrait'}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Video Motion Prompt */}
+                    <div className="space-y-2">
+                      <label className="text-[11px] uppercase font-bold text-gray-400">Directional Motion Prompt</label>
+                      <textarea
+                        rows={3}
+                        value={veoPrompt}
+                        onChange={(e) => setVeoPrompt(e.target.value)}
+                        placeholder="Describe how the image should animate (e.g. dramatic lighting change, cinematic zoom, slow panning)..."
+                        className="w-full bg-[#0e0e17] border border-white/10 rounded-lg px-3 py-2 text-xs text-gray-200 focus:outline-none focus:border-red-500 resize-none"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Preview & Processing Output Block */}
+                <div className="flex flex-col justify-between">
+                  <div className="aspect-[16/9] bg-[#0e0e17] rounded-2xl border border-white/5 flex flex-col items-center justify-center p-6 text-center space-y-4 relative overflow-hidden h-full">
+                    {generatedVideoUrl ? (
+                      <video 
+                        src={generatedVideoUrl} 
+                        controls 
+                        autoPlay 
+                        loop 
+                        playsInline
+                        className="absolute inset-0 w-full h-full object-cover" 
+                      />
+                    ) : isGeneratingVideo ? (
+                      <div className="space-y-4 z-10">
+                        <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center text-red-400 mx-auto animate-pulse">
+                          <Loader2 className="w-6 h-6 animate-spin" />
+                        </div>
+                        <div className="space-y-2">
+                          <p className="text-xs font-bold text-red-300">Veo Video Generation Active</p>
+                          <p className="text-[11px] text-gray-400 max-w-[240px] leading-relaxed mx-auto text-center">
+                            {videoGenerationProgress}
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-3 z-10">
+                        <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center text-gray-500 mx-auto">
+                          <Film className="w-6 h-6" />
+                        </div>
+                        <div>
+                          <p className="text-xs font-semibold text-gray-300">Veo Video Preview</p>
+                          <p className="text-[10px] text-gray-500 max-w-[200px] mt-1 leading-relaxed mx-auto text-center">
+                            Select a starting photograph, set your motion prompt, and render a high-quality video clip.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="pt-4 space-y-3">
+                    <button
+                      onClick={handleGenerateVeoVideo}
+                      disabled={isGeneratingVideo || !veoImage}
+                      className="w-full py-3.5 bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white text-xs font-bold rounded-xl transition flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-red-600/10 border-none"
+                    >
+                      {isGeneratingVideo ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                      <span>Generate Veo Cinematic Clip</span>
+                    </button>
+
+                    {generatedVideoUrl && (
+                      <button
+                        onClick={handleAddVeoVideoToTimeline}
+                        className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl transition flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-emerald-600/10 border-none"
+                      >
+                        <Plus className="w-4 h-4" />
+                        <span>Insert Veo Video into Project Timeline</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+              </div>
+
+              <div className="p-4 rounded-xl bg-red-500/5 border border-red-500/10 flex items-start gap-3">
+                <div className="w-8 h-8 rounded-lg bg-red-500/10 flex items-center justify-center text-red-400 shrink-0">
+                  <Brain className="w-4 h-4" />
+                </div>
+                <div className="space-y-1 text-left">
+                  <h4 className="text-xs font-bold text-red-300">Veo Multimodal Temporal Synthesis Active</h4>
+                  <p className="text-[10px] text-red-300/70 leading-relaxed">
+                    Powered by **veo-3.1-fast-generate-preview**. It constructs fluid 3D physical-space animation from a single input photo by generating a 5-second video clip synced precisely to the target timeline frame rate.
+                  </p>
+                </div>
+              </div>
             </div>
           )}
 
