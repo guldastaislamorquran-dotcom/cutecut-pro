@@ -10,14 +10,14 @@ export interface CapCutAudioItem {
 export interface CapCutStickerItem {
   id: string;
   name: string;
-  category: 'trending' | 'emoji' | 'emphasis' | 'arrows' | 'celebration';
+  category: 'trending' | 'islamic' | 'social' | 'emoji' | 'emphasis' | 'arrows' | 'celebration';
   emoji: string;
 }
 
 export interface CapCutEffectItem {
   id: string;
   name: string;
-  category: 'trending' | 'opening' | 'lens' | 'retro' | 'party' | 'glitch';
+  category: 'trending' | 'spiritual' | 'particles' | 'opening' | 'lens' | 'retro' | 'party' | 'glitch';
   icon: string;
   color: string;
   description: string;
@@ -26,14 +26,14 @@ export interface CapCutEffectItem {
 export interface CapCutTransitionItem {
   id: string;
   name: string;
-  category: 'trending' | 'basic' | 'overlay' | 'light' | 'camera' | '3d';
+  category: 'trending' | 'spiritual' | 'basic' | 'overlay' | 'light' | 'camera' | '3d';
   icon: string;
 }
 
 export interface CapCutFilterItem {
   id: string;
   name: string;
-  category: 'featured' | 'life' | 'scenery' | 'movie' | 'retro' | 'night';
+  category: 'featured' | 'islamic' | 'cinematic' | 'life' | 'scenery' | 'movie' | 'retro' | 'night';
   previewColor: string;
   settings: {
     brightness?: number;
@@ -109,10 +109,65 @@ export const CAPCUT_AUDIO_TRACKS: CapCutAudioItem[] = [
     durationFormatted: '01:45',
     url: 'https://assets.mixkit.co/music/preview/mixkit-dance-with-me-3.mp3',
   },
+  // Spiritual Ambience & Nature Tracks
+  {
+    id: 'cc-audio-gentle-rain',
+    name: 'Gentle Rain & Calm Ambience',
+    category: 'Spiritual',
+    duration: 120,
+    durationFormatted: '02:00',
+    url: 'https://cdn.freesound.org/previews/518/518887_6142149-lq.mp3',
+  },
+  {
+    id: 'cc-audio-fajr-birds',
+    name: 'Fajr Dawn Birds & Soft Breeze',
+    category: 'Spiritual',
+    duration: 90,
+    durationFormatted: '01:30',
+    url: 'https://cdn.freesound.org/previews/531/531947_7037-lq.mp3',
+  },
+  {
+    id: 'cc-audio-makkah-night',
+    name: 'Haramain Night Peaceful Wind Ambience',
+    category: 'Spiritual',
+    duration: 110,
+    durationFormatted: '01:50',
+    url: 'https://cdn.freesound.org/previews/612/612249_11861866-lq.mp3',
+  },
+  {
+    id: 'cc-audio-meditative-drone',
+    name: 'Deep Reverent Drone Ambiance',
+    category: 'Spiritual',
+    duration: 135,
+    durationFormatted: '02:15',
+    url: 'https://assets.mixkit.co/music/preview/mixkit-serene-view-443.mp3',
+  },
 ];
 
 // Stickers from CapCut video (at 0:15 - 0:18)
 export const CAPCUT_STICKERS: CapCutStickerItem[] = [
+  // Islamic & Sacred Stickers
+  { id: 'st-kaaba', name: 'Kaaba Sharif', category: 'islamic', emoji: '🕋' },
+  { id: 'st-mosque', name: 'Al-Masjid An-Nabawi', category: 'islamic', emoji: '🕌' },
+  { id: 'st-crescent', name: 'Hilal Moon & Star', category: 'islamic', emoji: '🌙' },
+  { id: 'st-tasbih', name: 'Tasbih Beads', category: 'islamic', emoji: '📿' },
+  { id: 'st-lantern', name: 'Fanous Lantern', category: 'islamic', emoji: '🏮' },
+  { id: 'st-quran', name: 'Holy Quran Book', category: 'islamic', emoji: '📖' },
+  { id: 'st-dua', name: 'Dua Hands 🤲', category: 'islamic', emoji: '🤲' },
+  { id: 'st-ayah-1', name: 'Ayah 1 Medallion ﴿١﴾', category: 'islamic', emoji: '﴿١﴾' },
+  { id: 'st-ayah-2', name: 'Ayah 2 Medallion ﴿٢﴾', category: 'islamic', emoji: '﴿٢﴾' },
+  { id: 'st-ayah-3', name: 'Ayah 3 Medallion ﴿٣﴾', category: 'islamic', emoji: '﴿٣﴾' },
+  { id: 'st-ayah-4', name: 'Ayah 4 Medallion ﴿٤﴾', category: 'islamic', emoji: '﴿٤﴾' },
+  { id: 'st-peace-dove', name: 'Peaceful White Dove', category: 'islamic', emoji: '🕊️' },
+
+  // Social Engagement Stickers
+  { id: 'st-sub-bell', name: 'Subscribe & Bell', category: 'social', emoji: '🔔' },
+  { id: 'st-like-heart', name: 'Like Post ❤️', category: 'social', emoji: '💖' },
+  { id: 'st-share-loop', name: 'Share Reel 🔁', category: 'social', emoji: '🔁' },
+  { id: 'st-bookmark', name: 'Save Ayah 🔖', category: 'social', emoji: '🔖' },
+  { id: 'st-speaker', name: 'Sound On 🔊', category: 'social', emoji: '🔊' },
+
+  // Trending
   { id: 'st-fire', name: 'Trending Fire', category: 'trending', emoji: '🔥' },
   { id: 'st-sparkles', name: 'Magic Sparkles', category: 'trending', emoji: '✨' },
   { id: 'st-star', name: 'Golden Star', category: 'trending', emoji: '⭐' },
@@ -136,6 +191,15 @@ export const CAPCUT_STICKERS: CapCutStickerItem[] = [
 
 // Effects from CapCut video (at 0:20 - 0:24)
 export const CAPCUT_EFFECTS: CapCutEffectItem[] = [
+  // Spiritual & Cinematic Noor Effects
+  { id: 'eff-golden-dust', name: 'Floating Golden Dust', category: 'spiritual', icon: '✨', color: '#f59e0b', description: 'Cinematic floating golden particles and bokeh' },
+  { id: 'eff-noor-rays', name: 'Divine Noor Rays', category: 'spiritual', icon: '☀️', color: '#fef08a', description: 'Sunbeams and divine ray illumination' },
+  { id: 'eff-dreamy-glow', name: 'Angelic Soft Glow', category: 'spiritual', icon: '🌟', color: '#38bdf8', description: 'Luminous edge halo and soft diffusion' },
+  { id: 'eff-midnight-haze', name: 'Midnight Kaaba Haze', category: 'spiritual', icon: '🌙', color: '#c084fc', description: 'Deep nocturnal atmosphere with subtle mist' },
+  { id: 'eff-floating-stars', name: 'Cosmic Floating Stars', category: 'particles', icon: '⭐', color: '#fbbf24', description: 'Gently twinkling cosmic night sparks' },
+  { id: 'eff-rain-shimmer', name: 'Rain Drop Shimmer', category: 'particles', icon: '💧', color: '#67e8f9', description: 'Micro water drops reflecting soft light' },
+
+  // Trending & Opening
   { id: 'eff-opening-art', name: 'Opening Art', category: 'opening', icon: '🎭', color: '#06b6d4', description: 'Cinematic art curtains opening' },
   { id: 'eff-vertical-open', name: 'Vertical Open', category: 'opening', icon: '↕️', color: '#3b82f6', description: 'Split vertical shutter opening' },
   { id: 'eff-prickle-warp', name: 'Prickle + Warp', category: 'trending', icon: '🌀', color: '#a855f7', description: 'Dynamic lens warp distortion' },
@@ -152,6 +216,13 @@ export const CAPCUT_EFFECTS: CapCutEffectItem[] = [
 
 // Transitions from CapCut video (at 0:25 - 0:29)
 export const CAPCUT_TRANSITIONS: CapCutTransitionItem[] = [
+  // Spiritual Transitions
+  { id: 'trans-light-flash', name: 'Noor Light Flash', category: 'spiritual', icon: '✨' },
+  { id: 'trans-smoke-dissolve', name: 'Golden Smoke Wipe', category: 'spiritual', icon: '💨' },
+  { id: 'trans-gentle-fade', name: 'Spiritual Cross-Dissolve', category: 'spiritual', icon: '🕊️' },
+  { id: 'trans-whip-blur', name: 'Smooth Whip Blur', category: 'spiritual', icon: '⚡' },
+
+  // Standard
   { id: 'trans-overlap-fade', name: 'Overlap Fade', category: 'trending', icon: '🔀' },
   { id: 'trans-compartment', name: 'Compartment 2', category: 'trending', icon: '🪟' },
   { id: 'trans-paper-unfold', name: 'Paper Unfold', category: 'trending', icon: '📜' },
@@ -168,6 +239,14 @@ export const CAPCUT_TRANSITIONS: CapCutTransitionItem[] = [
 
 // Filters from CapCut video (at 0:36 - 0:42)
 export const CAPCUT_FILTERS: CapCutFilterItem[] = [
+  // Islamic & Sacred Looks
+  { id: 'filt-madinah-green', name: 'Madinah Green', category: 'islamic', previewColor: '#059669', settings: { brightness: 104, contrast: 112, saturation: 125, sepia: 8 } },
+  { id: 'filt-makkah-gold', name: 'Makkah Midnight Gold', category: 'islamic', previewColor: '#d97706', settings: { brightness: 102, contrast: 120, saturation: 118, sepia: 32 } },
+  { id: 'filt-desert-warmth', name: 'Desert Sunset', category: 'islamic', previewColor: '#ea580c', settings: { brightness: 105, contrast: 108, saturation: 130, sepia: 28 } },
+  { id: 'filt-moody-desat', name: 'Moody Quranic Muted', category: 'cinematic', previewColor: '#475569', settings: { brightness: 98, contrast: 115, saturation: 75, sepia: 12 } },
+  { id: 'filt-sunset-teal-amber', name: 'Teal & Sunset Amber', category: 'cinematic', previewColor: '#0f766e', settings: { brightness: 100, contrast: 122, saturation: 120, sepia: 18 } },
+
+  // Standard
   { id: 'filt-clean-vivid', name: 'Clean Vivid', category: 'featured', previewColor: '#38bdf8', settings: { brightness: 105, contrast: 110, saturation: 120 } },
   { id: 'filt-caramel-warm', name: 'Caramel Warm', category: 'featured', previewColor: '#f59e0b', settings: { brightness: 100, contrast: 105, saturation: 110, sepia: 25 } },
   { id: 'filt-cinematic-teal', name: 'Cinematic Teal', category: 'movie', previewColor: '#0d9488', settings: { brightness: 98, contrast: 118, saturation: 115 } },

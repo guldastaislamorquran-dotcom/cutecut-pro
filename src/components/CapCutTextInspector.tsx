@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Type, Sparkles, Wand2, AlignLeft, AlignCenter, AlignRight, AlignJustify, Bold, Italic, Underline, Volume2, MessageSquare, Play, Check } from 'lucide-react';
+import { Type, Sparkles, Wand2, AlignLeft, AlignCenter, AlignRight, AlignJustify, Bold, Italic, Underline, Volume2, MessageSquare, Play, Check, Crown, Move, Layers, Sliders, Palette } from 'lucide-react';
 import { Clip } from '../types';
 
 interface CapCutTextInspectorProps {
@@ -251,6 +251,198 @@ export const CapCutTextInspector: React.FC<CapCutTextInspectorProps> = ({
                       <AlignRight className="w-3.5 h-3.5" />
                     </button>
                   </div>
+
+                  {/* Letter Spacing (Tracking) & Line Spacing */}
+                  <div className="space-y-2 pt-2 border-t border-[#262633]">
+                    <div className="space-y-1">
+                      <div className="flex justify-between items-center text-gray-400 text-[10px]">
+                        <span>Letter Spacing (Tracking)</span>
+                        <span className="font-mono text-cyan-400">{clip.textLetterSpacing ?? 0}px</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="-2"
+                        max="25"
+                        value={clip.textLetterSpacing ?? 0}
+                        onChange={(e) => onUpdateClip(clip.id, { textLetterSpacing: parseInt(e.target.value) })}
+                        className="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-cyan-400"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <div className="flex justify-between items-center text-gray-400 text-[10px]">
+                        <span>Line Height</span>
+                        <span className="font-mono text-cyan-400">{clip.textLineHeight ?? 1.3}x</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="1.0"
+                        max="2.4"
+                        step="0.1"
+                        value={clip.textLineHeight ?? 1.3}
+                        onChange={(e) => onUpdateClip(clip.id, { textLineHeight: parseFloat(e.target.value) })}
+                        className="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-cyan-400"
+                      />
+                    </div>
+                  </div>
+
+                  {/* 1-Click Screen Position Shortcuts */}
+                  <div className="pt-2 border-t border-[#262633] space-y-1.5">
+                    <div className="flex items-center justify-between text-gray-400 text-[10px]">
+                      <span>Quick Screen Position</span>
+                      <span className="font-mono text-gray-400">X: {clip.textX ?? 50}%, Y: {clip.textY ?? 50}%</span>
+                    </div>
+                    <div className="grid grid-cols-4 gap-1">
+                      {[
+                        { label: 'Top 1/3', x: 50, y: 25 },
+                        { label: 'Center', x: 50, y: 50 },
+                        { label: 'Lower 1/3', x: 50, y: 75 },
+                        { label: 'Ayah Sub', x: 50, y: 84 },
+                      ].map((pos) => (
+                        <button
+                          key={pos.label}
+                          onClick={() => onUpdateClip(clip.id, { textX: pos.x, textY: pos.y })}
+                          className={`py-1 rounded text-[10px] font-medium border text-center transition ${
+                            (clip.textX ?? 50) === pos.x && (clip.textY ?? 50) === pos.y
+                              ? 'bg-cyan-950/60 border-cyan-400 text-cyan-200'
+                              : 'bg-[#121217] border-gray-800 text-gray-400 hover:text-white'
+                          }`}
+                        >
+                          {pos.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Royal Text Gradients */}
+                <div className="bg-[#1a1a22] p-3 rounded-lg border border-[#262633] space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 font-medium text-amber-300">
+                      <Crown className="w-3.5 h-3.5 text-amber-400" />
+                      <span>Royal Text Gradients</span>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={Boolean(clip.textGradient?.enabled)}
+                      onChange={(e) =>
+                        onUpdateClip(clip.id, {
+                          textGradient: {
+                            enabled: e.target.checked,
+                            style: clip.textGradient?.style || 'royal-gold',
+                          },
+                        })
+                      }
+                      className="rounded bg-gray-800 border-gray-700 text-amber-500 focus:ring-0 cursor-pointer"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {[
+                      { id: 'royal-gold', label: 'Imperial Gold', bg: 'from-amber-200 via-amber-400 to-amber-600' },
+                      { id: 'emerald-glow', label: 'Emerald Glow', bg: 'from-emerald-200 via-emerald-400 to-emerald-700' },
+                      { id: 'rose-sunset', label: 'Desert Sunset', bg: 'from-orange-200 via-rose-500 to-amber-600' },
+                      { id: 'silver-moon', label: 'Moonlit Silver', bg: 'from-white via-slate-300 to-slate-500' },
+                      { id: 'sunset-amber', label: 'Sunset Amber', bg: 'from-yellow-300 via-orange-500 to-red-600' },
+                    ].map((g) => {
+                      const isSel = clip.textGradient?.enabled && clip.textGradient?.style === g.id;
+                      return (
+                        <button
+                          key={g.id}
+                          onClick={() =>
+                            onUpdateClip(clip.id, {
+                              textGradient: {
+                                enabled: true,
+                                style: g.id as any,
+                              },
+                            })
+                          }
+                          className={`p-1.5 rounded border text-left flex items-center gap-2 transition ${
+                            isSel
+                              ? 'border-amber-400 bg-amber-950/40 text-amber-200'
+                              : 'border-[#262633] bg-[#121217] text-gray-400 hover:border-gray-600 hover:text-white'
+                          }`}
+                        >
+                          <div className={`w-3.5 h-3.5 rounded-full bg-gradient-to-r ${g.bg}`} />
+                          <span className="text-[10px] font-semibold truncate">{g.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* 3D Drop Shadow & Bevel */}
+                <div className="bg-[#1a1a22] p-3 rounded-lg border border-[#262633] space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 font-medium text-gray-200">
+                      <Layers className="w-3.5 h-3.5 text-cyan-400" />
+                      <span>Deep 3D Shadow</span>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={Boolean(clip.text3DShadow?.enabled)}
+                      onChange={(e) =>
+                        onUpdateClip(clip.id, {
+                          text3DShadow: {
+                            enabled: e.target.checked,
+                            blur: clip.text3DShadow?.blur ?? 12,
+                            offsetX: clip.text3DShadow?.offsetX ?? 4,
+                            offsetY: clip.text3DShadow?.offsetY ?? 4,
+                            color: clip.text3DShadow?.color || 'rgba(0,0,0,0.95)',
+                          },
+                        })
+                      }
+                      className="rounded bg-gray-800 border-gray-700 text-cyan-500 focus:ring-0 cursor-pointer"
+                    />
+                  </div>
+                  {clip.text3DShadow?.enabled && (
+                    <div className="space-y-2 pt-1 border-t border-[#262633]">
+                      <div className="space-y-1">
+                        <div className="flex justify-between items-center text-gray-400 text-[10px]">
+                          <span>Shadow Blur</span>
+                          <span className="font-mono text-cyan-400">{clip.text3DShadow.blur ?? 12}px</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="0"
+                          max="30"
+                          value={clip.text3DShadow.blur ?? 12}
+                          onChange={(e) =>
+                            onUpdateClip(clip.id, {
+                              text3DShadow: {
+                                ...clip.text3DShadow!,
+                                blur: parseInt(e.target.value),
+                              },
+                            })
+                          }
+                          className="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-cyan-400"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <div className="flex justify-between items-center text-gray-400 text-[10px]">
+                          <span>Shadow Offset</span>
+                          <span className="font-mono text-cyan-400">{clip.text3DShadow.offsetY ?? 4}px</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="0"
+                          max="20"
+                          value={clip.text3DShadow.offsetY ?? 4}
+                          onChange={(e) => {
+                            const val = parseInt(e.target.value);
+                            onUpdateClip(clip.id, {
+                              text3DShadow: {
+                                ...clip.text3DShadow!,
+                                offsetX: val,
+                                offsetY: val,
+                              },
+                            });
+                          }}
+                          className="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-cyan-400"
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Color & Glow */}

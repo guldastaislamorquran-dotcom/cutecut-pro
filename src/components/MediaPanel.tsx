@@ -12,6 +12,7 @@ import {
 } from '../data/capcutAssets';
 import { AyahSymbolStyle, AyahDigitType, AyahSymbolPosition, formatAyahSymbol } from '../utils/editorUtils';
 import { QURAN_TRANSLATION_OPTIONS, getTranslationOptionById, SUPPORTED_TRANSLATION_FONTS, getSuggestedFontsForLanguage } from '../utils/quranTranslations';
+import { FAMOUS_MIX_COLLECTIONS } from '../utils/quranSurahData';
 import OrnateAyahMedallion from './OrnateAyahMedallion';
 import { QuranVisualsPanel } from './QuranVisualsPanel';
 
@@ -338,6 +339,52 @@ interface MediaPanelProps {
   onSeekTime?: (time: number) => void;
   currentTime?: number;
   onRepairQuranSync?: () => void;
+  quranShowSurahHeader?: boolean;
+  setQuranShowSurahHeader?: (show: boolean) => void;
+  quranSurahHeaderStyle?: 'simple' | 'ornate' | 'border-only';
+  setQuranSurahHeaderStyle?: (style: 'simple' | 'ornate' | 'border-only') => void;
+  quranSurahHeaderFont?: string;
+  setQuranSurahHeaderFont?: (font: string) => void;
+  quranSurahHeaderSize?: number;
+  setQuranSurahHeaderSize?: (size: number) => void;
+  quranSurahHeaderColor?: string;
+  setQuranSurahHeaderColor?: (color: string) => void;
+  quranSurahHeaderY?: number;
+  setQuranSurahHeaderY?: (y: number) => void;
+  quranSurahHeaderFormat?: 'arabic' | 'english' | 'both';
+  setQuranSurahHeaderFormat?: (format: 'arabic' | 'english' | 'both') => void;
+  quranSurahHeaderBg?: 'none' | 'solid' | 'gradient' | 'blur';
+  setQuranSurahHeaderBg?: (bg: 'none' | 'solid' | 'gradient' | 'blur') => void;
+  quranSurahHeaderBgColor?: string;
+  setQuranSurahHeaderBgColor?: (color: string) => void;
+  quranSurahHeaderBgOpacity?: number;
+  setQuranSurahHeaderBgOpacity?: (opacity: number) => void;
+  // Single-Word (Lafz ba Lafz) Display Mode Props
+  quranCaptionDisplayMode?: 'full-ayah' | 'single-word';
+  setQuranCaptionDisplayMode?: (mode: 'full-ayah' | 'single-word') => void;
+  quranSingleWordScale?: number;
+  setQuranSingleWordScale?: (scale: number) => void;
+  quranSingleWordPop?: boolean;
+  setQuranSingleWordPop?: (pop: boolean) => void;
+  // Qari / Reciter Badge Overlay Props
+  quranShowQariBadge?: boolean;
+  setQuranShowQariBadge?: (show: boolean) => void;
+  quranQariName?: string;
+  setQuranQariName?: (name: string) => void;
+  quranQariBadgePosition?: 'top-right' | 'top-left' | 'bottom-right' | 'bottom-left';
+  setQuranQariBadgePosition?: (pos: 'top-right' | 'top-left' | 'bottom-right' | 'bottom-left') => void;
+  // Islamic Audio Waveform Visualizer Props
+  quranShowWaveform?: boolean;
+  setQuranShowWaveform?: (show: boolean) => void;
+  quranWaveformStyle?: 'bars' | 'wave' | 'mirror';
+  setQuranWaveformStyle?: (style: 'bars' | 'wave' | 'mirror') => void;
+  quranWaveformColor?: string;
+  setQuranWaveformColor?: (color: string) => void;
+  quranWaveformY?: number;
+  setQuranWaveformY?: (y: number) => void;
+  // Quick Islamic Cards Callbacks
+  onAddBismillahCard?: () => void;
+  onAddSadaqallahCard?: () => void;
 }
 
 export default function MediaPanel({
@@ -467,6 +514,48 @@ export default function MediaPanel({
   onSeekTime,
   currentTime = 0,
   onRepairQuranSync,
+  quranShowSurahHeader = false,
+  setQuranShowSurahHeader,
+  quranSurahHeaderStyle = 'ornate',
+  setQuranSurahHeaderStyle,
+  quranSurahHeaderFont = 'Playfair Display',
+  setQuranSurahHeaderFont,
+  quranSurahHeaderSize = 24,
+  setQuranSurahHeaderSize,
+  quranSurahHeaderColor = '#FFFFFF',
+  setQuranSurahHeaderColor,
+  quranSurahHeaderY = 15,
+  setQuranSurahHeaderY,
+  quranSurahHeaderFormat = 'both',
+  setQuranSurahHeaderFormat,
+  quranSurahHeaderBg = 'none',
+  setQuranSurahHeaderBg,
+  quranSurahHeaderBgColor = '#000000',
+  setQuranSurahHeaderBgColor,
+  quranSurahHeaderBgOpacity = 50,
+  setQuranSurahHeaderBgOpacity,
+  quranCaptionDisplayMode = 'full-ayah',
+  setQuranCaptionDisplayMode,
+  quranSingleWordScale = 1.35,
+  setQuranSingleWordScale,
+  quranSingleWordPop = true,
+  setQuranSingleWordPop,
+  quranShowQariBadge = false,
+  setQuranShowQariBadge,
+  quranQariName = 'Mishary Rashid Alafasy',
+  setQuranQariName,
+  quranQariBadgePosition = 'top-right',
+  setQuranQariBadgePosition,
+  quranShowWaveform = false,
+  setQuranShowWaveform,
+  quranWaveformStyle = 'bars',
+  setQuranWaveformStyle,
+  quranWaveformColor = '#F59E0B',
+  setQuranWaveformColor,
+  quranWaveformY = 86,
+  setQuranWaveformY,
+  onAddBismillahCard,
+  onAddSadaqallahCard,
 }: MediaPanelProps) {
   const [activeTab, setActiveTab] = useState<'upload' | 'video' | 'audio' | 'image' | 'text' | 'stickers' | 'effects' | 'transitions' | 'filters' | 'adjustment' | 'quran-visuals' | 'quran' | 'background' | 'watermark'>('upload');
   const [addedFeedback, setAddedFeedback] = useState<string | null>(null);
@@ -497,16 +586,19 @@ export default function MediaPanel({
   const [audioCategory, setAudioCategory] = useState<string>('Trending');
 
   // CapCut Sticker category
-  const [stickerCategory, setStickerCategory] = useState<'trending' | 'emoji' | 'emphasis' | 'arrows' | 'celebration'>('trending');
+  const [stickerCategory, setStickerCategory] = useState<'islamic' | 'social' | 'trending' | 'emoji' | 'emphasis' | 'arrows' | 'celebration'>('islamic');
 
   // CapCut Effect category
-  const [effectCategory, setEffectCategory] = useState<'trending' | 'opening' | 'lens' | 'retro' | 'party' | 'glitch'>('trending');
+  const [effectCategory, setEffectCategory] = useState<'spiritual' | 'particles' | 'trending' | 'opening' | 'lens' | 'retro' | 'party' | 'glitch'>('spiritual');
 
   // CapCut Transition category
-  const [transitionCategory, setTransitionCategory] = useState<'trending' | 'basic' | 'overlay' | 'light' | 'camera' | '3d'>('trending');
+  const [transitionCategory, setTransitionCategory] = useState<'spiritual' | 'trending' | 'basic' | 'overlay' | 'light' | 'camera' | '3d'>('spiritual');
 
   // CapCut Filter category
-  const [filterCategory, setFilterCategory] = useState<'featured' | 'life' | 'scenery' | 'movie' | 'retro' | 'night'>('featured');
+  const [filterCategory, setFilterCategory] = useState<'islamic' | 'cinematic' | 'featured' | 'life' | 'scenery' | 'movie' | 'retro' | 'night'>('islamic');
+
+  // CapCut Upload category
+  const [uploadCategory, setUploadCategory] = useState<'all' | 'video' | 'audio' | 'image'>('all');
 
   // Live Microphone Voiceover Recorder State
   const [isRecordingMic, setIsRecordingMic] = useState(false);
@@ -714,7 +806,7 @@ export default function MediaPanel({
   // Quran Form states
   const [quranSurahPreset, setQuranSurahPreset] = useState<string>('67');
   const [quranSurahCustom, setQuranSurahCustom] = useState<number>(67);
-  const [quranSelectionType, setQuranSelectionType] = useState<'single' | 'range' | 'list' | 'all'>('all');
+  const [quranSelectionType, setQuranSelectionType] = useState<'single' | 'range' | 'list' | 'all' | 'mixed'>('all');
   const [quranSurahEnd, setQuranSurahEnd] = useState<number>(3);
   const [quranSurahList, setQuranSurahList] = useState<string>('112, 113, 114');
   const [quranStartAyah, setQuranStartAyah] = useState<number>(1);
@@ -1282,6 +1374,10 @@ export default function MediaPanel({
         glitch: eff.id === 'eff-vhs-glitch',
         filmGrain: eff.id === 'eff-film-grain',
         rgbSplit: eff.category === 'party',
+        goldenDust: eff.id === 'eff-golden-dust',
+        noorRays: eff.id === 'eff-noor-rays',
+        floatingStars: eff.id === 'eff-floating-stars',
+        dreamyGlow: eff.id === 'eff-dreamy-glow',
         vignette: true,
       },
       playbackRate: 1.0,
@@ -1367,220 +1463,160 @@ export default function MediaPanel({
   return (
     <div
       id="media-panel"
-      className="bg-[#141418] rounded-lg border border-[#23232b] flex flex-row h-full select-none overflow-hidden shadow-sm flex-shrink-0"
+      className="bg-[#141418] rounded-lg border border-[#23232b] flex flex-col h-full select-none overflow-hidden shadow-sm flex-shrink-0"
       style={{ width: width !== undefined ? `${width}px` : undefined }}
     >
-      {/* Vertical Tab Navigation with Bottom Slider & Scroll Controls */}
-      <div className="relative border-r border-[#2a2a30] bg-[#121216] flex flex-col w-16 flex-shrink-0 custom-scrollbar overflow-y-auto">
-        <div className="flex flex-col items-center py-2 gap-1.5">
-          <button
-            id="tab-upload"
-            onClick={() => setActiveTab('upload')}
-            className={`w-12 h-12 rounded-lg flex flex-col items-center justify-center gap-0.5 transition ${activeTab === 'upload' ? 'text-cyan-400 bg-[#22222a] font-bold border border-cyan-500/30' : 'text-gray-400 hover:text-white hover:bg-[#1a1a20]'}`}
-            title="Upload Local Files"
-          >
-            <Upload className="w-4 h-4 mb-0.5" />
-            <span className="text-[9px]">Upload</span>
-          </button>
-          <button
-            id="tab-video"
-            onClick={() => setActiveTab('video')}
-            className={`w-12 h-12 rounded-lg flex flex-col items-center justify-center gap-0.5 transition ${activeTab === 'video' ? 'text-cyan-400 bg-[#22222a] font-bold border border-cyan-500/30' : 'text-gray-400 hover:text-white hover:bg-[#1a1a20]'}`}
-            title="Media"
-          >
-            <Film className="w-4 h-4 mb-0.5" />
-            <span className="text-[9px]">Media</span>
-          </button>
-          <button
-            id="tab-audio"
-            onClick={() => setActiveTab('audio')}
-            className={`w-12 h-12 rounded-lg flex flex-col items-center justify-center gap-0.5 transition ${activeTab === 'audio' ? 'text-cyan-400 bg-[#22222a] font-bold border border-cyan-500/30' : 'text-gray-400 hover:text-white hover:bg-[#1a1a20]'}`}
-            title="Audio"
-          >
-            <Music className="w-4 h-4 mb-0.5" />
-            <span className="text-[9px]">Audio</span>
-          </button>
-          <button
-            id="tab-text"
-            onClick={() => setActiveTab('text')}
-            className={`w-12 h-12 rounded-lg flex flex-col items-center justify-center gap-0.5 transition ${activeTab === 'text' ? 'text-cyan-400 bg-[#22222a] font-bold border border-cyan-500/30' : 'text-gray-400 hover:text-white hover:bg-[#1a1a20]'}`}
-            title="Text"
-          >
-            <Type className="w-4 h-4 mb-0.5" />
-            <span className="text-[9px]">Text</span>
-          </button>
-          <button
-            id="tab-stickers"
-            onClick={() => setActiveTab('stickers')}
-            className={`w-12 h-12 rounded-lg flex flex-col items-center justify-center gap-0.5 transition ${activeTab === 'stickers' ? 'text-cyan-400 bg-[#22222a] font-bold border border-cyan-500/30' : 'text-gray-400 hover:text-white hover:bg-[#1a1a20]'}`}
-            title="Stickers"
-          >
-            <Smile className="w-4 h-4 mb-0.5" />
-            <span className="text-[9px]">Stickers</span>
-          </button>
-          <button
-            id="tab-effects"
-            onClick={() => setActiveTab('effects')}
-            className={`w-12 h-12 rounded-lg flex flex-col items-center justify-center gap-0.5 transition ${activeTab === 'effects' ? 'text-cyan-400 bg-[#22222a] font-bold border border-cyan-500/30' : 'text-gray-400 hover:text-white hover:bg-[#1a1a20]'}`}
-            title="Effects"
-          >
-            <Wand2 className="w-4 h-4 mb-0.5" />
-            <span className="text-[9px]">Effects</span>
-          </button>
-          <button
-            id="tab-transitions"
-            onClick={() => setActiveTab('transitions')}
-            className={`w-12 h-12 rounded-lg flex flex-col items-center justify-center gap-0.5 transition ${activeTab === 'transitions' ? 'text-cyan-400 bg-[#22222a] font-bold border border-cyan-500/30' : 'text-gray-400 hover:text-white hover:bg-[#1a1a20]'}`}
-            title="Transitions"
-          >
-            <Blend className="w-4 h-4 mb-0.5" />
-            <span className="text-[9px]">Transition</span>
-          </button>
-          <button
-            id="tab-filters"
-            onClick={() => setActiveTab('filters')}
-            className={`w-12 h-12 rounded-lg flex flex-col items-center justify-center gap-0.5 transition ${activeTab === 'filters' ? 'text-cyan-400 bg-[#22222a] font-bold border border-cyan-500/30' : 'text-gray-400 hover:text-white hover:bg-[#1a1a20]'}`}
-            title="Filters"
-          >
-            <Palette className="w-4 h-4 mb-0.5" />
-            <span className="text-[9px]">Filters</span>
-          </button>
-          <button
-            id="tab-adjustment"
-            onClick={() => setActiveTab('adjustment')}
-            className={`w-12 h-12 rounded-lg flex flex-col items-center justify-center gap-0.5 transition ${activeTab === 'adjustment' ? 'text-cyan-400 bg-[#22222a] font-bold border border-cyan-500/30' : 'text-gray-400 hover:text-white hover:bg-[#1a1a20]'}`}
-            title="Adjustment"
-          >
-            <Sliders className="w-4 h-4 mb-0.5" />
-            <span className="text-[9px]">Adjust</span>
-          </button>
-          <div className="w-8 h-px bg-gray-800 my-1" />
-          <button
-            id="tab-quran"
-            onClick={() => setActiveTab('quran')}
-            className={`w-12 h-12 rounded-lg flex flex-col items-center justify-center gap-0.5 transition ${activeTab === 'quran' ? 'text-amber-400 bg-amber-950/40 font-bold border border-amber-500/50' : 'text-amber-400/80 hover:text-amber-300 hover:bg-amber-950/20'}`}
-            title="Quran AI v4"
-          >
-            <BookOpen className="w-4 h-4 mb-0.5" />
-            <span className="text-[9px]">Quran</span>
-          </button>
-          <button
-            id="tab-quran-visuals"
-            onClick={() => setActiveTab('quran-visuals')}
-            className={`w-12 h-12 rounded-lg flex flex-col items-center justify-center gap-0.5 transition ${activeTab === 'quran-visuals' ? 'text-emerald-400 bg-emerald-950/50 font-bold border border-emerald-500/50' : 'text-emerald-400/80 hover:text-emerald-300 hover:bg-emerald-950/20'}`}
-            title="AI Ayah Media & Background Scenery Generator"
-          >
-            <Sparkles className="w-4 h-4 mb-0.5" />
-            <span className="text-[9px] leading-tight text-center">Visuals</span>
-          </button>
-          <button
-            id="tab-background"
-            onClick={() => setActiveTab('background')}
-            className={`w-12 h-12 rounded-lg flex flex-col items-center justify-center gap-0.5 transition ${activeTab === 'background' ? 'text-cyan-400 bg-[#22222a] font-bold border border-cyan-500/30' : 'text-gray-400 hover:text-white hover:bg-[#1a1a20]'}`}
-          >
-            <Globe className="w-4 h-4 mb-0.5" />
-            <span className="text-[9px]">Free BG</span>
-          </button>
-          <button
-            id="tab-watermark"
-            onClick={() => setActiveTab('watermark')}
-            className={`w-12 h-12 rounded-lg flex flex-col items-center justify-center gap-0.5 transition ${activeTab === 'watermark' ? 'text-amber-400 bg-[#22222a] font-bold border border-amber-500/30' : 'text-gray-400 hover:text-white hover:bg-[#1a1a20]'}`}
-          >
-            <Shield className="w-4 h-4 mb-0.5" />
-            <span className="text-[9px]">Branding</span>
-          </button>
-        </div>
+      {/* CapCut Top Horizontal Tab Navigation Menu Bar (Icon on Top, Text Below) */}
+      <div className="border-b border-[#23232b] bg-[#121216] px-2 py-1 flex items-center gap-1 overflow-x-auto custom-scrollbar flex-shrink-0">
+        {[
+          { id: 'upload', label: 'Media', icon: Upload, isAmber: false, isEmerald: false },
+          { id: 'video', label: 'Stock', icon: Film, isAmber: false, isEmerald: false },
+          { id: 'audio', label: 'Audio', icon: Music, isAmber: false, isEmerald: false },
+          { id: 'text', label: 'Text', icon: Type, isAmber: false, isEmerald: false },
+          { id: 'stickers', label: 'Stickers', icon: Smile, isAmber: false, isEmerald: false },
+          { id: 'effects', label: 'Effects', icon: Wand2, isAmber: false, isEmerald: false },
+          { id: 'transitions', label: 'Transitions', icon: Blend, isAmber: false, isEmerald: false },
+          { id: 'filters', label: 'Filters', icon: Palette, isAmber: false, isEmerald: false },
+          { id: 'adjustment', label: 'Adjust', icon: Sliders, isAmber: false, isEmerald: false },
+          { id: 'quran', label: 'Quran AI', icon: BookOpen, isAmber: true, isEmerald: false },
+          { id: 'quran-visuals', label: 'Visuals', icon: Sparkles, isAmber: false, isEmerald: true },
+          { id: 'background', label: 'Free BG', icon: Globe, isAmber: false, isEmerald: false },
+          { id: 'watermark', label: 'Branding', icon: Shield, isAmber: false, isEmerald: false },
+        ].map((tab) => {
+          const Icon = tab.icon;
+          const isActive = activeTab === tab.id;
+          
+          let activeStyles = 'text-cyan-400 bg-[#20202a] font-bold border-b-2 border-cyan-400';
+          let inactiveStyles = 'text-gray-400 hover:text-gray-200 hover:bg-[#181820] border-b-2 border-transparent';
+          
+          if (tab.isAmber) {
+            activeStyles = 'text-amber-300 bg-amber-950/40 font-bold border-b-2 border-amber-400';
+            inactiveStyles = 'text-amber-400/80 hover:text-amber-200 hover:bg-amber-950/20 border-b-2 border-transparent';
+          } else if (tab.isEmerald) {
+            activeStyles = 'text-emerald-300 bg-emerald-950/40 font-bold border-b-2 border-emerald-400';
+            inactiveStyles = 'text-emerald-400/80 hover:text-emerald-200 hover:bg-emerald-950/20 border-b-2 border-transparent';
+          }
+
+          return (
+            <button
+              key={tab.id}
+              id={`tab-${tab.id}`}
+              onClick={() => setActiveTab(tab.id as any)}
+              className={`flex flex-col items-center justify-center py-1.5 px-3 rounded-t-lg transition flex-shrink-0 min-w-[58px] ${isActive ? activeStyles : inactiveStyles}`}
+            >
+              <Icon className="w-4 h-4 mb-1" />
+              <span className="text-[10px] tracking-wide whitespace-nowrap">{tab.label}</span>
+            </button>
+          );
+        })}
       </div>
+
       {/* Content Area */}
-      <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
+      <div className={`flex-1 min-h-0 flex flex-col ${['video', 'audio', 'text', 'stickers', 'effects', 'transitions', 'filters', 'adjustment', 'upload'].includes(activeTab) ? 'overflow-hidden p-0' : 'overflow-y-auto p-4 custom-scrollbar'}`}>
         {activeTab === 'video' && (
-          <div className="flex flex-col h-full space-y-3">
-            {/* Search Bar */}
-            <div className="relative">
-              <input
-                type="text"
-                value={videoSearchQuery}
-                onChange={(e) => setVideoSearchQuery(e.target.value)}
-                placeholder="Search Islamic & Nature videos (Makkah, Rain, Dawn, Stars...)"
-                className="w-full bg-[#181820] border border-gray-800 rounded-lg px-3 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-cyan-500/60"
-              />
-              {videoSearchQuery && (
-                <button
-                  onClick={() => setVideoSearchQuery('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white text-xs"
-                >
-                  ✕
-                </button>
-              )}
+          <div className="flex flex-row h-full overflow-hidden">
+            {/* CapCut Left Sidebar for Stock Categories */}
+            <div className="w-36 border-r border-[#23232b] bg-[#111116] p-2 flex flex-col gap-1 overflow-y-auto custom-scrollbar shrink-0">
+              <span className="text-[9px] font-bold uppercase text-gray-500 tracking-wider px-2 py-1">Categories</span>
+              {[
+                { id: 'All', label: 'All Stock', icon: '🎬' },
+                { id: 'Islamic & Holy', label: 'Islamic & Holy', icon: '🕋' },
+                { id: 'Nature & Skies', label: 'Nature & Skies', icon: '🌲' },
+                { id: 'Rain & Water', label: 'Rain & Water', icon: '🌧️' },
+                { id: 'Cosmic & Stars', label: 'Cosmic & Stars', icon: '✨' },
+                { id: 'VFX & Noor', label: 'VFX & Noor', icon: '☀️' },
+                { id: 'Green Screen', label: 'Green Screen', icon: '🟩' },
+              ].map((cat) => {
+                const isSelected = videoCategory === cat.id;
+                return (
+                  <button
+                    key={cat.id}
+                    onClick={() => setVideoCategory(cat.id)}
+                    className={`flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs transition text-left ${isSelected ? 'bg-cyan-500/20 text-cyan-300 font-bold border border-cyan-500/40 shadow-xs' : 'text-gray-400 hover:text-white hover:bg-[#1a1a22]'}`}
+                  >
+                    <span className="text-sm shrink-0">{cat.icon}</span>
+                    <span className="truncate text-[11px]">{cat.label}</span>
+                  </button>
+                );
+              })}
             </div>
 
-            {/* Category Filter Pills */}
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 custom-scrollbar shrink-0">
-              {['All', 'Islamic & Holy', 'Nature & Skies', 'Rain & Water', 'Cosmic & Stars', 'VFX & Noor', 'Green Screen'].map((cat) => (
-                <button
-                  key={cat}
-                  onClick={() => setVideoCategory(cat)}
-                  className={`px-2.5 py-1 rounded-full text-[10px] font-medium whitespace-nowrap transition ${videoCategory === cat ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/50 shadow-xs' : 'bg-[#202028] text-gray-400 hover:text-white border border-transparent'}`}
-                >
-                  {cat}
-                </button>
-              ))}
-            </div>
+            {/* Right Video Content: Search & Grid */}
+            <div className="flex-1 flex flex-col h-full overflow-hidden p-3 space-y-3">
+              {/* Search Bar */}
+              <div className="relative shrink-0">
+                <input
+                  type="text"
+                  value={videoSearchQuery}
+                  onChange={(e) => setVideoSearchQuery(e.target.value)}
+                  placeholder="Search Stock (Makkah, Rain, Dawn, Stars...)"
+                  className="w-full bg-[#181820] border border-gray-800 rounded-lg pl-3 pr-8 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-cyan-500/60"
+                />
+                {videoSearchQuery && (
+                  <button
+                    onClick={() => setVideoSearchQuery('')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white text-xs"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
 
-            {/* Video Cards Grid */}
-            <div className="grid grid-cols-2 gap-2.5 flex-1 overflow-y-auto pr-1 custom-scrollbar content-start">
-              {STOCK_VIDEOS.filter((v) => {
-                const matchesCategory = videoCategory === 'All' || v.category === videoCategory;
-                const matchesSearch = !videoSearchQuery.trim() ||
-                  v.name.toLowerCase().includes(videoSearchQuery.toLowerCase()) ||
-                  v.category.toLowerCase().includes(videoSearchQuery.toLowerCase());
-                return matchesCategory && matchesSearch;
-              }).map((video) => (
-                <div
-                  key={video.id}
-                  id={`stock-video-${video.id}`}
-                  onClick={() => addPresetVideo(video)}
-                  className="group bg-[#1a1a22] hover:bg-[#22222d] border border-gray-800/80 hover:border-cyan-500/60 rounded-xl p-2 flex flex-col cursor-pointer transition-all duration-200 relative shadow-sm hover:shadow-cyan-950/30"
-                >
-                  <div className="w-full h-18 bg-slate-900 rounded-lg flex items-center justify-center relative overflow-hidden shrink-0 mb-1.5 border border-white/5">
-                    {video.thumbnail.startsWith('http') ? (
-                      <img
-                        src={video.thumbnail}
-                        alt={video.name}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                        referrerPolicy="no-referrer"
-                        loading="lazy"
-                      />
-                    ) : (
-                      <span className="text-2xl">{video.thumbnail}</span>
-                    )}
-                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                      <div className="w-7 h-7 rounded-full bg-cyan-500/90 text-white flex items-center justify-center shadow-lg transform group-hover:scale-110 transition-transform">
-                        <Play className="w-3.5 h-3.5 fill-current ml-0.5" />
+              {/* Video Cards Grid */}
+              <div className="grid grid-cols-2 gap-2.5 flex-1 overflow-y-auto pr-1 custom-scrollbar content-start">
+                {STOCK_VIDEOS.filter((v) => {
+                  const matchesCategory = videoCategory === 'All' || v.category === videoCategory;
+                  const matchesSearch = !videoSearchQuery.trim() ||
+                    v.name.toLowerCase().includes(videoSearchQuery.toLowerCase()) ||
+                    v.category.toLowerCase().includes(videoSearchQuery.toLowerCase());
+                  return matchesCategory && matchesSearch;
+                }).map((video) => (
+                  <div
+                    key={video.id}
+                    id={`stock-video-${video.id}`}
+                    onClick={() => addPresetVideo(video)}
+                    className="group bg-[#1a1a22] hover:bg-[#22222d] border border-gray-800/80 hover:border-cyan-500/60 rounded-xl p-2 flex flex-col cursor-pointer transition-all duration-200 relative shadow-sm hover:shadow-cyan-950/30"
+                  >
+                    <div className="w-full h-20 bg-slate-900 rounded-lg flex items-center justify-center relative overflow-hidden shrink-0 mb-1.5 border border-white/5">
+                      {video.thumbnail.startsWith('http') ? (
+                        <img
+                          src={video.thumbnail}
+                          alt={video.name}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          referrerPolicy="no-referrer"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <span className="text-2xl">{video.thumbnail}</span>
+                      )}
+                      <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="w-7 h-7 rounded-full bg-cyan-500/90 text-white flex items-center justify-center shadow-lg transform group-hover:scale-110 transition-transform">
+                          <Play className="w-3.5 h-3.5 fill-current ml-0.5" />
+                        </div>
                       </div>
-                    </div>
-                    <span className="absolute bottom-1 right-1 text-[8px] bg-black/75 backdrop-blur-xs text-white px-1.5 py-0.5 rounded font-mono font-bold">
-                      {video.duration}s
-                    </span>
-                  </div>
-                  <div className="flex-1 min-w-0 flex flex-col justify-between">
-                    <p className="text-[11px] font-medium text-gray-200 group-hover:text-white line-clamp-2 leading-tight">
-                      {video.name}
-                    </p>
-                    <div className="flex items-center justify-between mt-1.5 pt-1 border-t border-gray-800/40">
-                      <span className="text-[8px] text-cyan-400 font-medium tracking-wide bg-cyan-950/60 px-1.5 py-0.5 rounded-full truncate">
-                        {video.category}
+                      <span className="absolute bottom-1 right-1 text-[8px] bg-black/75 backdrop-blur-xs text-white px-1.5 py-0.5 rounded font-mono font-bold">
+                        {video.duration}s
                       </span>
                     </div>
+                    <div className="flex-1 min-w-0 flex flex-col justify-between">
+                      <p className="text-[11px] font-medium text-gray-200 group-hover:text-white line-clamp-2 leading-tight">
+                        {video.name}
+                      </p>
+                      <div className="flex items-center justify-between mt-1.5 pt-1 border-t border-gray-800/40">
+                        <span className="text-[8px] text-cyan-400 font-medium tracking-wide bg-cyan-950/60 px-1.5 py-0.5 rounded-full truncate">
+                          {video.category}
+                        </span>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           </div>
         )}
 
         {activeTab === 'audio' && (
-          <div className="flex flex-col h-full space-y-3">
+          <div className="flex flex-row h-full overflow-hidden">
             {/* Audio Hidden Preview Player Element */}
             <audio
               ref={previewAudioRef}
@@ -1588,28 +1624,57 @@ export default function MediaPanel({
               onTimeUpdate={(e) => setPreviewAudioCurrentTime(e.currentTarget.currentTime)}
             />
 
-            {/* Audio Subtabs: Music / Sound FX / Record */}
-            <div className="flex items-center gap-1.5 p-1 bg-[#18181e] rounded-lg border border-gray-800">
-              <button
-                onClick={() => setAudioSubTab('music')}
-                className={`flex-1 py-1 text-[11px] font-semibold rounded-md transition ${audioSubTab === 'music' ? 'bg-[#272732] text-cyan-400 shadow-sm' : 'text-gray-400 hover:text-white'}`}
-              >
-                Music
-              </button>
-              <button
-                onClick={() => setAudioSubTab('sfx')}
-                className={`flex-1 py-1 text-[11px] font-semibold rounded-md transition ${audioSubTab === 'sfx' ? 'bg-[#272732] text-cyan-400 shadow-sm' : 'text-gray-400 hover:text-white'}`}
-              >
-                Sound fx
-              </button>
-              <button
-                onClick={() => setAudioSubTab('record')}
-                className={`flex-1 py-1 text-[11px] font-semibold rounded-md transition flex items-center justify-center gap-1 ${audioSubTab === 'record' ? 'bg-[#272732] text-cyan-400 shadow-sm' : 'text-gray-400 hover:text-white'}`}
-              >
-                <Mic className="w-3 h-3" />
-                <span>Record</span>
-              </button>
+            {/* CapCut Left Sidebar for Audio Categories */}
+            <div className="w-36 border-r border-[#23232b] bg-[#111116] p-2 flex flex-col gap-1 overflow-y-auto custom-scrollbar shrink-0">
+              <span className="text-[9px] font-bold uppercase text-gray-500 tracking-wider px-2 py-1">Source</span>
+              {[
+                { id: 'music', label: 'Music', icon: '🎵' },
+                { id: 'sfx', label: 'Sound FX', icon: '🔔' },
+                { id: 'record', label: 'Record Voice', icon: '🎙️' },
+              ].map((sub) => (
+                <button
+                  key={sub.id}
+                  onClick={() => setAudioSubTab(sub.id as any)}
+                  className={`flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs transition text-left ${audioSubTab === sub.id ? 'bg-cyan-500/20 text-cyan-300 font-bold border border-cyan-500/40 shadow-xs' : 'text-gray-400 hover:text-white hover:bg-[#1a1a22]'}`}
+                >
+                  <span className="text-sm shrink-0">{sub.icon}</span>
+                  <span className="truncate text-[11px]">{sub.label}</span>
+                </button>
+              ))}
+
+              {audioSubTab !== 'record' && (
+                <>
+                  <div className="w-full h-px bg-gray-800 my-1.5" />
+                  <span className="text-[9px] font-bold uppercase text-gray-500 tracking-wider px-2 py-0.5">Genres</span>
+                  {[
+                    { id: 'All', label: 'All Audio', icon: '🎧' },
+                    { id: 'Spiritual', label: 'Spiritual', icon: '🕊️' },
+                    { id: 'Trending', label: 'Trending', icon: '🔥' },
+                    { id: 'Summer', label: 'Summer', icon: '☀️' },
+                    { id: 'Vlog', label: 'Vlog', icon: '📹' },
+                    { id: 'Travel', label: 'Travel', icon: '✈️' },
+                    { id: 'Beat', label: 'Beat', icon: '🥁' },
+                    { id: 'Lo-fi', label: 'Lo-fi', icon: '☕' },
+                    { id: 'Pop', label: 'Pop', icon: '🎸' },
+                  ].map((cat) => {
+                    const isSelected = audioCategory === cat.id;
+                    return (
+                      <button
+                        key={cat.id}
+                        onClick={() => setAudioCategory(cat.id)}
+                        className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs transition text-left ${isSelected ? (cat.id === 'Spiritual' ? 'bg-amber-500/20 text-amber-300 font-bold border border-amber-500/40' : 'bg-cyan-500/20 text-cyan-300 font-bold border border-cyan-500/40') : 'text-gray-400 hover:text-white hover:bg-[#1a1a22]'}`}
+                      >
+                        <span className="text-xs shrink-0">{cat.icon}</span>
+                        <span className="truncate text-[11px]">{cat.label}</span>
+                      </button>
+                    );
+                  })}
+                </>
+              )}
             </div>
+
+            {/* Right Audio Content */}
+            <div className="flex-1 flex flex-col h-full overflow-hidden p-3 space-y-3">
 
             {audioSubTab === 'record' ? (
               <div className="space-y-4 p-3 bg-[#1c1c24] rounded-lg border border-gray-800 text-center">
@@ -1640,19 +1705,6 @@ export default function MediaPanel({
               </div>
             ) : (
               <>
-                {/* Category Filter Pills (Trending, Summer, Vlog, Travel, Lo-fi) */}
-                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 custom-scrollbar">
-                  {['All', 'Trending', 'Summer', 'Vlog', 'Travel', 'Beat', 'Lo-fi', 'Pop'].map((cat) => (
-                    <button
-                      key={cat}
-                      onClick={() => setAudioCategory(cat)}
-                      className={`px-2.5 py-0.5 rounded-full text-[10px] font-medium uppercase whitespace-nowrap transition ${audioCategory === cat ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/40' : 'bg-[#202028] text-gray-400 hover:text-white border border-transparent'}`}
-                    >
-                      {cat}
-                    </button>
-                  ))}
-                </div>
-
                 {/* Track List */}
                 <div className="space-y-2 flex-1 overflow-y-auto pr-1 custom-scrollbar">
                   {CAPCUT_AUDIO_TRACKS.filter(t => audioCategory === 'All' || t.category === audioCategory).map((track) => {
@@ -1696,19 +1748,18 @@ export default function MediaPanel({
                   })}
                 </div>
 
-                {/* CapCut Sticky Audio Bottom Preview Bar (from video at 1:25 - 1:36) */}
+                {/* CapCut Sticky Audio Bottom Preview Bar */}
                 {previewAudioTrack && (
                   <div className="mt-auto p-2 bg-[#181820] border border-gray-800 rounded-lg shadow-lg flex items-center gap-2">
                     <button
                       onClick={() => togglePlayAudioPreview(previewAudioTrack)}
                       className="w-7 h-7 rounded-full bg-cyan-500 text-black flex items-center justify-center shrink-0"
                     >
-                      {isPlayingAudioPreview ? <Pause className="w-3 h-3 fill-current" /> : <Play className="w-3 h-3 fill-current ml-0.5" />}
+                      {isPlayingAudioPreview ? <Pause className="w-3.5 h-3.5 fill-current" /> : <Play className="w-3.5 h-3.5 fill-current ml-0.5" />}
                     </button>
                     <div className="flex-1 min-w-0">
                       <p className="text-[11px] font-semibold text-white truncate">{previewAudioTrack.name}</p>
                       <div className="flex items-center gap-2">
-                        {/* Simulated Audio Waveform Bar */}
                         <div className="flex-1 h-1.5 bg-gray-800 rounded-full overflow-hidden flex items-center">
                           <div
                             className="h-full bg-cyan-400 rounded-full transition-all"
@@ -1725,32 +1776,144 @@ export default function MediaPanel({
                       className="p-1.5 rounded bg-cyan-500 hover:bg-cyan-400 text-black font-semibold text-[10px] flex items-center gap-1 shadow"
                       title="Add to Timeline"
                     >
-                      <Plus className="w-3 h-3" />
+                      <Plus className="w-3.5 h-3.5" />
                       <span>Add</span>
                     </button>
                   </div>
                 )}
               </>
             )}
+            </div>
           </div>
         )}
 
         {activeTab === 'text' && (
-          <div className="flex flex-col h-full space-y-3">
-            {/* Category Pills */}
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 custom-scrollbar shrink-0">
-              {['Templates', 'WordArt', 'Basic'].map((cat) => (
-                <button
-                  key={cat}
-                  onClick={() => setTextCategory(cat)}
-                  className={`px-2.5 py-0.5 rounded-full text-[10px] font-medium uppercase whitespace-nowrap transition ${textCategory === cat ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/40' : 'bg-[#202028] text-gray-400 hover:text-white border border-transparent'}`}
-                >
-                  {cat}
-                </button>
-              ))}
+          <div className="flex flex-row h-full overflow-hidden">
+            {/* CapCut Left Sidebar for Text Categories */}
+            <div className="w-36 border-r border-[#23232b] bg-[#111116] p-2 flex flex-col gap-1 overflow-y-auto custom-scrollbar shrink-0">
+              <span className="text-[9px] font-bold uppercase text-gray-500 tracking-wider px-2 py-1">Categories</span>
+              {[
+                { id: 'Templates', label: 'Templates', icon: '📝' },
+                { id: 'Viral Reels', label: 'Viral Reels', icon: '🔥' },
+                { id: 'Quranic Ayah', label: 'Quranic Ayah', icon: '🕋' },
+                { id: 'WordArt', label: 'WordArt', icon: '✨' },
+                { id: 'Basic', label: 'Basic Text', icon: '➕' },
+              ].map((cat) => {
+                const isSelected = textCategory === cat.id;
+                return (
+                  <button
+                    key={cat.id}
+                    onClick={() => setTextCategory(cat.id)}
+                    className={`flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs transition text-left ${isSelected ? (cat.id === 'Quranic Ayah' ? 'bg-amber-500/20 text-amber-300 font-bold border border-amber-500/40' : cat.id === 'Viral Reels' ? 'bg-yellow-500/20 text-yellow-300 font-bold border border-yellow-500/40' : 'bg-cyan-500/20 text-cyan-300 font-bold border border-cyan-500/40') : 'text-gray-400 hover:text-white hover:bg-[#1a1a22]'}`}
+                  >
+                    <span className="text-sm shrink-0">{cat.icon}</span>
+                    <span className="truncate text-[11px]">{cat.label}</span>
+                  </button>
+                );
+              })}
             </div>
 
-            <div className="flex-1 overflow-y-auto pr-1 custom-scrollbar space-y-4 content-start">
+            {/* Right Text Content */}
+            <div className="flex-1 flex flex-col h-full overflow-hidden p-3 space-y-3">
+              <div className="flex-1 overflow-y-auto pr-1 custom-scrollbar space-y-4 content-start">
+              {textCategory === 'Viral Reels' && (
+                <div className="space-y-2">
+                  <p className="text-[10px] text-gray-400">High-retention captions styled for TikTok, Instagram Reels & YouTube Shorts:</p>
+                  <div className="grid grid-cols-1 gap-2">
+                    {[
+                      { name: 'Yellow Pop on Black Box', text: 'VIRAL REELS CAPTION', color: '#facc15', bg: '#000000', font: 'Montserrat', glow: 0, gradient: false },
+                      { name: 'Pure White Clean Bold', text: 'MODERN MINIMAL REEL', color: '#ffffff', bg: 'transparent', font: 'Inter', glow: 0, shadow: true },
+                      { name: 'Neon Lime Highlight', text: 'HIGH RETENTION HOOK', color: '#a3e635', bg: '#09090b', font: 'Space Grotesk', glow: 15, gradient: false },
+                      { name: 'Cyber Cyan Glow', text: 'DYNAMIC CAPTION TEXT', color: '#22d3ee', bg: 'transparent', font: 'Montserrat', glow: 22, gradient: false },
+                    ].map((vr, idx) => (
+                      <div
+                        key={idx}
+                        onClick={() => {
+                          onAddClip({
+                            name: vr.name,
+                            type: ClipType.TEXT,
+                            text: vr.text,
+                            fontSize: 44,
+                            color: vr.color,
+                            fontFamily: vr.font,
+                            textX: 50,
+                            textY: 75,
+                            duration: 4,
+                            sourceStart: 0,
+                            sourceDuration: 4,
+                            textLetterSpacing: 1,
+                            textGlowIntensity: vr.glow,
+                            text3DShadow: vr.shadow ? { enabled: true, blur: 14, offsetX: 4, offsetY: 4, color: 'rgba(0,0,0,0.95)' } : undefined,
+                            playbackRate: 1.0,
+                            volume: 1.0,
+                          });
+                          showAddedToast(vr.name);
+                        }}
+                        className="p-2.5 bg-[#1a1a24] hover:bg-[#232332] border border-gray-800 hover:border-yellow-500/50 rounded-xl cursor-pointer flex items-center justify-between transition group"
+                      >
+                        <div>
+                          <p className="text-[10px] text-gray-400">{vr.name}</p>
+                          <p className="text-xs font-bold mt-0.5 tracking-wider" style={{ color: vr.color, fontFamily: vr.font }}>
+                            {vr.text}
+                          </p>
+                        </div>
+                        <button className="p-1.5 rounded-lg bg-[#272733] group-hover:bg-yellow-500 group-hover:text-black transition">
+                          <Plus className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {textCategory === 'Quranic Ayah' && (
+                <div className="space-y-2">
+                  <p className="text-[10px] text-amber-300/80">Imperial Arabic calligraphy & Quranic subtitle layouts:</p>
+                  <div className="grid grid-cols-1 gap-2">
+                    {[
+                      { name: 'Royal Gold Uthmani', text: 'بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ', font: 'Amiri', gradient: 'royal-gold' },
+                      { name: 'Emerald Sanctuary Calligraphy', text: 'إِنَّ مَعَ ٱلْعُسْرِ يُسْرًا', font: 'Amiri', gradient: 'emerald-glow' },
+                      { name: 'Moonlit White Ayah with 3D Shadow', text: 'فَبِأَيِّ آلَاءِ رَبِّكُمَا تُكَذِّبَانِ', font: 'Amiri', shadow: true },
+                      { name: 'Urdu Nastaleeq Translation', text: 'اور بے شک مشکل کے ساتھ آسانی ہے', font: 'Noto Nastaliq Urdu', color: '#fef08a' },
+                    ].map((qa, idx) => (
+                      <div
+                        key={idx}
+                        onClick={() => {
+                          onAddClip({
+                            name: qa.name,
+                            type: ClipType.TEXT,
+                            text: qa.text,
+                            fontSize: 46,
+                            color: qa.color || '#fef08a',
+                            fontFamily: qa.font,
+                            textX: 50,
+                            textY: 50,
+                            duration: 5,
+                            sourceStart: 0,
+                            sourceDuration: 5,
+                            textGradient: qa.gradient ? { enabled: true, style: qa.gradient as any } : undefined,
+                            text3DShadow: { enabled: true, blur: 16, offsetX: 4, offsetY: 4, color: 'rgba(0,0,0,0.95)' },
+                            playbackRate: 1.0,
+                            volume: 1.0,
+                          });
+                          showAddedToast(qa.name);
+                        }}
+                        className="p-3 bg-[#1c1c24] hover:bg-[#252532] border border-amber-900/30 hover:border-amber-400/60 rounded-xl cursor-pointer flex items-center justify-between transition group"
+                      >
+                        <div className="flex-1 pr-2">
+                          <p className="text-[10px] text-amber-400 font-semibold">{qa.name}</p>
+                          <p className="text-sm font-bold mt-1 text-amber-100 line-clamp-1" dir="rtl" style={{ fontFamily: qa.font }}>
+                            {qa.text}
+                          </p>
+                        </div>
+                        <button className="p-1.5 rounded-lg bg-[#272733] group-hover:bg-amber-400 group-hover:text-black transition">
+                          <Plus className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
               {textCategory === 'Basic' && (
                 <div className="bg-gradient-to-br from-[#1e2028] to-[#161820] border border-cyan-500/20 rounded-xl p-3.5 relative overflow-hidden shadow">
                   <div className="flex items-center justify-between">
@@ -1848,212 +2011,283 @@ export default function MediaPanel({
                 </div>
               )}
             </div>
+            </div>
           </div>
         )}
 
         {activeTab === 'stickers' && (
-          <div className="space-y-3">
-            {/* Category Pills */}
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 custom-scrollbar">
-              {(['trending', 'emoji', 'emphasis', 'arrows', 'celebration'] as const).map((cat) => (
-                <button
-                  key={cat}
-                  onClick={() => setStickerCategory(cat)}
-                  className={`px-2.5 py-0.5 rounded-full text-[10px] font-medium uppercase whitespace-nowrap transition ${stickerCategory === cat ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/40' : 'bg-[#202028] text-gray-400 hover:text-white'}`}
-                >
-                  {cat}
-                </button>
-              ))}
+          <div className="flex flex-row h-full overflow-hidden">
+            {/* CapCut Left Sidebar for Sticker Categories */}
+            <div className="w-36 border-r border-[#23232b] bg-[#111116] p-2 flex flex-col gap-1 overflow-y-auto custom-scrollbar shrink-0">
+              <span className="text-[9px] font-bold uppercase text-gray-500 tracking-wider px-2 py-1">Categories</span>
+              {[
+                { id: 'islamic', label: 'Islamic', icon: '🕋' },
+                { id: 'social', label: 'Social & Bell', icon: '🔔' },
+                { id: 'trending', label: 'Trending', icon: '🔥' },
+                { id: 'emoji', label: 'Emoji', icon: '😀' },
+                { id: 'emphasis', label: 'Emphasis', icon: '⚡' },
+                { id: 'arrows', label: 'Arrows', icon: '↗️' },
+                { id: 'celebration', label: 'Celebration', icon: '🎉' },
+              ].map((cat) => {
+                const isSelected = stickerCategory === cat.id;
+                return (
+                  <button
+                    key={cat.id}
+                    onClick={() => setStickerCategory(cat.id as any)}
+                    className={`flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs transition text-left ${isSelected ? (cat.id === 'islamic' ? 'bg-amber-500/20 text-amber-300 font-bold border border-amber-500/40' : 'bg-cyan-500/20 text-cyan-300 font-bold border border-cyan-500/40') : 'text-gray-400 hover:text-white hover:bg-[#1a1a22]'}`}
+                  >
+                    <span className="text-sm shrink-0">{cat.icon}</span>
+                    <span className="truncate text-[11px]">{cat.label}</span>
+                  </button>
+                );
+              })}
             </div>
 
-            {/* Sticker Grid */}
-            <div className="grid grid-cols-3 gap-2">
-              {CAPCUT_STICKERS.filter(s => s.category === stickerCategory).map((st) => (
-                <div
-                  key={st.id}
-                  id={`sticker-${st.id}`}
-                  onClick={() => addSticker(st)}
-                  className="group bg-[#1e1e26] hover:bg-[#252532] border border-gray-800 hover:border-cyan-500/50 rounded-xl p-3 flex flex-col items-center justify-center cursor-pointer transition relative"
-                >
-                  <span className="text-3xl filter drop-shadow-md group-hover:scale-110 transition-transform">{st.emoji}</span>
-                  <span className="text-[9px] text-gray-400 mt-1.5 text-center truncate max-w-full">{st.name}</span>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      addSticker(st);
-                    }}
-                    className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 p-1 rounded-full bg-cyan-500 text-black transition"
-                    title="Add to Timeline"
+            {/* Right Sticker Content Grid */}
+            <div className="flex-1 overflow-y-auto p-3 custom-scrollbar">
+              <div className="grid grid-cols-3 gap-2.5">
+                {CAPCUT_STICKERS.filter(s => s.category === stickerCategory).map((st) => (
+                  <div
+                    key={st.id}
+                    id={`sticker-${st.id}`}
+                    onClick={() => addSticker(st)}
+                    className="group bg-[#1e1e26] hover:bg-[#252532] border border-gray-800 hover:border-cyan-500/50 rounded-xl p-3 flex flex-col items-center justify-center cursor-pointer transition relative"
                   >
-                    <Plus className="w-2.5 h-2.5" />
-                  </button>
-                </div>
-              ))}
+                    <span className="text-3xl filter drop-shadow-md group-hover:scale-110 transition-transform">{st.emoji}</span>
+                    <span className="text-[9px] text-gray-400 mt-1.5 text-center truncate max-w-full">{st.name}</span>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        addSticker(st);
+                      }}
+                      className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 p-1 rounded-full bg-cyan-500 text-black transition"
+                      title="Add to Timeline"
+                    >
+                      <Plus className="w-2.5 h-2.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         )}
 
         {activeTab === 'effects' && (
-          <div className="space-y-3">
-            {/* Category Pills */}
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 custom-scrollbar">
-              {(['trending', 'opening', 'lens', 'retro', 'party', 'glitch'] as const).map((cat) => (
-                <button
-                  key={cat}
-                  onClick={() => setEffectCategory(cat)}
-                  className={`px-2.5 py-0.5 rounded-full text-[10px] font-medium uppercase whitespace-nowrap transition ${effectCategory === cat ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/40' : 'bg-[#202028] text-gray-400 hover:text-white'}`}
-                >
-                  {cat}
-                </button>
-              ))}
+          <div className="flex flex-row h-full overflow-hidden">
+            {/* CapCut Left Sidebar for Effects Categories */}
+            <div className="w-36 border-r border-[#23232b] bg-[#111116] p-2 flex flex-col gap-1 overflow-y-auto custom-scrollbar shrink-0">
+              <span className="text-[9px] font-bold uppercase text-gray-500 tracking-wider px-2 py-1">Categories</span>
+              {[
+                { id: 'spiritual', label: 'Spiritual Noor', icon: '✨' },
+                { id: 'particles', label: 'Particles', icon: '⭐' },
+                { id: 'trending', label: 'Trending', icon: '🔥' },
+                { id: 'opening', label: 'Opening', icon: '🎬' },
+                { id: 'lens', label: 'Lens Flare', icon: '🔍' },
+                { id: 'retro', label: 'Retro Film', icon: '🎞️' },
+                { id: 'party', label: 'Party Glow', icon: '🪩' },
+                { id: 'glitch', label: 'Glitch VFX', icon: '⚡' },
+              ].map((cat) => {
+                const isSelected = effectCategory === cat.id;
+                return (
+                  <button
+                    key={cat.id}
+                    onClick={() => setEffectCategory(cat.id as any)}
+                    className={`flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs transition text-left ${isSelected ? (cat.id === 'spiritual' ? 'bg-amber-500/20 text-amber-300 font-bold border border-amber-500/40' : 'bg-cyan-500/20 text-cyan-300 font-bold border border-cyan-500/40') : 'text-gray-400 hover:text-white hover:bg-[#1a1a22]'}`}
+                  >
+                    <span className="text-sm shrink-0">{cat.icon}</span>
+                    <span className="truncate text-[11px]">{cat.label}</span>
+                  </button>
+                );
+              })}
             </div>
 
-            {/* Effects Grid */}
-            <div className="grid grid-cols-2 gap-2">
-              {CAPCUT_EFFECTS.filter(e => e.category === effectCategory).map((eff) => (
-                <div
-                  key={eff.id}
-                  id={`effect-${eff.id}`}
-                  onClick={() => addCapCutEffect(eff)}
-                  className="group bg-[#1e1e26] hover:bg-[#252532] border border-gray-800 hover:border-cyan-500/50 rounded-xl p-2.5 flex flex-col justify-between cursor-pointer transition relative h-24"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-2xl">{eff.icon}</span>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        addCapCutEffect(eff);
-                      }}
-                      className="p-1 rounded bg-[#2c2c38] hover:bg-cyan-500 hover:text-black text-gray-300 transition"
-                      title="Add Effect to Timeline"
-                    >
-                      <Plus className="w-3 h-3" />
-                    </button>
+            {/* Right Effects Grid */}
+            <div className="flex-1 overflow-y-auto p-3 custom-scrollbar">
+              <div className="grid grid-cols-2 gap-2.5">
+                {CAPCUT_EFFECTS.filter(e => e.category === effectCategory).map((eff) => (
+                  <div
+                    key={eff.id}
+                    id={`effect-${eff.id}`}
+                    onClick={() => addCapCutEffect(eff)}
+                    className="group bg-[#1e1e26] hover:bg-[#252532] border border-gray-800 hover:border-cyan-500/50 rounded-xl p-3 flex flex-col justify-between cursor-pointer transition relative h-26"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-2xl">{eff.icon}</span>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          addCapCutEffect(eff);
+                        }}
+                        className="p-1 rounded bg-[#2c2c38] hover:bg-cyan-500 hover:text-black text-gray-300 transition"
+                        title="Add Effect to Timeline"
+                      >
+                        <Plus className="w-3 h-3" />
+                      </button>
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-white truncate">{eff.name}</p>
+                      <p className="text-[9px] text-gray-400 mt-0.5 line-clamp-1">{eff.description}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-xs font-bold text-white truncate">{eff.name}</p>
-                    <p className="text-[9px] text-gray-400 mt-0.5 line-clamp-1">{eff.description}</p>
-                  </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           </div>
         )}
 
         {activeTab === 'transitions' && (
-          <div className="space-y-3">
-            {/* Category Pills */}
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 custom-scrollbar">
-              {(['trending', 'basic', 'overlay', 'light', 'camera', '3d'] as const).map((cat) => (
-                <button
-                  key={cat}
-                  onClick={() => setTransitionCategory(cat)}
-                  className={`px-2.5 py-0.5 rounded-full text-[10px] font-medium uppercase whitespace-nowrap transition ${transitionCategory === cat ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/40' : 'bg-[#202028] text-gray-400 hover:text-white'}`}
-                >
-                  {cat}
-                </button>
-              ))}
+          <div className="flex flex-row h-full overflow-hidden">
+            {/* CapCut Left Sidebar for Transition Categories */}
+            <div className="w-36 border-r border-[#23232b] bg-[#111116] p-2 flex flex-col gap-1 overflow-y-auto custom-scrollbar shrink-0">
+              <span className="text-[9px] font-bold uppercase text-gray-500 tracking-wider px-2 py-1">Categories</span>
+              {[
+                { id: 'spiritual', label: 'Spiritual', icon: '🕊️' },
+                { id: 'trending', label: 'Trending', icon: '🔥' },
+                { id: 'basic', label: 'Basic', icon: '⚡' },
+                { id: 'overlay', label: 'Overlay', icon: '🎞️' },
+                { id: 'light', label: 'Light FX', icon: '💡' },
+                { id: 'camera', label: 'Camera', icon: '📷' },
+                { id: '3d', label: '3D Warp', icon: '🧊' },
+              ].map((cat) => {
+                const isSelected = transitionCategory === cat.id;
+                return (
+                  <button
+                    key={cat.id}
+                    onClick={() => setTransitionCategory(cat.id as any)}
+                    className={`flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs transition text-left ${isSelected ? (cat.id === 'spiritual' ? 'bg-amber-500/20 text-amber-300 font-bold border border-amber-500/40' : 'bg-cyan-500/20 text-cyan-300 font-bold border border-cyan-500/40') : 'text-gray-400 hover:text-white hover:bg-[#1a1a22]'}`}
+                  >
+                    <span className="text-sm shrink-0">{cat.icon}</span>
+                    <span className="truncate text-[11px]">{cat.label}</span>
+                  </button>
+                );
+              })}
             </div>
 
-            {/* Transitions Grid */}
-            <div className="grid grid-cols-2 gap-2">
-              {CAPCUT_TRANSITIONS.filter(t => t.category === transitionCategory).map((trans) => (
-                <div
-                  key={trans.id}
-                  id={`transition-${trans.id}`}
-                  onClick={() => {
-                    onAddClip({
-                      name: `Transition: ${trans.name}`,
-                      type: ClipType.VIDEO,
-                      url: '',
-                      duration: 1.5,
-                      sourceStart: 0,
-                      sourceDuration: 1.5,
-                      blendMode: 'screen',
-                      playbackRate: 1.0,
-                      volume: 0,
-                    });
-                  }}
-                  className="group bg-[#1e1e26] hover:bg-[#252532] border border-gray-800 hover:border-cyan-500/50 rounded-xl p-3 flex flex-col items-center justify-center cursor-pointer transition text-center relative"
-                >
-                  <span className="text-2xl mb-1 group-hover:scale-110 transition-transform">{trans.icon}</span>
-                  <p className="text-xs font-bold text-white truncate max-w-full">{trans.name}</p>
-                  <button
-                    className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 p-1 rounded bg-cyan-500 text-black transition"
-                    title="Add Transition"
+            {/* Right Transitions Grid */}
+            <div className="flex-1 overflow-y-auto p-3 custom-scrollbar">
+              <div className="grid grid-cols-2 gap-2.5">
+                {CAPCUT_TRANSITIONS.filter(t => t.category === transitionCategory).map((trans) => (
+                  <div
+                    key={trans.id}
+                    id={`transition-${trans.id}`}
+                    onClick={() => {
+                      onAddClip({
+                        name: `Transition: ${trans.name}`,
+                        type: ClipType.VIDEO,
+                        url: '',
+                        duration: 1.5,
+                        sourceStart: 0,
+                        sourceDuration: 1.5,
+                        blendMode: 'screen',
+                        playbackRate: 1.0,
+                        volume: 0,
+                      });
+                    }}
+                    className="group bg-[#1e1e26] hover:bg-[#252532] border border-gray-800 hover:border-cyan-500/50 rounded-xl p-3 flex flex-col items-center justify-center cursor-pointer transition text-center relative"
                   >
-                    <Plus className="w-2.5 h-2.5" />
-                  </button>
-                </div>
-              ))}
+                    <span className="text-2xl mb-1 group-hover:scale-110 transition-transform">{trans.icon}</span>
+                    <p className="text-xs font-bold text-white truncate max-w-full">{trans.name}</p>
+                    <button
+                      className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 p-1 rounded bg-cyan-500 text-black transition"
+                      title="Add Transition"
+                    >
+                      <Plus className="w-2.5 h-2.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         )}
 
         {activeTab === 'filters' && (
-          <div className="space-y-3">
-            {/* Category Pills */}
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 custom-scrollbar">
-              {(['featured', 'life', 'scenery', 'movie', 'retro', 'night'] as const).map((cat) => (
-                <button
-                  key={cat}
-                  onClick={() => setFilterCategory(cat)}
-                  className={`px-2.5 py-0.5 rounded-full text-[10px] font-medium uppercase whitespace-nowrap transition ${filterCategory === cat ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/40' : 'bg-[#202028] text-gray-400 hover:text-white'}`}
-                >
-                  {cat}
-                </button>
-              ))}
+          <div className="flex flex-row h-full overflow-hidden">
+            {/* CapCut Left Sidebar for Filters Categories */}
+            <div className="w-36 border-r border-[#23232b] bg-[#111116] p-2 flex flex-col gap-1 overflow-y-auto custom-scrollbar shrink-0">
+              <span className="text-[9px] font-bold uppercase text-gray-500 tracking-wider px-2 py-1">Categories</span>
+              {[
+                { id: 'islamic', label: 'Islamic', icon: '🕌' },
+                { id: 'cinematic', label: 'Cinematic', icon: '🎬' },
+                { id: 'featured', label: 'Featured', icon: '⭐' },
+                { id: 'life', label: 'Life', icon: '🌿' },
+                { id: 'scenery', label: 'Scenery', icon: '🏞️' },
+                { id: 'movie', label: 'Movie', icon: '🎥' },
+                { id: 'retro', label: 'Retro', icon: '📻' },
+                { id: 'night', label: 'Night Scene', icon: '🌙' },
+              ].map((cat) => {
+                const isSelected = filterCategory === cat.id;
+                return (
+                  <button
+                    key={cat.id}
+                    onClick={() => setFilterCategory(cat.id as any)}
+                    className={`flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs transition text-left ${isSelected ? (cat.id === 'islamic' ? 'bg-amber-500/20 text-amber-300 font-bold border border-amber-500/40' : 'bg-cyan-500/20 text-cyan-300 font-bold border border-cyan-500/40') : 'text-gray-400 hover:text-white hover:bg-[#1a1a22]'}`}
+                  >
+                    <span className="text-sm shrink-0">{cat.icon}</span>
+                    <span className="truncate text-[11px]">{cat.label}</span>
+                  </button>
+                );
+              })}
             </div>
 
-            {/* Filters Grid */}
-            <div className="grid grid-cols-2 gap-2">
-              {CAPCUT_FILTERS.filter(f => f.category === filterCategory).map((filt) => (
-                <div
-                  key={filt.id}
-                  id={`filter-${filt.id}`}
-                  onClick={() => addCapCutFilter(filt)}
-                  className="group bg-[#1e1e26] hover:bg-[#252532] border border-gray-800 hover:border-cyan-500/50 rounded-xl p-2.5 flex items-center gap-2.5 cursor-pointer transition"
-                >
+            {/* Right Filters Grid */}
+            <div className="flex-1 overflow-y-auto p-3 custom-scrollbar">
+              <div className="grid grid-cols-2 gap-2.5">
+                {CAPCUT_FILTERS.filter(f => f.category === filterCategory).map((filt) => (
                   <div
-                    className="w-9 h-9 rounded-lg shrink-0 shadow-inner flex items-center justify-center font-bold text-black text-xs"
-                    style={{ backgroundColor: filt.previewColor }}
+                    key={filt.id}
+                    id={`filter-${filt.id}`}
+                    onClick={() => addCapCutFilter(filt)}
+                    className="group bg-[#1e1e26] hover:bg-[#252532] border border-gray-800 hover:border-cyan-500/50 rounded-xl p-2.5 flex items-center gap-2.5 cursor-pointer transition"
                   >
-                    ✦
+                    <div
+                      className="w-9 h-9 rounded-lg shrink-0 shadow-inner flex items-center justify-center font-bold text-black text-xs"
+                      style={{ backgroundColor: filt.previewColor }}
+                    >
+                      ✦
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-bold text-white truncate">{filt.name}</p>
+                      <p className="text-[9px] text-gray-400 capitalize">{filt.category}</p>
+                    </div>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        addCapCutFilter(filt);
+                      }}
+                      className="p-1 rounded bg-[#2c2c38] hover:bg-cyan-500 hover:text-black text-gray-300 transition shrink-0"
+                      title="Apply Filter"
+                    >
+                      <Plus className="w-3 h-3" />
+                    </button>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-bold text-white truncate">{filt.name}</p>
-                    <p className="text-[9px] text-gray-400 capitalize">{filt.category}</p>
-                  </div>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      addCapCutFilter(filt);
-                    }}
-                    className="p-1 rounded bg-[#2c2c38] hover:bg-cyan-500 hover:text-black text-gray-300 transition shrink-0"
-                    title="Apply Filter"
-                  >
-                    <Plus className="w-3 h-3" />
-                  </button>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           </div>
         )}
 
         {activeTab === 'adjustment' && (
-          <div className="flex flex-col h-full space-y-3">
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 custom-scrollbar shrink-0">
-              {['Adjustment', 'LUTs', 'Color Grade'].map((cat) => (
+          <div className="flex flex-row h-full overflow-hidden">
+            {/* CapCut Left Sidebar for Adjustment Categories */}
+            <div className="w-36 border-r border-[#23232b] bg-[#111116] p-2 flex flex-col gap-1 overflow-y-auto custom-scrollbar shrink-0">
+              <span className="text-[9px] font-bold uppercase text-gray-500 tracking-wider px-2 py-1">Tools</span>
+              {[
+                { id: 'adjustment', label: 'Color Adjust', icon: '🎨' },
+                { id: 'luts', label: 'LUTs & Profiles', icon: '🌈' },
+                { id: 'auto', label: 'Auto Enhance', icon: '🪄' },
+              ].map((sub, idx) => (
                 <button
-                  key={cat}
-                  className={`px-2.5 py-0.5 rounded-full text-[10px] font-medium uppercase whitespace-nowrap transition ${cat === 'Adjustment' ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/40' : 'bg-[#202028] text-gray-400 hover:text-white border border-transparent'}`}
+                  key={sub.id}
+                  className={`flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs transition text-left ${idx === 0 ? 'bg-cyan-500/20 text-cyan-300 font-bold border border-cyan-500/40 shadow-xs' : 'text-gray-400 hover:text-white hover:bg-[#1a1a22]'}`}
                 >
-                  {cat}
+                  <span className="text-sm shrink-0">{sub.icon}</span>
+                  <span className="truncate text-[11px]">{sub.label}</span>
                 </button>
               ))}
             </div>
 
-            <div className="flex-1 overflow-y-auto pr-1 custom-scrollbar space-y-4 content-start">
+            {/* Right Adjustment Content */}
+            <div className="flex-1 overflow-y-auto p-3 custom-scrollbar space-y-4">
               <div className="bg-gradient-to-br from-[#1e2028] to-[#161820] border border-cyan-500/20 rounded-xl p-3.5 relative overflow-hidden shadow">
                 <div className="flex items-center justify-between">
                   <div>
@@ -2075,50 +2309,117 @@ export default function MediaPanel({
                   <span className="text-sm font-semibold text-gray-200 tracking-wider">+ Add adjustment</span>
                 </div>
               </div>
+
+              {/* 1-Click Pro Color Profiles */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-bold text-gray-300">PRESET COLOR GRADES</h4>
+                  <span className="text-[10px] text-cyan-400">1-Click Layer</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { name: 'Warm Haramain', color: '#d97706', b: 102, c: 115, s: 120, sepia: 25 },
+                    { name: 'Deep Moody Blue', color: '#2563eb', b: 96, c: 125, s: 85, sepia: 0 },
+                    { name: 'Cinematic Emerald', color: '#059669', b: 104, c: 118, s: 110, sepia: 10 },
+                    { name: 'Vibrant Reel Pop', color: '#ec4899', b: 108, c: 112, s: 135, sepia: 0 },
+                  ].map((preset, pIdx) => (
+                    <div
+                      key={pIdx}
+                      onClick={() => {
+                        onAddClip({
+                          name: `Grade: ${preset.name}`,
+                          type: ClipType.VIDEO,
+                          url: '',
+                          duration: 6,
+                          sourceStart: 0,
+                          sourceDuration: 6,
+                          blendMode: 'soft-light',
+                          filters: {
+                            brightness: preset.b,
+                            contrast: preset.c,
+                            saturation: preset.s,
+                            sepia: preset.sepia,
+                            grayscale: 0,
+                            invert: 0,
+                            hueRotate: 0,
+                            chromaKey: { enabled: false, color: '#00ff00', threshold: 30, smoothness: 10 }
+                          },
+                          playbackRate: 1.0,
+                          volume: 0,
+                        });
+                        showAddedToast(preset.name);
+                      }}
+                      className="p-2.5 bg-[#1e1e26] hover:bg-[#252532] border border-gray-800 hover:border-cyan-500/50 rounded-xl cursor-pointer flex items-center justify-between transition group"
+                    >
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: preset.color }} />
+                        <span className="text-xs font-semibold text-gray-200">{preset.name}</span>
+                      </div>
+                      <Plus className="w-3 h-3 text-gray-400 group-hover:text-cyan-400" />
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
         )}
 
         {activeTab === 'image' && (
-          <div className="flex flex-col h-full space-y-3">
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 custom-scrollbar shrink-0">
-              {['All', 'Islamic', 'Nature', 'Background', 'Space', 'Abstract'].map((cat) => (
-                <button
-                  key={cat}
-                  onClick={() => setImageCategory(cat)}
-                  className={`px-2.5 py-0.5 rounded-full text-[10px] font-medium uppercase whitespace-nowrap transition ${imageCategory === cat ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/40' : 'bg-[#202028] text-gray-400 hover:text-white border border-transparent'}`}
-                >
-                  {cat}
-                </button>
-              ))}
+          <div className="flex flex-row h-full overflow-hidden">
+            {/* CapCut Left Sidebar for Image Categories */}
+            <div className="w-36 border-r border-[#23232b] bg-[#111116] p-2 flex flex-col gap-1 overflow-y-auto custom-scrollbar shrink-0">
+              <span className="text-[9px] font-bold uppercase text-gray-500 tracking-wider px-2 py-1">Categories</span>
+              {[
+                { id: 'All', label: 'All Photos', icon: '🖼️' },
+                { id: 'Islamic', label: 'Islamic', icon: '🕌' },
+                { id: 'Nature', label: 'Nature', icon: '🌿' },
+                { id: 'Background', label: 'Background', icon: '🌄' },
+                { id: 'Space', label: 'Space & Cosmos', icon: '🌌' },
+                { id: 'Abstract', label: 'Abstract & 3D', icon: '🎨' },
+              ].map((cat) => {
+                const isSelected = imageCategory === cat.id;
+                return (
+                  <button
+                    key={cat.id}
+                    onClick={() => setImageCategory(cat.id)}
+                    className={`flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs transition text-left ${isSelected ? (cat.id === 'Islamic' ? 'bg-amber-500/20 text-amber-300 font-bold border border-amber-500/40' : 'bg-cyan-500/20 text-cyan-300 font-bold border border-cyan-500/40') : 'text-gray-400 hover:text-white hover:bg-[#1a1a22]'}`}
+                  >
+                    <span className="text-sm shrink-0">{cat.icon}</span>
+                    <span className="truncate text-[11px]">{cat.label}</span>
+                  </button>
+                );
+              })}
             </div>
 
-            <div className="grid grid-cols-2 gap-2 flex-1 overflow-y-auto pr-1 custom-scrollbar content-start">
-              {STOCK_IMAGES.filter(img => imageCategory === 'All' || img.category === imageCategory).map((img) => (
-                <div
-                  key={img.id}
-                  id={`stock-img-${img.id}`}
-                  onClick={() => addPresetImage(img)}
-                  className="group bg-[#1e1e26] hover:bg-[#252532] border border-gray-800 hover:border-cyan-500/50 rounded-xl p-2 flex flex-col cursor-pointer transition relative shadow-sm h-28"
-                >
-                  <div className="w-full h-14 bg-slate-800 rounded-lg flex items-center justify-center text-2xl relative overflow-hidden shrink-0 mb-1.5 border border-white/5">
-                    {img.url ? (
-                      <img src={img.url} alt={img.name} className="w-full h-full object-cover rounded-lg" />
-                    ) : (
-                      img.thumbnail
-                    )}
-                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
-                      <Plus className="w-4 h-4 text-white animate-pulse" />
+            {/* Right Images Grid */}
+            <div className="flex-1 overflow-y-auto p-3 custom-scrollbar">
+              <div className="grid grid-cols-2 gap-2.5">
+                {STOCK_IMAGES.filter(img => imageCategory === 'All' || img.category === imageCategory).map((img) => (
+                  <div
+                    key={img.id}
+                    id={`stock-img-${img.id}`}
+                    onClick={() => addPresetImage(img)}
+                    className="group bg-[#1e1e26] hover:bg-[#252532] border border-gray-800 hover:border-cyan-500/50 rounded-xl p-2 flex flex-col cursor-pointer transition relative shadow-sm h-28"
+                  >
+                    <div className="w-full h-14 bg-slate-800 rounded-lg flex items-center justify-center text-2xl relative overflow-hidden shrink-0 mb-1.5 border border-white/5">
+                      {img.url ? (
+                        <img src={img.url} alt={img.name} className="w-full h-full object-cover rounded-lg" />
+                      ) : (
+                        img.thumbnail
+                      )}
+                      <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
+                        <Plus className="w-4 h-4 text-white animate-pulse" />
+                      </div>
+                    </div>
+                    <div className="flex-1 min-w-0 flex flex-col justify-between">
+                      <p className="text-[10px] font-semibold text-white line-clamp-1">{img.name}</p>
+                      <div className="flex items-center justify-between mt-1">
+                        <span className="text-[8px] text-cyan-400 uppercase font-mono bg-cyan-950/40 px-1 rounded truncate">{img.category}</span>
+                      </div>
                     </div>
                   </div>
-                  <div className="flex-1 min-w-0 flex flex-col justify-between">
-                    <p className="text-[10px] font-semibold text-white line-clamp-1">{img.name}</p>
-                    <div className="flex items-center justify-between mt-1">
-                      <span className="text-[8px] text-cyan-400 uppercase font-mono bg-cyan-950/40 px-1 rounded truncate">{img.category}</span>
-                    </div>
-                  </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           </div>
         )}
@@ -2126,43 +2427,89 @@ export default function MediaPanel({
         
 
         {activeTab === 'upload' && (
-          <div className="space-y-4">
-            <div
-              id="drop-zone"
-              onDragEnter={handleDrag}
-              onDragOver={handleDrag}
-              onDragLeave={handleDrag}
-              onDrop={handleDrop}
-              onClick={() => fileInputRef.current?.click()}
-              className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition flex flex-col items-center justify-center min-h-[140px] ${dragActive ? 'border-cyan-400 bg-cyan-950/20' : 'border-gray-700 hover:border-gray-500 bg-[#202026]/40'}`}
-            >
-              <Upload className={`w-8 h-8 mb-2.5 transition ${dragActive ? 'text-cyan-400 animate-bounce' : 'text-gray-500'}`} />
-              <p className="text-xs font-medium text-gray-300">Drag & drop files here</p>
-              <p className="text-[10px] text-gray-500 mt-1">Supports MP4, MP3, MOV, PNG, JPG, JFIF, WEBP (Max 50MB)</p>
+          <div className="flex flex-row h-full overflow-hidden">
+            {/* CapCut Left Sidebar for Upload Categories */}
+            <div className="w-36 border-r border-[#23232b] bg-[#111116] p-2 flex flex-col gap-1 overflow-y-auto custom-scrollbar shrink-0">
+              <span className="text-[9px] font-bold uppercase text-gray-500 tracking-wider px-2 py-1">Import</span>
+              
               <button
-                id="browse-btn"
-                className="mt-3 text-[11px] bg-cyan-500 hover:bg-cyan-400 text-black font-semibold py-1 px-3 rounded-full transition"
+                onClick={() => fileInputRef.current?.click()}
+                className="flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs transition text-left bg-cyan-500 hover:bg-cyan-400 text-black font-bold shadow-sm"
               >
-                Browse Files
+                <Upload className="w-3.5 h-3.5 shrink-0" />
+                <span className="truncate text-[11px]">Import File</span>
               </button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                multiple
-                accept="video/*,audio/*,image/*,.jfif,.jpg,.jpeg,.png,.webp,.gif,.bmp,.svg,.avif,.mp4,.webm,.mov,.m4v,.mp3,.wav,.ogg,.m4a"
-                onChange={handleFileInputChange}
-                className="hidden"
-              />
+
+              <div className="w-full h-px bg-gray-800 my-1.5" />
+              <span className="text-[9px] font-bold uppercase text-gray-500 tracking-wider px-2 py-0.5">Media Library</span>
+
+              {[
+                { id: 'all', label: 'All Files', icon: '📁', count: customAssets.length },
+                { id: 'video', label: 'Videos', icon: '🎬', count: customAssets.filter(a => a.type === 'video').length },
+                { id: 'audio', label: 'Audios', icon: '🎵', count: customAssets.filter(a => a.type === 'audio').length },
+                { id: 'image', label: 'Images', icon: '🖼️', count: customAssets.filter(a => a.isImage).length },
+              ].map((sub) => {
+                const isSelected = uploadCategory === sub.id;
+                return (
+                  <button
+                    key={sub.id}
+                    onClick={() => setUploadCategory(sub.id as any)}
+                    className={`flex items-center justify-between px-2.5 py-2 rounded-lg text-xs transition text-left ${isSelected ? 'bg-cyan-500/20 text-cyan-300 font-bold border border-cyan-500/40 shadow-xs' : 'text-gray-400 hover:text-white hover:bg-[#1a1a22]'}`}
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-sm shrink-0">{sub.icon}</span>
+                      <span className="truncate text-[11px]">{sub.label}</span>
+                    </div>
+                    {sub.count > 0 && (
+                      <span className="text-[9px] px-1 py-0.2 rounded bg-black/40 text-gray-400 font-mono">
+                        {sub.count}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
+
+            {/* Right Upload Content */}
+            <div className="flex-1 overflow-y-auto p-3 custom-scrollbar space-y-3">
+              <div
+                id="drop-zone"
+                onDragEnter={handleDrag}
+                onDragOver={handleDrag}
+                onDragLeave={handleDrag}
+                onDrop={handleDrop}
+                onClick={() => fileInputRef.current?.click()}
+                className={`border-2 border-dashed rounded-xl p-5 text-center cursor-pointer transition flex flex-col items-center justify-center min-h-[120px] ${dragActive ? 'border-cyan-400 bg-cyan-950/20' : 'border-gray-700 hover:border-gray-500 bg-[#202026]/40'}`}
+              >
+                <Upload className={`w-7 h-7 mb-2 transition ${dragActive ? 'text-cyan-400 animate-bounce' : 'text-gray-500'}`} />
+                <p className="text-xs font-medium text-gray-300">Drag & drop files here</p>
+                <p className="text-[10px] text-gray-500 mt-0.5">Supports MP4, MP3, MOV, PNG, JPG, JFIF, WEBP (Max 50MB)</p>
+                <button
+                  id="browse-btn"
+                  className="mt-2 text-[10px] bg-cyan-500 hover:bg-cyan-400 text-black font-semibold py-1 px-3 rounded-full transition"
+                >
+                  Browse Files
+                </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  accept="video/*,audio/*,image/*,.jfif,.jpg,.jpeg,.png,.webp,.gif,.bmp,.svg,.avif,.mp4,.webm,.mov,.m4v,.mp3,.wav,.ogg,.m4a"
+                  onChange={handleFileInputChange}
+                  className="hidden"
+                />
+              </div>
 
             {/* Custom Assets List */}
             {customAssets.length > 0 && (
               <div className="space-y-2.5 pt-2">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1.5">
-                    <h4 className="text-[11px] font-bold text-gray-400 tracking-wider">YOUR IMPORTS</h4>
+                    <h4 className="text-[11px] font-bold text-gray-400 tracking-wider uppercase">
+                      {uploadCategory === 'all' ? 'All Imports' : uploadCategory === 'video' ? 'Imported Videos' : uploadCategory === 'audio' ? 'Imported Audios' : 'Imported Images'}
+                    </h4>
                     <span className="text-[10px] bg-cyan-950/80 text-cyan-400 font-mono px-1.5 py-0.2 rounded-full border border-cyan-800/40">
-                      {customAssets.length}
+                      {customAssets.filter(a => uploadCategory === 'all' ? true : uploadCategory === 'video' ? (a.type === 'video' && !a.isImage) : uploadCategory === 'audio' ? a.type === 'audio' : !!a.isImage).length}
                     </span>
                   </div>
                   <div className="flex items-center gap-1 bg-[#14141a] p-0.5 rounded-md border border-white/5">
@@ -2187,7 +2534,9 @@ export default function MediaPanel({
 
                 {importsViewMode === 'list' ? (
                   <div className="space-y-2">
-                    {customAssets.map((asset) => (
+                    {customAssets
+                      .filter(a => uploadCategory === 'all' ? true : uploadCategory === 'video' ? (a.type === 'video' && !a.isImage) : uploadCategory === 'audio' ? a.type === 'audio' : !!a.isImage)
+                      .map((asset) => (
                       <div
                         key={asset.id}
                         onClick={() => {
@@ -2325,7 +2674,9 @@ export default function MediaPanel({
                 ) : (
                   /* Grid View */
                   <div className="grid grid-cols-2 gap-2.5">
-                    {customAssets.map((asset) => (
+                    {customAssets
+                      .filter(a => uploadCategory === 'all' ? true : uploadCategory === 'video' ? (a.type === 'video' && !a.isImage) : uploadCategory === 'audio' ? a.type === 'audio' : !!a.isImage)
+                      .map((asset) => (
                       <div
                         key={asset.id}
                         onClick={() => {
@@ -2444,6 +2795,7 @@ export default function MediaPanel({
                 )}
               </div>
             )}
+            </div>
           </div>
         )}
 
@@ -2534,49 +2886,65 @@ export default function MediaPanel({
                         ? '✨ Single Whole Surah'
                         : quranSelectionType === 'list'
                         ? `🕌 Multi-Surahs (${quranSurahList})`
-                        : quranSelectionType === 'range'
-                        ? `📖 Range (Surah ${quranSurahPreset} to ${quranSurahEnd})`
+                        : quranSelectionType === 'mixed'
+                        ? `📚 Mixed/Collection (${quranSurahList})`
                         : `Ayah #${quranStartAyah}`}
                     </span>
                   </label>
-                  <div className="grid grid-cols-3 gap-1.5 p-1 bg-[#0a0a0d] border border-gray-800 rounded-lg">
+                  <div className="grid grid-cols-4 gap-1 p-1 bg-[#0a0a0d] border border-gray-800 rounded-lg">
                     <button
                       type="button"
                       id="scope-all"
                       onClick={() => setQuranSelectionType('all')}
-                      className={`py-2 px-2 text-xs font-bold rounded-md transition flex items-center justify-center gap-1 cursor-pointer border ${
+                      className={`py-2 px-1 text-[11px] font-bold rounded-md transition flex items-center justify-center gap-0.5 cursor-pointer border ${
                         quranSelectionType === 'all'
                           ? 'bg-black text-white border-white shadow-md font-extrabold'
                           : 'bg-[#15151e] border-gray-800 text-gray-400 hover:text-white hover:bg-gray-800/50'
                       }`}
                     >
-                      <span>Whole Surah</span>
+                      <span>Whole</span>
                     </button>
                     <button
                       type="button"
                       id="scope-list"
                       onClick={() => setQuranSelectionType('list')}
-                      className={`py-2 px-2 text-xs font-bold rounded-md transition flex items-center justify-center gap-1 cursor-pointer border ${
+                      className={`py-2 px-1 text-[11px] font-bold rounded-md transition flex items-center justify-center gap-0.5 cursor-pointer border ${
                         quranSelectionType === 'list'
                           ? 'bg-black text-white border-white shadow-md font-extrabold'
                           : 'bg-[#15151e] border-gray-800 text-gray-400 hover:text-white hover:bg-gray-800/50'
                       }`}
                       title="Multi-Surahs in one audio with automatic opening rules"
                     >
-                      <Sparkles className={`w-3 h-3 inline ${quranSelectionType === 'list' ? 'text-white' : 'text-gray-400'}`} />
-                      <span>Multi-Surah</span>
+                      <span>Multi</span>
+                    </button>
+                    <button
+                      type="button"
+                      id="scope-mixed"
+                      onClick={() => {
+                        setQuranSelectionType('mixed');
+                        setQuranSurahList('manzil'); // default to Manzil Preset
+                      }}
+                      className={`py-2 px-1 text-[11px] font-bold rounded-md transition flex items-center justify-center gap-0.5 cursor-pointer border ${
+                        quranSelectionType === 'mixed'
+                          ? 'bg-black text-white border-white shadow-md font-extrabold'
+                          : 'bg-[#15151e] border-gray-800 text-gray-400 hover:text-white hover:bg-gray-800/50'
+                      }`}
+                      title="Mixed Ayah / Surah / Custom Collections (e.g. Manzil, 40 Rabbana)"
+                    >
+                      <Blend className="w-3 h-3 text-amber-400" />
+                      <span>Mixed</span>
                     </button>
                     <button
                       type="button"
                       id="scope-single"
                       onClick={() => setQuranSelectionType('single')}
-                      className={`py-2 px-2 text-xs font-bold rounded-md transition flex items-center justify-center gap-1 cursor-pointer border ${
+                      className={`py-2 px-1 text-[11px] font-bold rounded-md transition flex items-center justify-center gap-0.5 cursor-pointer border ${
                         quranSelectionType === 'single'
                           ? 'bg-black text-white border-white shadow-md font-extrabold'
                           : 'bg-[#15151e] border-gray-800 text-gray-400 hover:text-white hover:bg-gray-800/50'
                       }`}
                     >
-                      <span>Single Ayah</span>
+                      <span>Ayah</span>
                     </button>
                   </div>
 
@@ -2611,6 +2979,49 @@ export default function MediaPanel({
                             {preset.label}
                           </button>
                         ))}
+                      </div>
+                    </div>
+                  )}
+ 
+                  {quranSelectionType === 'mixed' && (
+                    <div className="space-y-2 pt-1.5 p-2.5 bg-amber-500/5 border border-amber-500/30 rounded-lg">
+                      <div className="flex items-center justify-between text-xs">
+                        <label className="text-[11px] font-bold text-amber-300">SELECT PRESET COLLECTION:</label>
+                        <span className="text-[9px] text-amber-400/80 font-mono">Auto-Segments</span>
+                      </div>
+                      
+                      <select
+                        id="select-mixed-collection"
+                        value={FAMOUS_MIX_COLLECTIONS.some(c => c.id === quranSurahList) ? quranSurahList : 'custom'}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val !== 'custom') {
+                            setQuranSurahList(val);
+                          }
+                        }}
+                        className="w-full bg-[#0a0a0d] border border-gray-800 focus:border-amber-500 rounded-md p-2 text-xs text-white focus:outline-none transition cursor-pointer font-medium"
+                      >
+                        <option value="custom">-- Custom Reference String --</option>
+                        {FAMOUS_MIX_COLLECTIONS.map((col) => (
+                          <option key={col.id} value={col.id}>
+                            {col.nameEnglish} ({col.id})
+                          </option>
+                        ))}
+                      </select>
+
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between text-[10px]">
+                          <span className="text-gray-400 uppercase tracking-wider">OR CUSTOM RANGE/LIST STRING:</span>
+                          <span className="text-amber-400 font-mono">e.g., 1:1-5, 2:255, 36:1-10</span>
+                        </div>
+                        <input
+                          type="text"
+                          id="input-mixed-verses-list"
+                          value={quranSurahList}
+                          onChange={(e) => setQuranSurahList(e.target.value)}
+                          placeholder="e.g. 1:1-7, 2:255, 112:1-4, 113:1-5, 114:1-6"
+                          className="w-full bg-[#0a0a0d] border border-gray-800 focus:border-amber-500 rounded-md px-2.5 py-1.5 text-xs text-amber-200 font-mono focus:outline-none"
+                        />
                       </div>
                     </div>
                   )}
@@ -2984,9 +3395,9 @@ export default function MediaPanel({
                   onClick={() => {
                     const selectedSurahNum = quranSurahPreset === 'custom' ? quranSurahCustom : parseInt(quranSurahPreset, 10) || 1;
                     onAlignQuran({
-                      surah: quranSelectionType === 'list' ? quranSurahList : selectedSurahNum,
+                      surah: (quranSelectionType === 'list' || quranSelectionType === 'mixed') ? quranSurahList : selectedSurahNum,
                       startAyah: quranSelectionType === 'single' ? quranStartAyah : 1,
-                      mode: quranSelectionType === 'single' ? 'individual' : 'batch',
+                      mode: (quranSelectionType === 'single' || quranSelectionType === 'mixed') ? 'individual' : 'batch',
                       style: 'Imperial Gold',
                       selectionType: quranSelectionType,
                       surahList: quranSurahList,
@@ -3004,6 +3415,8 @@ export default function MediaPanel({
                     ✨ 1-Click Auto-Generate Captions (
                     {quranSelectionType === 'list'
                       ? `Multi-Surah: ${quranSurahList}`
+                      : quranSelectionType === 'mixed'
+                      ? `Mixed: ${quranSurahList}`
                       : quranSelectionType === 'all'
                       ? 'Whole Surah'
                       : `Ayah ${quranStartAyah}`}
@@ -3025,6 +3438,542 @@ export default function MediaPanel({
                 )}
 
 
+
+                {/* BLOCK 3.8: 👑 SURAH HEADER OVERLAY CONTROLS */}
+                <div className="bg-[#121218] border border-amber-500/30 rounded-xl p-3.5 space-y-3.5 mt-2 shadow-lg">
+                  <div className="flex items-center justify-between pb-1 border-b border-gray-800/80">
+                    <label className="text-xs font-extrabold text-amber-400 uppercase tracking-wide flex items-center gap-1.5">
+                      <BookOpen className="w-3.5 h-3.5 text-amber-400" />
+                      <span>SURAH HEADER OVERLAY</span>
+                    </label>
+                    <span className="text-[9px] font-mono px-2 py-0.5 rounded bg-amber-500/10 text-amber-300 font-bold border border-amber-500/20">
+                      Top Overlay
+                    </span>
+                  </div>
+
+                  {/* 1. ENABLE SWITCH */}
+                  <div className="flex items-center justify-between p-2.5 bg-[#0a0a0d] border border-gray-800 rounded-lg">
+                    <span className="text-xs font-bold text-gray-300">Show Surah Header Overlay</span>
+                    <button
+                      type="button"
+                      id="btn-toggle-surah-header"
+                      onClick={() => setQuranShowSurahHeader && setQuranShowSurahHeader(!quranShowSurahHeader)}
+                      className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                        quranShowSurahHeader ? 'bg-amber-500' : 'bg-gray-800'
+                      }`}
+                    >
+                      <span
+                        className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                          quranShowSurahHeader ? 'translate-x-4' : 'translate-x-0'
+                        }`}
+                      />
+                    </button>
+                  </div>
+
+                  {quranShowSurahHeader && (
+                    <div className="space-y-3.5 pt-1 border-t border-gray-800/50">
+                      {/* 2. STYLE OPTIONS */}
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-1.5">
+                          <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">LAYOUT STYLE</label>
+                          <select
+                            id="select-surah-header-style"
+                            value={quranSurahHeaderStyle}
+                            onChange={(e) => setQuranSurahHeaderStyle && setQuranSurahHeaderStyle(e.target.value as any)}
+                            className="w-full bg-[#0a0a0d] border border-gray-800 focus:border-amber-500 rounded-lg p-2 text-xs text-white focus:outline-none cursor-pointer"
+                          >
+                            <option value="simple">Simple Text</option>
+                            <option value="ornate">Ornate Borders</option>
+                            <option value="border-only">Border Only</option>
+                          </select>
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">NAME FORMAT</label>
+                          <select
+                            id="select-surah-header-format"
+                            value={quranSurahHeaderFormat}
+                            onChange={(e) => setQuranSurahHeaderFormat && setQuranSurahHeaderFormat(e.target.value as any)}
+                            className="w-full bg-[#0a0a0d] border border-gray-800 focus:border-amber-500 rounded-lg p-2 text-xs text-white focus:outline-none cursor-pointer"
+                          >
+                            <option value="both">Arabic & English</option>
+                            <option value="arabic">Arabic Only</option>
+                            <option value="english">English Only</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      {/* 3. FONT SELECTION & SIZE */}
+                      <div className="space-y-3.5 p-2.5 bg-[#0a0a0d] border border-gray-800 rounded-lg">
+                        <div className="space-y-1.5">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">FONT FAMILY</span>
+                          </div>
+                          <select
+                            id="select-surah-header-font"
+                            value={quranSurahHeaderFont}
+                            onChange={(e) => setQuranSurahHeaderFont && setQuranSurahHeaderFont(e.target.value)}
+                            className="w-full bg-[#0a0a0d] border border-gray-800 focus:border-amber-500 rounded-md p-1.5 text-xs text-amber-200 focus:outline-none cursor-pointer"
+                          >
+                            <option value="Playfair Display">📖 Playfair Display (Serif)</option>
+                            <option value="Amiri">🕌 Amiri (Arabic Naskh)</option>
+                            <option value="Jameel Noori Nastaleeq">🇵🇰 Jameel Noori Nastaleeq</option>
+                            <option value="Cinzel">🏛️ Cinzel (Classic display)</option>
+                            <option value="Georgia">📜 Georgia (Elegant Editorial)</option>
+                            <option value="Montserrat">📐 Montserrat (Modern Geometric Sans)</option>
+                            <option value="Arial">📏 Arial (Simple Sans)</option>
+                          </select>
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">FONT SIZE</span>
+                            <span className="font-mono text-amber-400 font-bold text-[11px]">{quranSurahHeaderSize}PX</span>
+                          </div>
+                          <input
+                            type="range"
+                            id="slider-surah-header-size"
+                            min="14"
+                            max="64"
+                            step="1"
+                            value={quranSurahHeaderSize}
+                            onChange={(e) => setQuranSurahHeaderSize && setQuranSurahHeaderSize(parseInt(e.target.value, 10))}
+                            className="w-full h-1 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-amber-400"
+                          />
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Y-POSITION OVERLAY</span>
+                            <span className="font-mono text-amber-400 font-bold text-[11px]">{quranSurahHeaderY}%</span>
+                          </div>
+                          <input
+                            type="range"
+                            id="slider-surah-header-y"
+                            min="2"
+                            max="90"
+                            step="1"
+                            value={quranSurahHeaderY}
+                            onChange={(e) => setQuranSurahHeaderY && setQuranSurahHeaderY(parseInt(e.target.value, 10))}
+                            className="w-full h-1 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-amber-400"
+                          />
+                        </div>
+                      </div>
+
+                      {/* 4. COLOR & BACKDROP SETTINGS */}
+                      <div className="space-y-3 p-2.5 bg-[#0a0a0d] border border-gray-800 rounded-lg">
+                        {/* Font Color */}
+                        <div className="space-y-1.5">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">HEADER COLOR</span>
+                            <span className="font-mono text-amber-400 font-bold text-[11px] uppercase">{quranSurahHeaderColor}</span>
+                          </div>
+                          <div className="flex items-center gap-2 pt-0.5">
+                            <label
+                              className="w-6 h-6 rounded border border-gray-750 cursor-pointer relative shrink-0 shadow-sm flex items-center justify-center transition hover:scale-105"
+                              style={{ backgroundColor: quranSurahHeaderColor }}
+                            >
+                              <input
+                                type="color"
+                                value={quranSurahHeaderColor}
+                                onChange={(e) => setQuranSurahHeaderColor && setQuranSurahHeaderColor(e.target.value)}
+                                className="opacity-0 w-full h-full cursor-pointer absolute inset-0"
+                              />
+                            </label>
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              {['#FFFFFF', '#FFD700', '#F3F4F6', '#93C5FD', '#FDE047'].map((col) => (
+                                <button
+                                  key={col}
+                                  type="button"
+                                  onClick={() => setQuranSurahHeaderColor && setQuranSurahHeaderColor(col)}
+                                  className={`w-4.5 h-4.5 rounded-full transition-transform hover:scale-110 cursor-pointer border ${
+                                    quranSurahHeaderColor.toLowerCase() === col.toLowerCase()
+                                      ? 'ring-2 ring-amber-400 border-white'
+                                      : 'border-transparent opacity-90'
+                                  }`}
+                                  style={{ backgroundColor: col }}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Backdrop Backdrop Type */}
+                        <div className="grid grid-cols-2 gap-2 pt-1 border-t border-gray-800/40">
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">BACKDROP STYLE</label>
+                            <select
+                              id="select-surah-header-bg"
+                              value={quranSurahHeaderBg}
+                              onChange={(e) => setQuranSurahHeaderBg && setQuranSurahHeaderBg(e.target.value as any)}
+                              className="w-full bg-[#101015] border border-gray-800 focus:border-amber-500 rounded p-1 text-[11px] text-white focus:outline-none cursor-pointer"
+                            >
+                              <option value="none">No Backdrop</option>
+                              <option value="solid">Solid Box</option>
+                              <option value="gradient">Gradient Banner</option>
+                              <option value="blur">Glass Blur</option>
+                            </select>
+                          </div>
+
+                          {quranSurahHeaderBg !== 'none' && (
+                            <div className="space-y-1">
+                              <label className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">BACKDROP COLOR</label>
+                              <div className="flex items-center gap-1.5">
+                                <label
+                                  className="w-5 h-5 rounded border border-gray-850 cursor-pointer relative shrink-0 shadow-sm"
+                                  style={{ backgroundColor: quranSurahHeaderBgColor }}
+                                >
+                                  <input
+                                    type="color"
+                                    value={quranSurahHeaderBgColor}
+                                    onChange={(e) => setQuranSurahHeaderBgColor && setQuranSurahHeaderBgColor(e.target.value)}
+                                    className="opacity-0 w-full h-full cursor-pointer absolute inset-0"
+                                  />
+                                </label>
+                                <select
+                                  id="select-surah-header-bg-opacity"
+                                  value={quranSurahHeaderBgOpacity}
+                                  onChange={(e) => setQuranSurahHeaderBgOpacity && setQuranSurahHeaderBgOpacity(parseInt(e.target.value, 10))}
+                                  className="bg-[#101015] border border-gray-800 focus:border-amber-500 rounded p-1 text-[11px] text-white focus:outline-none cursor-pointer"
+                                >
+                                  <option value={20}>20%</option>
+                                  <option value={40}>40%</option>
+                                  <option value={50}>50%</option>
+                                  <option value={60}>60%</option>
+                                  <option value={80}>80%</option>
+                                  <option value={100}>100%</option>
+                                </select>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* BLOCK 3.9: ⚡ SINGLE-WORD / LAFZ BA LAFZ DISPLAY MODE (VIRAL CAPTION FOCUS) */}
+                <div className="bg-[#121218] border border-cyan-500/30 rounded-xl p-3.5 space-y-3.5 mt-2 shadow-lg">
+                  <div className="flex items-center justify-between pb-1 border-b border-gray-800/80">
+                    <label className="text-xs font-extrabold text-cyan-400 uppercase tracking-wide flex items-center gap-1.5">
+                      <Zap className="w-3.5 h-3.5 text-cyan-400" />
+                      <span>SINGLE WORD (LAFZ BA LAFZ) MODE</span>
+                    </label>
+                    <span className="text-[9px] font-mono px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-300 font-bold border border-cyan-500/20">
+                      Viral Reels
+                    </span>
+                  </div>
+
+                  <p className="text-[11px] text-gray-400 leading-relaxed">
+                    Show only the current spoken word on screen in large punchy typography instead of the entire ayah.
+                  </p>
+
+                  {/* Mode Selector Buttons */}
+                  <div className="grid grid-cols-2 gap-2 bg-[#0a0a0d] p-1.5 rounded-lg border border-gray-800">
+                    <button
+                      type="button"
+                      id="btn-mode-full-ayah"
+                      onClick={() => setQuranCaptionDisplayMode && setQuranCaptionDisplayMode('full-ayah')}
+                      className={`py-2 px-2.5 rounded-md text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                        quranCaptionDisplayMode === 'full-ayah'
+                          ? 'bg-gray-800 text-white shadow-sm border border-gray-700'
+                          : 'text-gray-400 hover:text-gray-200'
+                      }`}
+                    >
+                      <span>📜 Full Ayah</span>
+                    </button>
+                    <button
+                      type="button"
+                      id="btn-mode-single-word"
+                      onClick={() => setQuranCaptionDisplayMode && setQuranCaptionDisplayMode('single-word')}
+                      className={`py-2 px-2.5 rounded-md text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                        quranCaptionDisplayMode === 'single-word'
+                          ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-md border border-cyan-400'
+                          : 'text-gray-400 hover:text-cyan-300'
+                      }`}
+                    >
+                      <Zap className="w-3.5 h-3.5 text-cyan-300" />
+                      <span>⚡ Lafz ba Lafz</span>
+                    </button>
+                  </div>
+
+                  {quranCaptionDisplayMode === 'single-word' && (
+                    <div className="space-y-3 p-2.5 bg-[#0a0a0d] border border-cyan-500/20 rounded-lg">
+                      {/* Scale Multiplier Slider */}
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">WORD SIZE BOOST</span>
+                          <span className="font-mono text-cyan-400 font-bold text-[11px]">{quranSingleWordScale}x</span>
+                        </div>
+                        <input
+                          type="range"
+                          id="slider-single-word-scale"
+                          min="1.0"
+                          max="2.2"
+                          step="0.05"
+                          value={quranSingleWordScale}
+                          onChange={(e) => setQuranSingleWordScale && setQuranSingleWordScale(parseFloat(e.target.value))}
+                          className="w-full h-1 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-cyan-400"
+                        />
+                      </div>
+
+                      {/* Micro Pop Animation Switch */}
+                      <div className="flex items-center justify-between pt-1 border-t border-gray-800/60">
+                        <span className="text-xs text-gray-300 font-medium">Punchy Pop Animation</span>
+                        <button
+                          type="button"
+                          id="btn-toggle-word-pop"
+                          onClick={() => setQuranSingleWordPop && setQuranSingleWordPop(!quranSingleWordPop)}
+                          className={`relative inline-flex h-4.5 w-8 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                            quranSingleWordPop ? 'bg-cyan-500' : 'bg-gray-800'
+                          }`}
+                        >
+                          <span
+                            className={`pointer-events-none inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                              quranSingleWordPop ? 'translate-x-3.5' : 'translate-x-0'
+                            }`}
+                          />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* BLOCK 3.10: 🎙️ RECITER / QARI CREDIT BADGE OVERLAY */}
+                <div className="bg-[#121218] border border-amber-500/30 rounded-xl p-3.5 space-y-3.5 mt-2 shadow-lg">
+                  <div className="flex items-center justify-between pb-1 border-b border-gray-800/80">
+                    <label className="text-xs font-extrabold text-amber-400 uppercase tracking-wide flex items-center gap-1.5">
+                      <Mic className="w-3.5 h-3.5 text-amber-400" />
+                      <span>QARI / RECITER BADGE</span>
+                    </label>
+                    <span className="text-[9px] font-mono px-2 py-0.5 rounded bg-amber-500/10 text-amber-300 font-bold border border-amber-500/20">
+                      Credit Pill
+                    </span>
+                  </div>
+
+                  {/* Toggle Switch */}
+                  <div className="flex items-center justify-between p-2.5 bg-[#0a0a0d] border border-gray-800 rounded-lg">
+                    <span className="text-xs font-bold text-gray-300">Show Qari Credit Badge</span>
+                    <button
+                      type="button"
+                      id="btn-toggle-qari-badge"
+                      onClick={() => setQuranShowQariBadge && setQuranShowQariBadge(!quranShowQariBadge)}
+                      className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                        quranShowQariBadge ? 'bg-amber-500' : 'bg-gray-800'
+                      }`}
+                    >
+                      <span
+                        className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                          quranShowQariBadge ? 'translate-x-4' : 'translate-x-0'
+                        }`}
+                      />
+                    </button>
+                  </div>
+
+                  {quranShowQariBadge && (
+                    <div className="space-y-3 pt-1 border-t border-gray-800/50">
+                      {/* Reciter Selector */}
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">RECITER NAME</label>
+                        <select
+                          id="select-qari-name"
+                          value={quranQariName}
+                          onChange={(e) => setQuranQariName && setQuranQariName(e.target.value)}
+                          className="w-full bg-[#0a0a0d] border border-gray-800 focus:border-amber-500 rounded-lg p-2 text-xs text-amber-200 focus:outline-none cursor-pointer"
+                        >
+                          <option value="Mishary Rashid Alafasy">Mishary Rashid Alafasy</option>
+                          <option value="Abdul Rahman Al-Sudais">Abdul Rahman Al-Sudais</option>
+                          <option value="Maher Al-Muaiqly">Maher Al-Muaiqly</option>
+                          <option value="Yasser Al-Dosari">Yasser Al-Dosari</option>
+                          <option value="Abdul Basit Abdul Samad">Abdul Basit Abdul Samad</option>
+                          <option value="Saad Al-Ghamdi">Saad Al-Ghamdi</option>
+                          <option value="Saud Al-Shuraim">Saud Al-Shuraim</option>
+                          <option value="Islam Sobhi">Islam Sobhi</option>
+                          <option value="Abu Bakr Al-Shatri">Abu Bakr Al-Shatri</option>
+                          <option value="Nasser Al-Qatami">Nasser Al-Qatami</option>
+                        </select>
+                      </div>
+
+                      {/* Custom Name Input */}
+                      <div className="space-y-1">
+                        <input
+                          type="text"
+                          id="input-custom-qari-name"
+                          value={quranQariName}
+                          onChange={(e) => setQuranQariName && setQuranQariName(e.target.value)}
+                          placeholder="Or type custom reciter name..."
+                          className="w-full bg-[#0a0a0d] border border-gray-800 focus:border-amber-500 rounded-lg p-2 text-xs text-white placeholder-gray-600 focus:outline-none"
+                        />
+                      </div>
+
+                      {/* Badge Position */}
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">BADGE POSITION</label>
+                        <select
+                          id="select-qari-badge-position"
+                          value={quranQariBadgePosition}
+                          onChange={(e) => setQuranQariBadgePosition && setQuranQariBadgePosition(e.target.value as any)}
+                          className="w-full bg-[#0a0a0d] border border-gray-800 focus:border-amber-500 rounded-lg p-2 text-xs text-white focus:outline-none cursor-pointer"
+                        >
+                          <option value="top-right">Top Right</option>
+                          <option value="top-left">Top Left</option>
+                          <option value="bottom-right">Bottom Right</option>
+                          <option value="bottom-left">Bottom Left</option>
+                        </select>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* BLOCK 3.11: 🌊 ISLAMIC AUDIO WAVEFORM VISUALIZER */}
+                <div className="bg-[#121218] border border-amber-500/30 rounded-xl p-3.5 space-y-3.5 mt-2 shadow-lg">
+                  <div className="flex items-center justify-between pb-1 border-b border-gray-800/80">
+                    <label className="text-xs font-extrabold text-amber-400 uppercase tracking-wide flex items-center gap-1.5">
+                      <Volume2 className="w-3.5 h-3.5 text-amber-400" />
+                      <span>AUDIO WAVEFORM VISUALIZER</span>
+                    </label>
+                    <span className="text-[9px] font-mono px-2 py-0.5 rounded bg-amber-500/10 text-amber-300 font-bold border border-amber-500/20">
+                      Live Audio FX
+                    </span>
+                  </div>
+
+                  {/* Toggle Switch */}
+                  <div className="flex items-center justify-between p-2.5 bg-[#0a0a0d] border border-gray-800 rounded-lg">
+                    <span className="text-xs font-bold text-gray-300">Show Waveform Visualizer</span>
+                    <button
+                      type="button"
+                      id="btn-toggle-waveform"
+                      onClick={() => setQuranShowWaveform && setQuranShowWaveform(!quranShowWaveform)}
+                      className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                        quranShowWaveform ? 'bg-amber-500' : 'bg-gray-800'
+                      }`}
+                    >
+                      <span
+                        className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                          quranShowWaveform ? 'translate-x-4' : 'translate-x-0'
+                        }`}
+                      />
+                    </button>
+                  </div>
+
+                  {quranShowWaveform && (
+                    <div className="space-y-3 pt-1 border-t border-gray-800/50">
+                      {/* Waveform Style */}
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">VISUALIZER STYLE</label>
+                        <select
+                          id="select-waveform-style"
+                          value={quranWaveformStyle}
+                          onChange={(e) => setQuranWaveformStyle && setQuranWaveformStyle(e.target.value as any)}
+                          className="w-full bg-[#0a0a0d] border border-gray-800 focus:border-amber-500 rounded-lg p-2 text-xs text-white focus:outline-none cursor-pointer"
+                        >
+                          <option value="bars">📊 Neon Equalizer Bars</option>
+                          <option value="wave">〰️ Glowing Sine Wave</option>
+                          <option value="mirror">🪞 Symmetrical Mirror Bars</option>
+                        </select>
+                      </div>
+
+                      {/* Color Picker */}
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">GLOW COLOR</span>
+                          <span className="font-mono text-amber-400 font-bold text-[11px] uppercase">{quranWaveformColor}</span>
+                        </div>
+                        <div className="flex items-center gap-2 pt-0.5">
+                          <label
+                            className="w-6 h-6 rounded border border-gray-750 cursor-pointer relative shrink-0 shadow-sm"
+                            style={{ backgroundColor: quranWaveformColor }}
+                          >
+                            <input
+                              type="color"
+                              value={quranWaveformColor}
+                              onChange={(e) => setQuranWaveformColor && setQuranWaveformColor(e.target.value)}
+                              className="opacity-0 w-full h-full cursor-pointer absolute inset-0"
+                            />
+                          </label>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            {['#F59E0B', '#06B6D4', '#10B981', '#A855F7', '#EF4444', '#FFFFFF'].map((c) => (
+                              <button
+                                key={c}
+                                type="button"
+                                onClick={() => setQuranWaveformColor && setQuranWaveformColor(c)}
+                                className={`w-4.5 h-4.5 rounded-full transition-transform hover:scale-110 cursor-pointer border ${
+                                  quranWaveformColor.toLowerCase() === c.toLowerCase()
+                                    ? 'ring-2 ring-amber-400 border-white'
+                                    : 'border-transparent opacity-90'
+                                }`}
+                                style={{ backgroundColor: c }}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Y-Position Slider */}
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">VERTICAL POSITION</span>
+                          <span className="font-mono text-amber-400 font-bold text-[11px]">{quranWaveformY}%</span>
+                        </div>
+                        <input
+                          type="range"
+                          id="slider-waveform-y"
+                          min="20"
+                          max="95"
+                          step="1"
+                          value={quranWaveformY}
+                          onChange={(e) => setQuranWaveformY && setQuranWaveformY(parseInt(e.target.value, 10))}
+                          className="w-full h-1 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-amber-400"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* BLOCK 3.12: 🌟 1-CLICK ISLAMIC CALLIGRAPHY CARDS */}
+                <div className="bg-[#121218] border border-amber-500/30 rounded-xl p-3.5 space-y-3 mt-2 shadow-lg">
+                  <div className="flex items-center justify-between pb-1 border-b border-gray-800/80">
+                    <label className="text-xs font-extrabold text-amber-400 uppercase tracking-wide flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                      <span>QUICK ISLAMIC CALLIGRAPHY CARDS</span>
+                    </label>
+                    <span className="text-[9px] font-mono px-2 py-0.5 rounded bg-amber-500/10 text-amber-300 font-bold border border-amber-500/20">
+                      1-Click
+                    </span>
+                  </div>
+
+                  <p className="text-[11px] text-gray-400">
+                    Instantly insert cinematic opening and closing cards onto your timeline.
+                  </p>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      id="btn-add-bismillah-card"
+                      onClick={() => onAddBismillahCard && onAddBismillahCard()}
+                      className="py-2.5 px-3 bg-gradient-to-r from-amber-950/50 to-amber-900/30 hover:from-amber-900/60 hover:to-amber-800/40 border border-amber-500/40 hover:border-amber-400 text-amber-200 font-bold rounded-xl text-xs transition flex items-center justify-center gap-2 cursor-pointer shadow-sm text-left"
+                    >
+                      <Plus className="w-4 h-4 text-amber-400 shrink-0" />
+                      <div>
+                        <div className="text-[11px] font-bold">Add Bismillah Opening</div>
+                        <div className="text-[9px] text-amber-400/80 font-mono">بِسْمِ اللّٰهِ (4 sec)</div>
+                      </div>
+                    </button>
+
+                    <button
+                      type="button"
+                      id="btn-add-sadaqallah-card"
+                      onClick={() => onAddSadaqallahCard && onAddSadaqallahCard()}
+                      className="py-2.5 px-3 bg-gradient-to-r from-purple-950/50 to-purple-900/30 hover:from-purple-900/60 hover:to-purple-800/40 border border-purple-500/40 hover:border-purple-400 text-purple-200 font-bold rounded-xl text-xs transition flex items-center justify-center gap-2 cursor-pointer shadow-sm text-left"
+                    >
+                      <Plus className="w-4 h-4 text-purple-400 shrink-0" />
+                      <div>
+                        <div className="text-[11px] font-bold">Add Sadaqallah Outro</div>
+                        <div className="text-[9px] text-purple-400/80 font-mono">صَدَقَ اللّٰهُ (3.5 sec)</div>
+                      </div>
+                    </button>
+                  </div>
+                </div>
 
                 {/* BLOCK 4: ARABIC SCRIPTURE TYPOGRAPHY & AYAH SYMBOL CONTROLS */}
                 <div className="bg-[#121218] border border-amber-500/30 rounded-xl p-3.5 space-y-3.5 mt-2 shadow-lg">

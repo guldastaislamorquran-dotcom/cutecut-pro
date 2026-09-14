@@ -18,7 +18,8 @@ const templatePatch = `const launcherScript = '#!/bin/bash\\n' +
           'export XDG_DATA_DIRS="/snap/gnome-42-2204/current/usr/share:$SNAP/usr/share:\${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"\\n' +
           'export GTK_PATH="/snap/gnome-42-2204/current/usr/lib/x86_64-linux-gnu/gtk-3.0"\\n' +
           'export GIO_MODULE_DIR="/snap/gnome-42-2204/current/usr/lib/x86_64-linux-gnu/gio/modules"\\n' +
-          'exec "$SNAP/cutecut-pro" "$@"\\n';
+          'export ELECTRON_OZONE_PLATFORM_HINT="auto"\\n' +
+          'exec "$SNAP/cutecut-pro" --no-sandbox --disable-dev-shm-usage "$@"\\n';
         await (0, promises_1.writeFile)(path.join(templateDir, "command.sh"), launcherScript, { mode: 0o755 });
         const fsSync = require('fs');
         const pathSync = require('path');
@@ -71,7 +72,8 @@ if (content.includes(targetFunc)) {
       'export XDG_DATA_DIRS="/snap/gnome-42-2204/current/usr/share:$SNAP/usr/share:\${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"\\n' +
       'export GTK_PATH="/snap/gnome-42-2204/current/usr/lib/x86_64-linux-gnu/gtk-3.0"\\n' +
       'export GIO_MODULE_DIR="/snap/gnome-42-2204/current/usr/lib/x86_64-linux-gnu/gio/modules"\\n' +
-      'exec "$SNAP/cutecut-pro" "$@"\\n';
+      'export ELECTRON_OZONE_PLATFORM_HINT="auto"\\n' +
+      'exec "$SNAP/cutecut-pro" --no-sandbox --disable-dev-shm-usage "$@"\\n';
 }
 //# sourceMappingURL=coreLegacy.js.map`;
   content = prefix + newFunc;

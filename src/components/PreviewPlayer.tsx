@@ -22,6 +22,410 @@ import {
   isTranslationClip,
   isQuranArabicClip,
 } from '../utils/editorUtils';
+import { getSurahMeta, formatSurahHeader } from '../utils/quranSurahData';
+
+/**
+ * Extracts the Surah number from clip metadata
+ */
+function extractSurahNumberFromClip(clip: { name?: string; text?: string; verse_key?: string }): number | null {
+  if (!clip) return null;
+  if (clip.verse_key) {
+    const parts = clip.verse_key.split(':');
+    const surah = parseInt(parts[0], 10);
+    if (!isNaN(surah) && surah >= 1 && surah <= 114) return surah;
+  }
+  if (clip.name) {
+    const match = clip.name.match(/:?\s*(\d+):(\d+)/);
+    if (match && match[1]) {
+      const parsed = parseInt(match[1], 10);
+      if (!isNaN(parsed) && parsed >= 1 && parsed <= 114) return parsed;
+    }
+  }
+  return null;
+}
+
+/**
+ * Draws a premium, customizable Surah Header overlay on the video canvas
+ * When format is 'both', the Arabic Surah Name is rendered on TOP and English Surah Name is rendered on the BOTTOM
+ */
+function drawCanvasSurahHeader(
+  ctx: CanvasRenderingContext2D,
+  surahNumber: number,
+  canvasWidth: number,
+  canvasHeight: number,
+  options: {
+    show: boolean;
+    style?: string;
+    font?: string;
+    size?: number;
+    color?: string;
+    yPercent?: number;
+    format?: 'both' | 'arabic' | 'english' | 'numbered';
+    bg?: 'none' | 'solid' | 'gradient' | 'blur' | boolean;
+    bgColor?: string;
+    bgOpacity?: number;
+  }
+) {
+  if (!options.show || !surahNumber || surahNumber < 1 || surahNumber > 114) return;
+
+  const s = getSurahMeta(surahNumber);
+  const scale = canvasHeight / 720;
+  const baseSize = Math.max(12, Math.round((options.size || 24) * scale));
+  const centerY = Math.round(((options.yPercent ?? 8) / 100) * canvasHeight);
+  const centerX = canvasWidth / 2;
+
+  // Formatting strings: Top is Arabic, Bottom is English
+  let line1Arabic = '';
+  let line2English = '';
+
+  const format = options.format || 'both';
+  if (format === 'both') {
+    line1Arabic = s.nameArabic; // e.g. "سُورَةُ الفَاتِحَة"
+    line2English = s.nameEnglish; // e.g. "Surah Al-Fatihah"
+  } else if (format === 'numbered') {
+    line1Arabic = `${s.nameArabic} (${s.id})`;
+    line2English = `${s.nameEnglish} • ${s.totalAyahs} Verses`;
+  } else if (format === 'arabic') {
+    line1Arabic = s.nameArabic;
+    line2English = '';
+  } else if (format === 'english') {
+    line1Arabic = '';
+    line2English = s.nameEnglish;
+  }
+
+  const hasTwoLines = Boolean(line1Arabic && line2English);
+
+  // Sizing calculations
+  const arabicFontSize = hasTwoLines ? Math.round(baseSize * 1.08) : baseSize;
+  const englishFontSize = hasTwoLines ? Math.max(10, Math.round(baseSize * 0.56)) : baseSize;
+  const verticalGap = Math.round(arabicFontSize * 0.28) + 3;
+
+  const arabicFontFamily = options.font || 'Amiri';
+  const englishFontFamily = 'Playfair Display, Cinzel, Georgia, system-ui, serif';
+
+  // Calculate vertical positions
+  let line1Y = centerY;
+  let line2Y = centerY;
+
+  if (hasTwoLines) {
+    const totalBlockHeight = arabicFontSize + verticalGap + englishFontSize;
+    line1Y = Math.round(centerY - totalBlockHeight / 2 + arabicFontSize / 2);
+    line2Y = Math.round(line1Y + arabicFontSize / 2 + verticalGap + englishFontSize / 2);
+  }
+
+  ctx.save();
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+
+  // Measure text widths
+  ctx.font = `bold ${arabicFontSize}px "${arabicFontFamily}", "QPC Uthmani Hafs", "Amiri", "Noto Naskh Arabic", sans-serif`;
+  const m1 = line1Arabic ? ctx.measureText(line1Arabic) : { width: 0 };
+
+  ctx.font = `600 ${englishFontSize}px ${englishFontFamily}`;
+  const m2 = line2English ? ctx.measureText(line2English) : { width: 0 };
+
+  const contentWidth = Math.max(m1.width, m2.width);
+  const paddingH = Math.round(26 * scale);
+  const paddingV = Math.round(12 * scale);
+
+  // Background container if enabled (support 'solid', 'gradient', 'blur', or boolean true)
+  const isBgActive = options.bg === true || (typeof options.bg === 'string' && options.bg !== 'none');
+  const rawOpacity = options.bgOpacity ?? 50;
+  const opacity = (rawOpacity > 1 ? rawOpacity / 100 : rawOpacity);
+
+  if (isBgActive) {
+    ctx.save();
+    const bgW = Math.max(160 * scale, contentWidth + paddingH * 2);
+    const bgH = (hasTwoLines ? (arabicFontSize + englishFontSize + verticalGap) : baseSize) + paddingV * 2;
+    const bgX = centerX - bgW / 2;
+    const bgY = centerY - bgH / 2;
+    const radius = 8 * scale;
+
+    ctx.globalAlpha = opacity;
+    if (options.bg === 'gradient') {
+      const grad = ctx.createLinearGradient(bgX, 0, bgX + bgW, 0);
+      grad.addColorStop(0, 'rgba(0,0,0,0)');
+      grad.addColorStop(0.2, options.bgColor || '#000000');
+      grad.addColorStop(0.8, options.bgColor || '#000000');
+      grad.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = grad;
+    } else {
+      ctx.fillStyle = options.bgColor || '#000000';
+    }
+
+    ctx.beginPath();
+    ctx.moveTo(bgX + radius, bgY);
+    ctx.lineTo(bgX + bgW - radius, bgY);
+    ctx.quadraticCurveTo(bgX + bgW, bgY, bgX + bgW, bgY + radius);
+    ctx.lineTo(bgX + bgW, bgY + bgH - radius);
+    ctx.quadraticCurveTo(bgX + bgW, bgY + bgH, bgX + bgW - radius, bgY + bgH);
+    ctx.lineTo(bgX + radius, bgY + bgH);
+    ctx.quadraticCurveTo(bgX, bgY + bgH, bgX, bgY + bgH - radius);
+    ctx.lineTo(bgX, bgY + radius);
+    ctx.quadraticCurveTo(bgX, bgY, bgX + radius, bgY);
+    ctx.closePath();
+    ctx.fill();
+
+    // Subtle border if ornate or border-only
+    if (options.style === 'ornate' || options.style === 'border-only') {
+      ctx.strokeStyle = options.color || '#E5C158';
+      ctx.lineWidth = 1.2;
+      ctx.globalAlpha = Math.min(1, opacity + 0.35);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  // Draw Ornate decorative accents if style === 'ornate'
+  if (options.style === 'ornate') {
+    ctx.save();
+    ctx.strokeStyle = options.color || '#E5C158';
+    ctx.fillStyle = options.color || '#E5C158';
+    ctx.lineWidth = 1.5;
+    ctx.globalAlpha = 0.85;
+
+    const wingDistance = contentWidth / 2 + 16 * scale;
+    const wingLength = 32 * scale;
+
+    // Left ornamental line & diamond
+    ctx.beginPath();
+    ctx.moveTo(centerX - wingDistance - wingLength, centerY);
+    ctx.lineTo(centerX - wingDistance, centerY);
+    ctx.stroke();
+
+    // Left Diamond
+    ctx.beginPath();
+    ctx.arc(centerX - wingDistance - 3, centerY, 2.5 * scale, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Right ornamental line & diamond
+    ctx.beginPath();
+    ctx.moveTo(centerX + wingDistance, centerY);
+    ctx.lineTo(centerX + wingDistance + wingLength, centerY);
+    ctx.stroke();
+
+    // Right Diamond
+    ctx.beginPath();
+    ctx.arc(centerX + wingDistance + 3, centerY, 2.5 * scale, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.restore();
+  }
+
+  // Text rendering helper for style effects (shadow, glow, outline)
+  const renderStyledText = (text: string, xPos: number, yPos: number, fontString: string, textColor: string) => {
+    ctx.font = fontString;
+    ctx.fillStyle = textColor;
+
+    const style = options.style || 'gold-glow';
+    if (style === 'shadow') {
+      ctx.shadowColor = '#000000';
+      ctx.shadowBlur = 6;
+      ctx.shadowOffsetY = 2;
+      ctx.fillText(text, xPos, yPos);
+    } else if (style === 'outline' || style === 'border-only') {
+      ctx.strokeStyle = '#000000';
+      ctx.lineWidth = 3.5 * scale;
+      ctx.strokeText(text, xPos, yPos);
+      ctx.fillText(text, xPos, yPos);
+    } else if (style === 'neon') {
+      ctx.shadowColor = textColor;
+      ctx.shadowBlur = 14;
+      ctx.fillText(text, xPos, yPos);
+      ctx.shadowBlur = 6;
+      ctx.fillText(text, xPos, yPos);
+    } else if (style === 'gold-glow' || style === 'ornate') {
+      ctx.save();
+      ctx.shadowColor = '#f59e0b';
+      ctx.shadowBlur = 10;
+      ctx.strokeStyle = '#3b1c04';
+      ctx.lineWidth = 2.2 * scale;
+      ctx.strokeText(text, xPos, yPos);
+      ctx.restore();
+      ctx.fillText(text, xPos, yPos);
+    } else {
+      ctx.shadowColor = 'rgba(0,0,0,0.7)';
+      ctx.shadowBlur = 4;
+      ctx.fillText(text, xPos, yPos);
+    }
+  };
+
+  // 1. RENDER TOP LINE: ARABIC SURAH NAME (سُورَةُ ...)
+  if (line1Arabic) {
+    ctx.save();
+    const arabicFont = `bold ${arabicFontSize}px "${arabicFontFamily}", "QPC Uthmani Hafs", "Amiri", "Noto Naskh Arabic", sans-serif`;
+    renderStyledText(line1Arabic, centerX, line1Y, arabicFont, options.color || '#E5C158');
+    ctx.restore();
+  }
+
+  // 2. RENDER BOTTOM LINE: ENGLISH SURAH NAME (Surah ...)
+  if (line2English) {
+    ctx.save();
+    const englishFont = `600 ${englishFontSize}px ${englishFontFamily}`;
+    const englishColor = options.color || '#F3F4F6';
+    renderStyledText(line2English, centerX, line2Y, englishFont, englishColor);
+    ctx.restore();
+  }
+
+  ctx.restore();
+}
+
+/**
+ * Draws an elegant Qari / Reciter credit badge overlay in a video corner
+ */
+function drawCanvasQariBadge(
+  ctx: CanvasRenderingContext2D,
+  qariName: string,
+  position: 'top-right' | 'top-left' | 'bottom-right' | 'bottom-left' = 'top-right',
+  canvasWidth: number,
+  canvasHeight: number
+) {
+  if (!qariName || qariName.trim().length === 0) return;
+  ctx.save();
+  const scale = canvasHeight / 720;
+  const fontSize = Math.max(10, Math.round(13 * scale));
+  ctx.font = `600 ${fontSize}px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+  
+  const text = `🎙️ Qari: ${qariName}`;
+  const textMetrics = ctx.measureText(text);
+  const paddingH = Math.round(14 * scale);
+  const paddingV = Math.round(7 * scale);
+  const badgeW = textMetrics.width + paddingH * 2;
+  const badgeH = fontSize + paddingV * 2;
+  const radius = badgeH / 2; // pill shape
+
+  const margin = Math.round(24 * scale);
+  let badgeX = 0;
+  let badgeY = 0;
+
+  if (position === 'top-right') {
+    badgeX = canvasWidth - badgeW - margin;
+    badgeY = margin + (canvasHeight * 0.02);
+  } else if (position === 'top-left') {
+    badgeX = margin;
+    badgeY = margin + (canvasHeight * 0.02);
+  } else if (position === 'bottom-left') {
+    badgeX = margin;
+    badgeY = canvasHeight - badgeH - margin - (canvasHeight * 0.05);
+  } else { // bottom-right
+    badgeX = canvasWidth - badgeW - margin;
+    badgeY = canvasHeight - badgeH - margin - (canvasHeight * 0.05);
+  }
+
+  // Background Glass Pill
+  ctx.fillStyle = 'rgba(10, 10, 15, 0.78)';
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.6)';
+  ctx.shadowBlur = 10;
+  ctx.beginPath();
+  ctx.roundRect(badgeX, badgeY, badgeW, badgeH, radius);
+  ctx.fill();
+
+  // Subtle Gold/Amber Border
+  ctx.shadowColor = 'transparent';
+  ctx.strokeStyle = 'rgba(229, 193, 88, 0.65)';
+  ctx.lineWidth = 1.2;
+  ctx.stroke();
+
+  // Text
+  ctx.fillStyle = '#FDE68A'; // Soft golden amber
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, badgeX + badgeW / 2, badgeY + badgeH / 2);
+
+  ctx.restore();
+}
+
+/**
+ * Draws a live reactive Islamic Audio Waveform Visualizer on the canvas
+ */
+function drawCanvasWaveformVisualizer(
+  ctx: CanvasRenderingContext2D,
+  canvasWidth: number,
+  canvasHeight: number,
+  currentTime: number,
+  isPlaying: boolean,
+  options: {
+    style?: 'bars' | 'wave' | 'mirror';
+    color?: string;
+    yPercent?: number;
+  }
+) {
+  ctx.save();
+  const scale = canvasHeight / 720;
+  const y = Math.round(((options.yPercent ?? 86) / 100) * canvasHeight);
+  const primaryColor = options.color || '#F59E0B';
+  const style = options.style || 'bars';
+
+  const barCount = Math.min(48, Math.max(28, Math.round(canvasWidth / 22)));
+  const totalVisualizerW = Math.min(canvasWidth * 0.85, 480 * scale);
+  const startX = (canvasWidth - totalVisualizerW) / 2;
+  const barWidth = Math.max(3, (totalVisualizerW / barCount) * 0.55);
+  const step = totalVisualizerW / barCount;
+  const maxHeight = Math.round(48 * scale);
+
+  if (style === 'wave') {
+    // Smooth glowing sine-wave path
+    ctx.strokeStyle = primaryColor;
+    ctx.lineWidth = 2.5 * scale;
+    ctx.shadowColor = primaryColor;
+    ctx.shadowBlur = 14;
+    ctx.beginPath();
+    for (let i = 0; i <= barCount; i++) {
+      const px = startX + i * step;
+      const phase = i * 0.28 + (isPlaying ? currentTime * 6 : currentTime * 0.8);
+      const amp = isPlaying ? (Math.sin(phase) * 0.5 + Math.cos(phase * 1.7) * 0.3) : Math.sin(phase) * 0.15;
+      const py = y + amp * (maxHeight * 0.6);
+      if (i === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.stroke();
+  } else if (style === 'mirror') {
+    // Symmetrical mirror bars
+    ctx.shadowColor = primaryColor;
+    ctx.shadowBlur = 10;
+    for (let i = 0; i < barCount; i++) {
+      const px = startX + i * step;
+      const normalizedPos = Math.abs((i - barCount / 2) / (barCount / 2));
+      const bellCurve = Math.cos(normalizedPos * Math.PI * 0.45);
+      const timeOffset = isPlaying ? currentTime * 5.2 : 1;
+      const oscillation = (Math.sin(i * 0.45 + timeOffset) * 0.5 + 0.5) * (Math.cos(i * 0.7 - timeOffset * 0.8) * 0.4 + 0.6);
+      const currentH = Math.max(4 * scale, maxHeight * bellCurve * (isPlaying ? (0.2 + oscillation * 0.8) : 0.25));
+
+      const grad = ctx.createLinearGradient(0, y - currentH, 0, y + currentH);
+      grad.addColorStop(0, 'rgba(255,255,255,0.85)');
+      grad.addColorStop(0.5, primaryColor);
+      grad.addColorStop(1, 'rgba(255,255,255,0.85)');
+
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.roundRect(px, y - currentH, barWidth, currentH * 2, barWidth / 2);
+      ctx.fill();
+    }
+  } else {
+    // Standard Neon Bars (Glow Equalizer)
+    ctx.shadowColor = primaryColor;
+    ctx.shadowBlur = 12;
+    for (let i = 0; i < barCount; i++) {
+      const px = startX + i * step;
+      const normalizedPos = Math.abs((i - barCount / 2) / (barCount / 2));
+      const bellCurve = Math.cos(normalizedPos * Math.PI * 0.42);
+      const timeOffset = isPlaying ? currentTime * 6.5 : 1;
+      const osc = Math.abs(Math.sin(i * 0.52 + timeOffset) * 0.6 + Math.cos(i * 0.9 - timeOffset * 0.6) * 0.4);
+      const currentH = Math.max(5 * scale, maxHeight * bellCurve * (isPlaying ? (0.25 + osc * 0.75) : 0.3));
+
+      const grad = ctx.createLinearGradient(0, y, 0, y - currentH);
+      grad.addColorStop(0, primaryColor);
+      grad.addColorStop(1, '#ffffff');
+
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.roundRect(px, y - currentH, barWidth, currentH, barWidth / 2);
+      ctx.fill();
+    }
+  }
+
+  ctx.restore();
+}
 
 /**
  * Draws the authentic Quran.com style ornate crowned Ayah medallion directly on canvas
@@ -277,6 +681,34 @@ interface PreviewPlayerProps {
   isExporting?: boolean;
   exportResolution?: '480p' | '720p' | '1080p' | string;
   onCanvasReady?: (canvas: HTMLCanvasElement | null) => void;
+
+  // Surah Header Customization Overlay Props
+  quranShowSurahHeader?: boolean;
+  quranSurahHeaderStyle?: 'simple' | 'ornate' | 'border-only' | 'normal' | 'shadow' | 'outline' | 'neon' | 'gold-glow' | 'viral-reels' | string;
+  quranSurahHeaderFont?: string;
+  quranSurahHeaderSize?: number;
+  quranSurahHeaderColor?: string;
+  quranSurahHeaderY?: number;
+  quranSurahHeaderFormat?: 'both' | 'arabic' | 'english' | 'numbered';
+  quranSurahHeaderBg?: 'none' | 'solid' | 'gradient' | 'blur' | boolean;
+  quranSurahHeaderBgColor?: string;
+  quranSurahHeaderBgOpacity?: number;
+
+  // Single-Word (Lafz ba Lafz) Display Mode
+  quranCaptionDisplayMode?: 'full-ayah' | 'single-word';
+  quranSingleWordScale?: number;
+  quranSingleWordPop?: boolean;
+
+  // Qari / Reciter Name Badge Overlay
+  quranShowQariBadge?: boolean;
+  quranQariName?: string;
+  quranQariBadgePosition?: 'top-right' | 'top-left' | 'bottom-right' | 'bottom-left';
+
+  // Islamic Audio Waveform Visualizer
+  quranShowWaveform?: boolean;
+  quranWaveformStyle?: 'bars' | 'wave' | 'mirror';
+  quranWaveformColor?: string;
+  quranWaveformY?: number;
 }
 
 interface TextBound {
@@ -309,6 +741,34 @@ export default function PreviewPlayer({
   isExporting,
   exportResolution = '1080p',
   onCanvasReady,
+
+  // Surah Header Customization Overlay Destructuring
+  quranShowSurahHeader = true,
+  quranSurahHeaderStyle = 'ornate',
+  quranSurahHeaderFont = 'Amiri',
+  quranSurahHeaderSize = 24,
+  quranSurahHeaderColor = '#E5C158',
+  quranSurahHeaderY = 8,
+  quranSurahHeaderFormat = 'both',
+  quranSurahHeaderBg = 'gradient',
+  quranSurahHeaderBgColor = '#000000',
+  quranSurahHeaderBgOpacity = 50,
+
+  // Single-Word (Lafz ba Lafz) Destructuring
+  quranCaptionDisplayMode = 'full-ayah',
+  quranSingleWordScale = 1.35,
+  quranSingleWordPop = true,
+
+  // Qari / Reciter Badge Destructuring
+  quranShowQariBadge = false,
+  quranQariName = 'Mishary Rashid Alafasy',
+  quranQariBadgePosition = 'top-right',
+
+  // Audio Waveform Visualizer Destructuring
+  quranShowWaveform = false,
+  quranWaveformStyle = 'bars',
+  quranWaveformColor = '#F59E0B',
+  quranWaveformY = 86,
 }: PreviewPlayerProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -724,15 +1184,50 @@ export default function PreviewPlayer({
                 filterParts.push(`hue-rotate(${clip.filters.hueRotate}deg)`);
               }
             }
+
+            // Color Temperature / Warmth
+            if (clip.videoEffects?.temperature && clip.videoEffects.temperature !== 0) {
+              if (clip.videoEffects.temperature > 0) {
+                filterParts.push(`sepia(${clip.videoEffects.temperature * 0.45}%)`);
+                filterParts.push(`saturate(${100 + clip.videoEffects.temperature * 0.25}%)`);
+              } else {
+                filterParts.push(`hue-rotate(${Math.abs(clip.videoEffects.temperature) * 0.25}deg)`);
+                filterParts.push(`saturate(${100 + Math.abs(clip.videoEffects.temperature) * 0.15}%)`);
+              }
+            }
+
             ctx.filter = filterParts.length > 0 ? filterParts.join(' ') : 'none';
 
-            // Matrix transform: Translate -> Rotate -> Scale
-            ctx.translate(dimensions.width / 2 + posX, dimensions.height / 2 + posY);
+            // Ken Burns Motion Calculation
+            let kbScale = 1;
+            let kbOffsetX = 0;
+            let kbOffsetY = 0;
+            if (clip.videoEffects?.kenBurns?.enabled && clip.duration > 0) {
+              const kbProgress = Math.max(0, Math.min(1, (currentTime - clip.start) / clip.duration));
+              const style = clip.videoEffects.kenBurns.style || 'zoom-in';
+              if (style === 'zoom-in') {
+                kbScale = 1 + kbProgress * 0.18;
+              } else if (style === 'zoom-out') {
+                kbScale = 1.18 - kbProgress * 0.18;
+              } else if (style === 'pan-left') {
+                kbScale = 1.12;
+                kbOffsetX = (kbProgress - 0.5) * -dimensions.width * 0.08;
+              } else if (style === 'pan-right') {
+                kbScale = 1.12;
+                kbOffsetX = (kbProgress - 0.5) * dimensions.width * 0.08;
+              }
+            }
+
+            const flipX = clip.videoEffects?.flipHorizontal ? -1 : 1;
+            const flipY = clip.videoEffects?.flipVertical ? -1 : 1;
+
+            // Matrix transform: Translate -> Rotate -> Scale (with Flip & Ken Burns)
+            ctx.translate(dimensions.width / 2 + posX + kbOffsetX, dimensions.height / 2 + posY + kbOffsetY);
             if (rotationDeg !== 0) {
               ctx.rotate(rad);
             }
-            if (scale !== 1) {
-              ctx.scale(scale, scale);
+            if (scale !== 1 || kbScale !== 1 || flipX !== 1 || flipY !== 1) {
+              ctx.scale(scale * kbScale * flipX, scale * kbScale * flipY);
             }
 
             try {
@@ -744,17 +1239,24 @@ export default function PreviewPlayer({
             
             ctx.filter = 'none';
 
-              // Apply additional video effects inside transformed context
-              if (clip.videoEffects?.vignette) {
-                const grad = ctx.createRadialGradient(
-                  0, 0, dimensions.width * 0.3,
-                  0, 0, dimensions.width * 0.7
-                );
-                grad.addColorStop(0, 'rgba(0,0,0,0)');
-                grad.addColorStop(1, 'rgba(0,0,0,0.85)');
-                ctx.fillStyle = grad;
-                ctx.fillRect(-dimensions.width / 2, -dimensions.height / 2, dimensions.width, dimensions.height);
-              }
+            // Dark Dimmer Overlay (Quran Text Readability)
+            if (clip.videoEffects?.darkDimmerOverlay && clip.videoEffects.darkDimmerOverlay > 0) {
+              ctx.fillStyle = `rgba(0, 0, 0, ${Math.min(0.95, clip.videoEffects.darkDimmerOverlay / 100)})`;
+              ctx.fillRect(-dimensions.width / 2, -dimensions.height / 2, dimensions.width, dimensions.height);
+            }
+
+            // Apply additional video effects inside transformed context
+            if (clip.videoEffects?.vignette) {
+              const intensity = (clip.videoEffects.vignetteIntensity ?? 80) / 100;
+              const grad = ctx.createRadialGradient(
+                0, 0, dimensions.width * 0.28,
+                0, 0, dimensions.width * 0.72
+              );
+              grad.addColorStop(0, 'rgba(0,0,0,0)');
+              grad.addColorStop(1, `rgba(0,0,0,${intensity})`);
+              ctx.fillStyle = grad;
+              ctx.fillRect(-dimensions.width / 2, -dimensions.height / 2, dimensions.width, dimensions.height);
+            }
 
               if (clip.videoEffects?.filmGrain) {
                 ctx.fillStyle = 'rgba(255, 255, 255, 0.06)';
@@ -871,6 +1373,89 @@ export default function PreviewPlayer({
                 }
               }
 
+              // Floating Golden Dust (Noor Particles)
+              if (clip.videoEffects?.goldenDust) {
+                ctx.save();
+                for (let p = 0; p < 28; p++) {
+                  const speed = 25 + (p % 5) * 12;
+                  const px = ((Math.sin(p * 99.3 + currentTime * 0.4) * 0.5 + 0.5) - 0.5) * dimensions.width * 0.95;
+                  const rawY = (dimensions.height * 0.5 - ((currentTime * speed + p * 42) % (dimensions.height * 1.1)));
+                  const py = rawY;
+                  const pSize = 1.5 + (p % 4) * 1.2;
+                  const flicker = 0.35 + Math.sin(currentTime * 4 + p) * 0.35;
+                  
+                  ctx.shadowColor = '#f59e0b';
+                  ctx.shadowBlur = 8;
+                  ctx.fillStyle = `rgba(253, 224, 71, ${Math.max(0.1, flicker)})`;
+                  ctx.beginPath();
+                  ctx.arc(px, py, pSize, 0, Math.PI * 2);
+                  ctx.fill();
+                }
+                ctx.restore();
+              }
+
+              // Divine Noor Rays
+              if (clip.videoEffects?.noorRays) {
+                ctx.save();
+                ctx.globalCompositeOperation = 'screen';
+                const rayOriginX = -dimensions.width * 0.35;
+                const rayOriginY = -dimensions.height * 0.5;
+                const numRays = 7;
+                for (let r = 0; r < numRays; r++) {
+                  const rayAngle = 0.35 + (r / numRays) * 0.9 + Math.sin(currentTime * 0.5 + r) * 0.04;
+                  const rayLen = dimensions.width * 1.3;
+                  const endX = rayOriginX + Math.cos(rayAngle) * rayLen;
+                  const endY = rayOriginY + Math.sin(rayAngle) * rayLen;
+                  const rayGrad = ctx.createLinearGradient(rayOriginX, rayOriginY, endX, endY);
+                  rayGrad.addColorStop(0, 'rgba(254, 240, 138, 0.42)');
+                  rayGrad.addColorStop(0.5, 'rgba(251, 191, 36, 0.18)');
+                  rayGrad.addColorStop(1, 'rgba(245, 158, 11, 0)');
+                  
+                  ctx.strokeStyle = rayGrad;
+                  ctx.lineWidth = 45 + (r % 3) * 25;
+                  ctx.beginPath();
+                  ctx.moveTo(rayOriginX, rayOriginY);
+                  ctx.lineTo(endX, endY);
+                  ctx.stroke();
+                }
+                ctx.restore();
+              }
+
+              // Cosmic Floating Stars
+              if (clip.videoEffects?.floatingStars) {
+                ctx.save();
+                for (let s = 0; s < 18; s++) {
+                  const sx = Math.sin(s * 33.7) * dimensions.width * 0.42;
+                  const sy = Math.cos(s * 71.9) * dimensions.height * 0.42;
+                  const starTwinkle = 0.25 + Math.abs(Math.sin(currentTime * 3 + s * 1.7)) * 0.75;
+                  const starRadius = 2 + (s % 3);
+                  
+                  ctx.fillStyle = `rgba(255, 255, 255, ${starTwinkle})`;
+                  ctx.shadowColor = '#38bdf8';
+                  ctx.shadowBlur = 6;
+                  ctx.beginPath();
+                  ctx.arc(sx, sy, starRadius, 0, Math.PI * 2);
+                  ctx.fill();
+                }
+                ctx.restore();
+              }
+
+              // Angelic Soft Dreamy Glow
+              if (clip.videoEffects?.dreamyGlow) {
+                ctx.save();
+                ctx.globalCompositeOperation = 'screen';
+                const bloomGrad = ctx.createRadialGradient(
+                  0, 0, dimensions.width * 0.1,
+                  0, 0, dimensions.width * 0.65
+                );
+                bloomGrad.addColorStop(0, 'rgba(254, 249, 195, 0.25)');
+                bloomGrad.addColorStop(0.6, 'rgba(56, 189, 248, 0.12)');
+                bloomGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+                ctx.fillStyle = bloomGrad;
+                ctx.fillRect(-dimensions.width / 2, -dimensions.height / 2, dimensions.width, dimensions.height);
+                ctx.restore();
+              }
+
               ctx.restore();
 
               // Draw CapCut Pro Selected Clip Bounding Outline
@@ -972,6 +1557,7 @@ export default function PreviewPlayer({
         ayahNum?: number;
         ayahSymbolPosition?: string;
         ayahSymbolStyle?: string;
+        wordPopScale?: number;
       }
 
       const preparedTextLayers: PreparedTextLayer[] = [];
@@ -984,7 +1570,7 @@ export default function PreviewPlayer({
         const rawFontSize = clip.fontSize ?? 32;
         const referenceWidth = 390;
         const fontScale = dimensions.width / referenceWidth;
-        const fontSize = rawFontSize * fontScale;
+        let fontSize = rawFontSize * fontScale;
 
         const color = clip.color ?? '#FFFFFF';
         const alignment = (clip.textAlignment ?? 'center') as CanvasTextAlign;
@@ -1046,8 +1632,38 @@ export default function PreviewPlayer({
         if (isQuranArabic && (isDividerOrCinema || hasDoubleCircleIssue)) {
           rawText = stripAyahSymbol(rawText);
         }
+
+        // Single-Word (Lafz ba Lafz) Display Mode: focus strictly on the active spoken word
+        const isSingleWordMode = clip.captionDisplayMode === 'single-word' || 
+          (quranCaptionDisplayMode === 'single-word' && (isQuranArabic || isTranslation));
+
         let lines: string[] = [rawText];
-        if (wrapEnabled) {
+        let wordPopScale = 1.0;
+
+        if (isSingleWordMode && rawText.trim().length > 0) {
+          const rawWords = rawText.trim().split(/\s+/).filter((w) => w.length > 0);
+          if (rawWords.length > 0) {
+            const clipElapsed = Math.max(0, currentTime - clip.start);
+            const clipProgress = Math.max(0, Math.min(0.999, clipElapsed / Math.max(0.01, clip.duration)));
+            const activeWordIndex = Math.min(rawWords.length - 1, Math.floor(clipProgress * rawWords.length));
+            const activeSingleWord = rawWords[activeWordIndex];
+
+            // Substantial size scale boost for punchy viral solo word
+            const scaleMultiplier = clip.singleWordScaleMultiplier ?? (isQuranArabic ? quranSingleWordScale : 1.15);
+            fontSize = Math.round(fontSize * scaleMultiplier);
+            ctx.font = `bold ${fontSize}px ${fontStack}`;
+
+            // Micro pop animation when transitioning between words
+            if (quranSingleWordPop) {
+              const wordSlotDur = clip.duration / rawWords.length;
+              const timeIntoWord = clipElapsed - (activeWordIndex * wordSlotDur);
+              const popFraction = Math.min(1, Math.max(0, timeIntoWord / 0.18));
+              wordPopScale = 1.0 + (0.15 * (1 - Math.pow(popFraction, 2)));
+            }
+
+            lines = [activeSingleWord];
+          }
+        } else if (wrapEnabled) {
           const manualParagraphs = rawText.split('\n');
           const wrappedLines: string[] = [];
           for (const para of manualParagraphs) {
@@ -1137,6 +1753,7 @@ export default function PreviewPlayer({
           ayahNum: ayahNum || undefined,
           ayahSymbolPosition,
           ayahSymbolStyle,
+          wordPopScale,
         });
       });
 
@@ -1373,6 +1990,11 @@ export default function PreviewPlayer({
             animOffsetY = 0;
           }
 
+          // Apply Single-Word Pop Scale if active
+          if (layer.wordPopScale && layer.wordPopScale !== 1.0) {
+            animScale *= layer.wordPopScale;
+          }
+
           // Save Canvas Context for Animation Transforms
           ctx.save();
           ctx.globalAlpha = Math.max(0, Math.min(1, ctx.globalAlpha * animAlpha));
@@ -1510,6 +2132,12 @@ export default function PreviewPlayer({
             ctx.restore();
           }
 
+          if (clip.textLetterSpacing !== undefined) {
+            try {
+              (ctx as any).letterSpacing = `${clip.textLetterSpacing}px`;
+            } catch {}
+          }
+
           renderLines.forEach((lineText, idx) => {
             if (!lineText) return;
             const currentY = startY + idx * lineGap;
@@ -1564,7 +2192,12 @@ export default function PreviewPlayer({
 
             const effectiveGlow = (clip.textGlowIntensity ?? (clip.textStyle === 'neon' ? 15 : 0)) + animGlowBoost;
 
-            if (effectiveGlow > 0) {
+            if (clip.text3DShadow?.enabled) {
+              ctx.shadowColor = clip.text3DShadow.color || 'rgba(0,0,0,0.95)';
+              ctx.shadowBlur = clip.text3DShadow.blur ?? 12;
+              ctx.shadowOffsetX = clip.text3DShadow.offsetX ?? 4;
+              ctx.shadowOffsetY = clip.text3DShadow.offsetY ?? 4;
+            } else if (effectiveGlow > 0) {
               ctx.shadowColor = clip.textGlowColor || color;
               ctx.shadowBlur = effectiveGlow;
             } else if (clip.textStyle === ('gold-glow' as any)) {
@@ -1582,7 +2215,36 @@ export default function PreviewPlayer({
               ctx.shadowOffsetY = 2;
             }
 
-            ctx.fillStyle = clip.textStyle === 'neon' ? '#FFFFFF' : (clip.textStyle === ('gold-glow' as any) ? '#fbbf24' : (clip.textStyle === ('viral-reels' as any) ? '#facc15' : color));
+            let computedFillStyle: string | CanvasGradient = clip.textStyle === 'neon' ? '#FFFFFF' : (clip.textStyle === ('gold-glow' as any) ? '#fbbf24' : (clip.textStyle === ('viral-reels' as any) ? '#facc15' : color));
+
+            if (clip.textGradient?.enabled) {
+              const grad = ctx.createLinearGradient(lineX, currentY - fontSize * 0.45, lineX, currentY + fontSize * 0.45);
+              const style = clip.textGradient.style || 'royal-gold';
+              if (style === 'royal-gold') {
+                grad.addColorStop(0, '#fef08a');
+                grad.addColorStop(0.5, '#f59e0b');
+                grad.addColorStop(1, '#b45309');
+              } else if (style === 'emerald-glow') {
+                grad.addColorStop(0, '#a7f3d0');
+                grad.addColorStop(0.5, '#10b981');
+                grad.addColorStop(1, '#065f46');
+              } else if (style === 'rose-sunset') {
+                grad.addColorStop(0, '#fed7aa');
+                grad.addColorStop(0.5, '#f43f5e');
+                grad.addColorStop(1, '#9f1239');
+              } else if (style === 'silver-moon') {
+                grad.addColorStop(0, '#ffffff');
+                grad.addColorStop(0.5, '#cbd5e1');
+                grad.addColorStop(1, '#64748b');
+              } else if (style === 'sunset-amber') {
+                grad.addColorStop(0, '#fde047');
+                grad.addColorStop(0.5, '#f97316');
+                grad.addColorStop(1, '#c2410c');
+              }
+              computedFillStyle = grad;
+            }
+
+            ctx.fillStyle = computedFillStyle;
             ctx.fillText(lineText, lineX, currentY);
 
             // Real-Time Karaoke Word-by-Word Glow Overlay
@@ -1988,6 +2650,59 @@ export default function PreviewPlayer({
           ctx.drawImage(wmImg, wmX, wmY, targetW, targetH);
         }
         ctx.restore();
+      }
+
+      // ------------------ SURAH HEADER OVERLAY ------------------
+      if (quranShowSurahHeader) {
+        let activeSurahNumber: number | null = null;
+        for (const clip of activeFrameClips) {
+          const surahNum = extractSurahNumberFromClip(clip);
+          if (surahNum !== null) {
+            activeSurahNumber = surahNum;
+            break;
+          }
+        }
+        if (activeSurahNumber !== null) {
+          drawCanvasSurahHeader(ctx, activeSurahNumber, dimensions.width, dimensions.height, {
+            show: quranShowSurahHeader,
+            style: quranSurahHeaderStyle,
+            font: quranSurahHeaderFont,
+            size: quranSurahHeaderSize,
+            color: quranSurahHeaderColor,
+            yPercent: quranSurahHeaderY,
+            format: quranSurahHeaderFormat,
+            bg: quranSurahHeaderBg,
+            bgColor: quranSurahHeaderBgColor,
+            bgOpacity: quranSurahHeaderBgOpacity,
+          });
+        }
+      }
+
+      // ------------------ QARI / RECITER BADGE OVERLAY ------------------
+      if (quranShowQariBadge && quranQariName) {
+        drawCanvasQariBadge(
+          ctx,
+          quranQariName,
+          quranQariBadgePosition,
+          dimensions.width,
+          dimensions.height
+        );
+      }
+
+      // ------------------ ISLAMIC AUDIO WAVEFORM VISUALIZER ------------------
+      if (quranShowWaveform) {
+        drawCanvasWaveformVisualizer(
+          ctx,
+          dimensions.width,
+          dimensions.height,
+          currentTime,
+          isPlaying,
+          {
+            style: quranWaveformStyle,
+            color: quranWaveformColor,
+            yPercent: quranWaveformY,
+          }
+        );
       }
 
       // ------------------ SMART ALIGNMENT GUIDELINES & SNAPPING LINES ------------------

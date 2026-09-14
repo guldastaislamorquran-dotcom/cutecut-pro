@@ -98,8 +98,23 @@ export interface Clip {
   textBackgroundStyle?: 'none' | 'box' | 'strip' | 'glow';
   confidenceScore?: number; // Tasmeea alignment confidence match ratio (0-100%)
   textAnimation?: TextAnimationConfig;
+  captionDisplayMode?: 'full-ayah' | 'single-word';
+  singleWordPop?: boolean;
+  singleWordScaleMultiplier?: number;
   karaokeHighlight?: boolean;
   karaokeColor?: string;
+  textLetterSpacing?: number; // Tracking -2 to 30 px
+  textGradient?: {
+    enabled: boolean;
+    style: 'royal-gold' | 'emerald-glow' | 'rose-sunset' | 'silver-moon' | 'sunset-amber';
+  };
+  text3DShadow?: {
+    enabled: boolean;
+    blur: number;
+    offsetX: number;
+    offsetY: number;
+    color: string;
+  };
   linkedClipId?: string; // Two-Track Anchor Lock: Links Arabic clip and Translation clip together on timeline
   groupId?: string; // Unified Group Container / Compound Clip ID for synchronized selection & movement
 
@@ -123,6 +138,15 @@ export interface Clip {
   isImage?: boolean;
   videoEffects?: {
     vignette?: boolean;
+    vignetteIntensity?: number; // 0 to 100
+    darkDimmerOverlay?: number; // 0 to 100 (% darkness for background video/image)
+    flipHorizontal?: boolean;
+    flipVertical?: boolean;
+    temperature?: number; // -100 (Cool blue) to +100 (Warm golden)
+    kenBurns?: {
+      enabled: boolean;
+      style: 'zoom-in' | 'zoom-out' | 'pan-left' | 'pan-right';
+    };
     filmGrain?: boolean;
     glitch?: boolean;
     shake?: boolean;
@@ -136,6 +160,11 @@ export interface Clip {
     upscaler4k?: boolean;
     lightLeak?: boolean;
     bokeh?: boolean;
+    goldenDust?: boolean;
+    noorRays?: boolean;
+    floatingStars?: boolean;
+    rainShimmer?: boolean;
+    dreamyGlow?: boolean;
     transition?: TransitionType | ClipTransition;
     transitionIn?: TransitionType;
     transitionOut?: TransitionType;
@@ -158,6 +187,13 @@ export interface Clip {
     vocalIsolation?: boolean; // AI Vocal Isolation
     voiceEnhancer?: boolean; // Voice Clarity Enhancer
     noiseGateThreshold?: number; // dB threshold, e.g. -40
+    mosqueReverb?: {
+      enabled: boolean;
+      preset: 'haramain-kaaba' | 'grand-mosque' | 'studio-warm';
+      wet: number; // 0 to 100
+    };
+    denoiser?: boolean; // Remove background hiss/hum
+    pitchShiftSemitones?: number; // -12 to +12
   };
   blendMode?: string;
   mask?: {

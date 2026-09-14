@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Sliders, Move, RotateCcw, Sparkles, Blend, Palette, Wand2, Eye, Sun, Droplet, Layers, Scissors, Heart, Square, Circle, Shield } from 'lucide-react';
+import { Sliders, Move, RotateCcw, Sparkles, Blend, Palette, Wand2, Eye, Sun, Droplet, Layers, Scissors, Heart, Square, Circle, Shield, FlipHorizontal, FlipVertical, Moon, Flame, ZoomIn } from 'lucide-react';
 import { Clip, VideoFilters, ColorGrading } from '../types';
 import { ColorGradingSection } from './ColorGradingSection';
 import { PRESET_LUTS } from '../data/presetAssets';
@@ -231,6 +231,188 @@ export const CapCutVideoInspector: React.FC<CapCutVideoInspectorProps> = ({
                       }
                       className="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-cyan-400"
                     />
+                  </div>
+
+                  {/* Flip & Mirror Controls */}
+                  <div className="pt-2 border-t border-[#262633] space-y-1.5">
+                    <span className="text-gray-400 text-[10px]">Orientation & Flip</span>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      <button
+                        onClick={() =>
+                          onUpdateClip(clip.id, {
+                            videoEffects: {
+                              ...clip.videoEffects,
+                              flipHorizontal: !clip.videoEffects?.flipHorizontal,
+                            },
+                          })
+                        }
+                        className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded text-xs font-medium border transition ${
+                          clip.videoEffects?.flipHorizontal
+                            ? 'bg-cyan-500/20 border-cyan-400 text-cyan-300'
+                            : 'bg-[#121217] border-gray-800 text-gray-300 hover:border-gray-700'
+                        }`}
+                      >
+                        <FlipHorizontal className="w-3.5 h-3.5" />
+                        <span>Flip H</span>
+                      </button>
+
+                      <button
+                        onClick={() =>
+                          onUpdateClip(clip.id, {
+                            videoEffects: {
+                              ...clip.videoEffects,
+                              flipVertical: !clip.videoEffects?.flipVertical,
+                            },
+                          })
+                        }
+                        className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded text-xs font-medium border transition ${
+                          clip.videoEffects?.flipVertical
+                            ? 'bg-cyan-500/20 border-cyan-400 text-cyan-300'
+                            : 'bg-[#121217] border-gray-800 text-gray-300 hover:border-gray-700'
+                        }`}
+                      >
+                        <FlipVertical className="w-3.5 h-3.5" />
+                        <span>Flip V</span>
+                      </button>
+
+                      <button
+                        onClick={() =>
+                          onUpdateClip(clip.id, {
+                            transform: { scale: 100, posX: 0, posY: 0, rotation: 0 },
+                            videoEffects: {
+                              ...clip.videoEffects,
+                              flipHorizontal: false,
+                              flipVertical: false,
+                            },
+                          })
+                        }
+                        className="flex items-center justify-center gap-1 py-1.5 px-2 rounded text-xs font-medium border border-gray-800 bg-[#121217] text-gray-400 hover:text-gray-200"
+                        title="Reset Transform"
+                      >
+                        <RotateCcw className="w-3.5 h-3.5" />
+                        <span>Reset</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Dark Dimmer Overlay (Quran Text Readability) */}
+                <div className="bg-[#1a1a22] p-3.5 rounded-lg border border-[#262633] space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 font-semibold text-gray-200">
+                      <Moon className="w-4 h-4 text-indigo-400" />
+                      <span>Background Dimmer</span>
+                    </div>
+                    <span className="font-mono text-cyan-400 font-bold text-xs">
+                      {clip.videoEffects?.darkDimmerOverlay ?? 0}%
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-gray-400 leading-tight">
+                    Darken background video/photo so Arabic ayah text and subtitles pop with maximum contrast.
+                  </p>
+                  <input
+                    type="range"
+                    min="0"
+                    max="90"
+                    step="5"
+                    value={clip.videoEffects?.darkDimmerOverlay ?? 0}
+                    onChange={(e) =>
+                      onUpdateClip(clip.id, {
+                        videoEffects: {
+                          ...clip.videoEffects,
+                          darkDimmerOverlay: parseInt(e.target.value),
+                        },
+                      })
+                    }
+                    className="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-indigo-400"
+                  />
+                  <div className="flex gap-1">
+                    {[
+                      { label: 'Off', val: 0 },
+                      { label: '20% Soft', val: 20 },
+                      { label: '40% Cinema', val: 40 },
+                      { label: '65% Focus', val: 65 },
+                    ].map((p) => (
+                      <button
+                        key={p.val}
+                        onClick={() =>
+                          onUpdateClip(clip.id, {
+                            videoEffects: {
+                              ...clip.videoEffects,
+                              darkDimmerOverlay: p.val,
+                            },
+                          })
+                        }
+                        className={`flex-1 py-1 rounded text-[10px] font-medium border transition ${
+                          (clip.videoEffects?.darkDimmerOverlay ?? 0) === p.val
+                            ? 'bg-indigo-950/60 border-indigo-400 text-indigo-200'
+                            : 'bg-[#121217] border-gray-800 text-gray-400 hover:text-gray-200'
+                        }`}
+                      >
+                        {p.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Ken Burns Motion Effect (For Images & Backgrounds) */}
+                <div className="bg-[#1a1a22] p-3.5 rounded-lg border border-[#262633] space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 font-semibold text-gray-200">
+                      <ZoomIn className="w-4 h-4 text-emerald-400" />
+                      <span>Ken Burns Camera Motion</span>
+                    </div>
+                    {clip.videoEffects?.kenBurns?.enabled && (
+                      <span className="text-[10px] font-bold text-emerald-400 bg-emerald-950/60 px-1.5 py-0.5 rounded border border-emerald-800/60">
+                        Active
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-gray-400 leading-tight">
+                    Smooth cinematic camera pan and zoom movement across images and static footage.
+                  </p>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {[
+                      { id: 'none', label: 'None' },
+                      { id: 'zoom-in', label: 'Zoom In 🔍' },
+                      { id: 'zoom-out', label: 'Zoom Out 🔎' },
+                      { id: 'pan-left', label: 'Pan Left ⬅️' },
+                      { id: 'pan-right', label: 'Pan Right ➡️' },
+                    ].map((kb) => {
+                      const isCurrent = kb.id === 'none'
+                        ? !clip.videoEffects?.kenBurns?.enabled
+                        : (clip.videoEffects?.kenBurns?.enabled && clip.videoEffects?.kenBurns?.style === kb.id);
+
+                      return (
+                        <button
+                          key={kb.id}
+                          onClick={() => {
+                            if (kb.id === 'none') {
+                              onUpdateClip(clip.id, {
+                                videoEffects: {
+                                  ...clip.videoEffects,
+                                  kenBurns: { enabled: false, style: 'zoom-in' },
+                                },
+                              });
+                            } else {
+                              onUpdateClip(clip.id, {
+                                videoEffects: {
+                                  ...clip.videoEffects,
+                                  kenBurns: { enabled: true, style: kb.id as any },
+                                },
+                              });
+                            }
+                          }}
+                          className={`py-1.5 px-2 rounded text-xs font-medium border text-center transition ${
+                            isCurrent
+                              ? 'bg-emerald-950/60 border-emerald-400 text-emerald-200'
+                              : 'bg-[#121217] border-gray-800 text-gray-400 hover:text-white'
+                          }`}
+                        >
+                          {kb.label}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
 
@@ -769,6 +951,82 @@ export const CapCutVideoInspector: React.FC<CapCutVideoInspectorProps> = ({
                       }
                       className="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-cyan-400"
                     />
+                  </div>
+
+                  {/* Temperature / Warmth */}
+                  <div className="space-y-1 pt-1 border-t border-[#262633]">
+                    <div className="flex justify-between items-center text-gray-300">
+                      <div className="flex items-center gap-1.5">
+                        <Flame className="w-3.5 h-3.5 text-amber-400" />
+                        <span>Color Temperature</span>
+                      </div>
+                      <span className="font-mono text-amber-400">
+                        {(clip.videoEffects?.temperature ?? 0) > 0 ? `+${clip.videoEffects?.temperature}` : clip.videoEffects?.temperature ?? 0}
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min="-100"
+                      max="100"
+                      value={clip.videoEffects?.temperature ?? 0}
+                      onChange={(e) =>
+                        onUpdateClip(clip.id, {
+                          videoEffects: {
+                            ...clip.videoEffects,
+                            temperature: parseInt(e.target.value),
+                          },
+                        })
+                      }
+                      className="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-amber-400"
+                    />
+                    <div className="flex justify-between text-[9px] text-gray-500 font-mono">
+                      <span>Cool (Blue)</span>
+                      <span>Neutral</span>
+                      <span>Warm (Golden)</span>
+                    </div>
+                  </div>
+
+                  {/* Vignette Shadow Intensity */}
+                  <div className="space-y-1 pt-1 border-t border-[#262633]">
+                    <div className="flex justify-between items-center text-gray-300">
+                      <span>Vignette Edge Shadow</span>
+                      <span className="font-mono text-cyan-400">
+                        {clip.videoEffects?.vignette ? `${clip.videoEffects?.vignetteIntensity ?? 70}%` : 'Off'}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(clip.videoEffects?.vignette)}
+                        onChange={(e) =>
+                          onUpdateClip(clip.id, {
+                            videoEffects: {
+                              ...clip.videoEffects,
+                              vignette: e.target.checked,
+                              vignetteIntensity: clip.videoEffects?.vignetteIntensity ?? 70,
+                            },
+                          })
+                        }
+                        className="rounded bg-gray-800 border-gray-700 text-cyan-500 focus:ring-0 cursor-pointer"
+                      />
+                      <input
+                        type="range"
+                        min="10"
+                        max="100"
+                        disabled={!clip.videoEffects?.vignette}
+                        value={clip.videoEffects?.vignetteIntensity ?? 70}
+                        onChange={(e) =>
+                          onUpdateClip(clip.id, {
+                            videoEffects: {
+                              ...clip.videoEffects,
+                              vignette: true,
+                              vignetteIntensity: parseInt(e.target.value),
+                            },
+                          })
+                        }
+                        className="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-cyan-400 disabled:opacity-30"
+                      />
+                    </div>
                   </div>
                 </div>
 

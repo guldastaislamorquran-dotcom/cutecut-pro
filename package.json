@@ -113,10 +113,14 @@
         "wayland",
         "home",
         "network",
+        "network-bind",
         "audio-playback",
+        "audio-record",
         "gsettings",
         "opengl",
-        "unity7"
+        "unity7",
+        "browser-support",
+        "screen-inhibit-control"
       ]
     },
     "deb": {

@@ -208,6 +208,113 @@ export const CapCutAudioInspector: React.FC<CapCutAudioInspectorProps> = ({
               </div>
             </div>
 
+            {/* Haramain & Mosque Acoustic Reverb Suite */}
+            <div className="bg-[#1a1a22] p-3.5 rounded-lg border border-[#262633] space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5 font-medium text-amber-300">
+                  <Sparkles className="w-4 h-4 text-amber-400" />
+                  <span>Mosque & Sanctuary Reverb</span>
+                </div>
+                {clip.audioEffects?.mosqueReverb?.enabled && (
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400 bg-amber-950/50 px-2 py-0.5 rounded border border-amber-800/60">
+                    Active
+                  </span>
+                )}
+              </div>
+              <p className="text-[10px] text-gray-400 leading-tight">
+                Simulate the sacred acoustic reflection and expansive hall echo of the Two Holy Mosques.
+              </p>
+
+              {/* Presets */}
+              <div className="grid grid-cols-2 gap-1.5">
+                {[
+                  { id: 'none', label: 'Off', icon: '⊘', desc: 'Dry vocal' },
+                  { id: 'haramain-kaaba', label: 'Haramain Kaaba', icon: '🕋', desc: 'Makkah reflection' },
+                  { id: 'grand-mosque', label: 'Grand Mosque', icon: '🕌', desc: 'Expansive sacred hall' },
+                  { id: 'studio-warm', label: 'Studio Warmth', icon: '🎙️', desc: 'Crisp acoustic body' },
+                ].map((preset) => {
+                  const isCurrent = preset.id === 'none'
+                    ? !clip.audioEffects?.mosqueReverb?.enabled
+                    : (clip.audioEffects?.mosqueReverb?.enabled && clip.audioEffects?.mosqueReverb?.preset === preset.id);
+
+                  return (
+                    <button
+                      key={preset.id}
+                      onClick={() => {
+                        if (preset.id === 'none') {
+                          onUpdateClip(clip.id, {
+                            audioEffects: {
+                              ...clip.audioEffects,
+                              mosqueReverb: {
+                                enabled: false,
+                                preset: 'haramain-kaaba',
+                                wet: clip.audioEffects?.mosqueReverb?.wet ?? 55,
+                              },
+                              reverb: false,
+                              echo: false,
+                            },
+                          });
+                        } else {
+                          onUpdateClip(clip.id, {
+                            audioEffects: {
+                              ...clip.audioEffects,
+                              mosqueReverb: {
+                                enabled: true,
+                                preset: preset.id as any,
+                                wet: clip.audioEffects?.mosqueReverb?.wet ?? 55,
+                              },
+                              reverb: true,
+                            },
+                          });
+                        }
+                      }}
+                      className={`p-2 rounded-lg border text-left transition ${
+                        isCurrent
+                          ? 'border-amber-400 bg-amber-950/30 text-amber-200'
+                          : 'border-[#262633] bg-[#121217] text-gray-400 hover:border-gray-600 hover:text-white'
+                      }`}
+                    >
+                      <div className="flex items-center gap-1.5 font-semibold text-xs">
+                        <span>{preset.icon}</span>
+                        <span className="truncate">{preset.label}</span>
+                      </div>
+                      <div className="text-[9px] text-gray-500 mt-0.5">{preset.desc}</div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Wet Reverb Mix Slider */}
+              {clip.audioEffects?.mosqueReverb?.enabled && (
+                <div className="space-y-1.5 pt-2 border-t border-[#262633]">
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-gray-300">Echo & Reverb Mix</span>
+                    <span className="font-mono text-amber-400 font-bold">
+                      {clip.audioEffects?.mosqueReverb?.wet ?? 55}%
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min="10"
+                    max="100"
+                    value={clip.audioEffects?.mosqueReverb?.wet ?? 55}
+                    onChange={(e) =>
+                      onUpdateClip(clip.id, {
+                        audioEffects: {
+                          ...clip.audioEffects,
+                          mosqueReverb: {
+                            ...(clip.audioEffects?.mosqueReverb || { enabled: true, preset: 'haramain-kaaba' }),
+                            wet: parseInt(e.target.value),
+                          },
+                        },
+                      })
+                    }
+                    className="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-amber-400"
+                  />
+                </div>
+              )}
+            </div>
+
             {/* Audio Enhancement Switches */}
             <div className="bg-[#1a1a22] p-3.5 rounded-lg border border-[#262633] space-y-3">
               {/* Loudness Normalization */}
@@ -260,12 +367,12 @@ export const CapCutAudioInspector: React.FC<CapCutAudioInspectorProps> = ({
                 </button>
               </div>
 
-              {/* Reduce Noise */}
+              {/* Reduce Noise / Denoiser */}
               <div className="flex items-start justify-between gap-3 pt-2.5 border-t border-[#262633]">
                 <div className="space-y-0.5">
-                  <div className="font-medium text-gray-200">Reduce noise</div>
+                  <div className="font-medium text-gray-200">Voice Denoiser & Hum Remover</div>
                   <div className="text-[10px] text-gray-400 leading-tight">
-                    Intelligently suppress background noise, hiss, and hum.
+                    Cut low-frequency AC rumble, fan hum, and high-pitch hiss.
                   </div>
                 </div>
                 <button
@@ -275,14 +382,51 @@ export const CapCutAudioInspector: React.FC<CapCutAudioInspectorProps> = ({
                         ...audioSettings,
                         reduceNoise: !audioSettings.reduceNoise,
                       },
+                      audioEffects: {
+                        ...clip.audioEffects,
+                        denoiser: !clip.audioEffects?.denoiser,
+                      },
                     })
                   }
                   className={`w-9 h-5 rounded-full p-0.5 transition-colors duration-200 flex items-center ${
-                    audioSettings.reduceNoise ? 'bg-cyan-500 justify-end' : 'bg-gray-700 justify-start'
+                    (audioSettings.reduceNoise || clip.audioEffects?.denoiser) ? 'bg-cyan-500 justify-end' : 'bg-gray-700 justify-start'
                   }`}
                 >
                   <div className="w-4 h-4 rounded-full bg-white shadow-md" />
                 </button>
+              </div>
+
+              {/* Pitch Shift / Depth Adjustment */}
+              <div className="space-y-1.5 pt-2.5 border-t border-[#262633]">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-gray-300">Voice Depth / Pitch Tone</span>
+                  <span className="font-mono text-cyan-400 font-bold">
+                    {(clip.audioEffects?.pitchShiftSemitones ?? 0) > 0 ? `+${clip.audioEffects?.pitchShiftSemitones} st` : `${clip.audioEffects?.pitchShiftSemitones ?? 0} st`}
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min="-12"
+                  max="12"
+                  step="1"
+                  value={clip.audioEffects?.pitchShiftSemitones ?? 0}
+                  onChange={(e) => {
+                    const st = parseInt(e.target.value);
+                    const rateMult = Math.pow(2, st / 12);
+                    onUpdateClip(clip.id, {
+                      audioEffects: {
+                        ...clip.audioEffects,
+                        pitchShiftSemitones: st,
+                      },
+                    });
+                  }}
+                  className="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-cyan-400"
+                />
+                <div className="flex justify-between text-[9px] text-gray-500 font-mono">
+                  <span>-12 (Deep Bass)</span>
+                  <span>0 (Natural)</span>
+                  <span>+12 (Crisp High)</span>
+                </div>
               </div>
             </div>
 

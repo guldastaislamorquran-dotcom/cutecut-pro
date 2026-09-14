@@ -46,6 +46,7 @@ import {
   reconcileSingleBreathVerses
 } from './utils/editorUtils';
 import { QURAN_TRANSLATION_OPTIONS, getTranslationOptionById, fetchSingleAyahTranslation, getTaawwuzTranslation, getTasmiyahTranslation, OFFLINE_SURAH_TRANSLATIONS } from './utils/quranTranslations';
+import { parseMixedAyahsString } from './utils/quranSurahData';
 import { auth, googleProvider, saveUserTimelineProject, getUserTimelineProject } from './utils/firebaseConfig';
 import { getSystemSpecs, SystemSpecs } from './utils/systemPerformance';
 import { signInWithPopup, signOut, onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
@@ -1443,6 +1444,34 @@ export default function App() {
   const [quranEnglishLineHeight, setQuranEnglishLineHeight] = useState<number>(1.3);
   const [quranEnglishAlign, setQuranEnglishAlign] = useState<'left' | 'center' | 'right'>('center');
 
+  // Surah Header Overlay State
+  const [quranShowSurahHeader, setQuranShowSurahHeader] = useState<boolean>(true);
+  const [quranSurahHeaderStyle, setQuranSurahHeaderStyle] = useState<string>('ornate');
+  const [quranSurahHeaderFont, setQuranSurahHeaderFont] = useState<string>('Amiri');
+  const [quranSurahHeaderSize, setQuranSurahHeaderSize] = useState<number>(24);
+  const [quranSurahHeaderColor, setQuranSurahHeaderColor] = useState<string>('#E5C158'); // Imperial Gold
+  const [quranSurahHeaderY, setQuranSurahHeaderY] = useState<number>(8); // 8% from top
+  const [quranSurahHeaderFormat, setQuranSurahHeaderFormat] = useState<'both' | 'arabic' | 'english' | 'numbered'>('both');
+  const [quranSurahHeaderBg, setQuranSurahHeaderBg] = useState<'none' | 'solid' | 'gradient' | 'blur' | boolean>('gradient');
+  const [quranSurahHeaderBgColor, setQuranSurahHeaderBgColor] = useState<string>('#000000');
+  const [quranSurahHeaderBgOpacity, setQuranSurahHeaderBgOpacity] = useState<number>(50);
+
+  // Single-Word (Lafz ba Lafz) Display Mode State
+  const [quranCaptionDisplayMode, setQuranCaptionDisplayMode] = useState<'full-ayah' | 'single-word'>('full-ayah');
+  const [quranSingleWordScale, setQuranSingleWordScale] = useState<number>(1.35);
+  const [quranSingleWordPop, setQuranSingleWordPop] = useState<boolean>(true);
+
+  // Qari / Reciter Name Badge Overlay State
+  const [quranShowQariBadge, setQuranShowQariBadge] = useState<boolean>(false);
+  const [quranQariName, setQuranQariName] = useState<string>('Mishary Rashid Alafasy');
+  const [quranQariBadgePosition, setQuranQariBadgePosition] = useState<'top-right' | 'top-left' | 'bottom-right' | 'bottom-left'>('top-right');
+
+  // Islamic Audio Waveform Visualizer State
+  const [quranShowWaveform, setQuranShowWaveform] = useState<boolean>(false);
+  const [quranWaveformStyle, setQuranWaveformStyle] = useState<'bars' | 'wave' | 'mirror'>('bars');
+  const [quranWaveformColor, setQuranWaveformColor] = useState<string>('#F59E0B');
+  const [quranWaveformY, setQuranWaveformY] = useState<number>(86);
+
   // Dual Translation Track State (Urdu / 2nd Translation Track)
   const [quranDualFont, setQuranDualFont] = useState<string>('Jameel Noori Nastaleeq');
   const [quranDualSize, setQuranDualSize] = useState<number>(18);
@@ -1460,6 +1489,98 @@ export default function App() {
     setQuranEnglishY(targetEnY);
     setQuranDualY(targetDualY);
     applyQuranStylesToTimeline({ englishY: targetEnY, dualY: targetDualY });
+  };
+
+  // 1-Click Quick Calligraphy Card Generator: Bismillah Opening
+  const handleAddBismillahCard = () => {
+    addNewClip({
+      name: 'Bismillah Calligraphy',
+      type: ClipType.TEXT,
+      text: 'بِسْمِ اللّٰهِ الرَّحْمٰنِ الرَّحِيْمِ',
+      start: 0,
+      duration: 4,
+      fontFamily: 'Amiri',
+      fontSize: 36,
+      color: '#E5C158',
+      textStyle: 'gold-glow',
+      textAlignment: 'center',
+      textY: 45,
+      textBackgroundStyle: 'box',
+      textBackgroundColor: 'rgba(0,0,0,0.65)',
+      textBackgroundRadius: 16,
+      textAnimation: {
+        inAnimation: 'zoom-in',
+        inDuration: 0.5,
+        outAnimation: 'fade',
+        outDuration: 0.5,
+      },
+    });
+    addNewClip({
+      name: 'Bismillah Translation',
+      type: ClipType.TEXT,
+      text: 'In the Name of Allah, the Entirely Merciful, the Especially Merciful',
+      start: 0,
+      duration: 4,
+      fontFamily: 'Playfair Display',
+      fontSize: 16,
+      color: '#F3F4F6',
+      textStyle: 'shadow',
+      textAlignment: 'center',
+      textY: 58,
+      textAnimation: {
+        inAnimation: 'fade',
+        inDuration: 0.6,
+        outAnimation: 'fade',
+        outDuration: 0.5,
+      },
+    });
+  };
+
+  // 1-Click Quick Calligraphy Card Generator: Sadaqallahul Azeem Outro
+  const handleAddSadaqallahCard = () => {
+    const endTimeline = duration > 0 ? duration : 15;
+    const startTime = Math.max(0, endTimeline - 3.5);
+    addNewClip({
+      name: 'Sadaqallahul Azeem Outro',
+      type: ClipType.TEXT,
+      text: 'صَدَقَ اللّٰهُ الْعَظِيْمُ',
+      start: startTime,
+      duration: 3.5,
+      fontFamily: 'Amiri',
+      fontSize: 36,
+      color: '#E5C158',
+      textStyle: 'gold-glow',
+      textAlignment: 'center',
+      textY: 45,
+      textBackgroundStyle: 'box',
+      textBackgroundColor: 'rgba(0,0,0,0.65)',
+      textBackgroundRadius: 16,
+      textAnimation: {
+        inAnimation: 'zoom-in',
+        inDuration: 0.5,
+        outAnimation: 'fade',
+        outDuration: 0.5,
+      },
+    });
+    addNewClip({
+      name: 'Sadaqallah Translation',
+      type: ClipType.TEXT,
+      text: 'Allah the Almighty has spoken the truth',
+      start: startTime,
+      duration: 3.5,
+      fontFamily: 'Playfair Display',
+      fontSize: 16,
+      color: '#F3F4F6',
+      textStyle: 'shadow',
+      textAlignment: 'center',
+      textY: 58,
+      textAnimation: {
+        inAnimation: 'fade',
+        inDuration: 0.6,
+        outAnimation: 'fade',
+        outDuration: 0.5,
+      },
+    });
   };
   // Global Quran Animations
   const [quranAnimationIn, setQuranAnimationIn] = useState<any>('fade');
@@ -2090,7 +2211,23 @@ export default function App() {
 
       let currentOutput: AudioNode = nodeEntry.source;
 
-      // 1. Bass Boost filter
+      // 1. Voice Denoiser & AC/Fan Hum Remover
+      if (clip.audioEffects?.denoiser || clip.audioSettings?.reduceNoise) {
+        const highPass = ctx.createBiquadFilter();
+        highPass.type = 'highpass';
+        highPass.frequency.value = 110;
+
+        const notch = ctx.createBiquadFilter();
+        notch.type = 'notch';
+        notch.frequency.value = 60;
+        notch.Q.value = 8;
+
+        currentOutput.connect(highPass);
+        highPass.connect(notch);
+        currentOutput = notch;
+      }
+
+      // 2. Bass Boost filter
       if (hasBass) {
         const bassFilter = ctx.createBiquadFilter();
         bassFilter.type = 'lowshelf';
@@ -2100,8 +2237,45 @@ export default function App() {
         currentOutput = bassFilter;
       }
 
-      // 2. Qiraat Echo / Delay Feedback Loop
-      if (hasEcho || hasReverb) {
+      // 3. Mosque Reverb Suite or Standard Qiraat Echo Feedback Loop
+      const mosque = clip.audioEffects?.mosqueReverb;
+      if (mosque?.enabled) {
+        const delayTime = mosque.preset === 'haramain-kaaba' ? 0.52 : mosque.preset === 'grand-mosque' ? 0.38 : 0.22;
+        const feedbackVal = mosque.preset === 'haramain-kaaba' ? 0.52 : mosque.preset === 'grand-mosque' ? 0.44 : 0.28;
+        const wetRatio = (mosque.wet ?? 55) / 100;
+
+        const delayNode = ctx.createDelay(1.5);
+        delayNode.delayTime.value = delayTime;
+
+        // Dampening lowpass filter simulates acoustic absorption of mosque carpets and stone arches
+        const dampFilter = ctx.createBiquadFilter();
+        dampFilter.type = 'lowpass';
+        dampFilter.frequency.value = mosque.preset === 'haramain-kaaba' ? 2400 : 3400;
+
+        const delayGain = ctx.createGain();
+        delayGain.gain.value = feedbackVal;
+
+        const wetGain = ctx.createGain();
+        wetGain.gain.value = 0.55 * wetRatio;
+
+        const dryGain = ctx.createGain();
+        dryGain.gain.value = 1.0;
+
+        const effectMix = ctx.createGain();
+
+        currentOutput.connect(dryGain);
+        dryGain.connect(effectMix);
+
+        currentOutput.connect(delayNode);
+        delayNode.connect(dampFilter);
+        dampFilter.connect(delayGain);
+        delayGain.connect(delayNode);
+
+        dampFilter.connect(wetGain);
+        wetGain.connect(effectMix);
+
+        currentOutput = effectMix;
+      } else if (hasEcho || hasReverb) {
         const delayNode = ctx.createDelay(1.0);
         delayNode.delayTime.value = hasReverb ? 0.42 : 0.25;
 
@@ -2128,6 +2302,21 @@ export default function App() {
 
         currentOutput = effectMix;
       }
+
+      // 4. Volume Gain & Fade In/Out Envelope
+      const baseGain = clip.volume !== undefined ? clip.volume : 1.0;
+      const fadeIn = clip.audioSettings?.fadeIn ?? 0;
+      const fadeOut = clip.audioSettings?.fadeOut ?? 0;
+      const elapsed = Math.max(0, currentTime - clip.start);
+      let fadeFactor = 1.0;
+
+      if (fadeIn > 0 && elapsed < fadeIn) {
+        fadeFactor = Math.max(0, elapsed / fadeIn);
+      } else if (fadeOut > 0 && elapsed > (clip.duration - fadeOut)) {
+        fadeFactor = Math.max(0, (clip.duration - elapsed) / fadeOut);
+      }
+
+      nodeEntry.gainNode.gain.setValueAtTime(baseGain * fadeFactor, ctx.currentTime);
 
       currentOutput.connect(nodeEntry.gainNode);
       nodeEntry.gainNode.connect(masterGain);
@@ -4068,7 +4257,7 @@ export default function App() {
     startAyah: number;
     mode: 'individual' | 'batch';
     style: string;
-    selectionType?: 'single' | 'range' | 'list' | 'all';
+    selectionType?: 'single' | 'range' | 'list' | 'all' | 'mixed' | 'collection';
     surahEnd?: number;
     surahList?: string;
     introMode?: 'both' | 'taawwuz-only' | 'bismillah-only' | 'none';
@@ -4082,7 +4271,7 @@ export default function App() {
       startAyah = 1,
       mode = 'batch',
       style = 'Imperial Gold',
-      selectionType = 'single',
+      selectionType = 'single' as any,
       surahEnd,
       surahList,
       introMode,
@@ -4413,149 +4602,290 @@ export default function App() {
       const transOpt = getTranslationOptionById(quranTranslation);
       const transApiId = transOpt.apiId || 20;
 
-      // Infinite Whole-Surah Dynamic Progression Array Iterator Loop
-      for (let sIdx = 0; sIdx < surahsToProcess.length; sIdx++) {
-        const currentSurah = surahsToProcess[sIdx];
-        const isFirstSurah = (sIdx === 0);
-        const isNotTawbahThis = currentSurah !== 9;
-        const currentIntroMode = introMode || quranIntroMode || 'none';
-
-        // 1. Opening Verse Rules for Multi-Surah & Single Surah:
-        // - First Surah: Follows selected Intro Mode (e.g. Ta'awwuz + Bismillah, or Bismillah only)
-        // - Subsequent Surahs in the audio: Automatically insert Bismillah (unless Surah At-Tawbah #9)
-        if (isFirstSurah) {
-          const isStartFromFirstAyah = (selectionType === 'single' ? startAyah === 1 : true);
-          const shouldIncludeTaawwuz = isStartFromFirstAyah && isNotTawbahThis && (currentIntroMode === 'both' || currentIntroMode === 'taawwuz-only');
-          const shouldIncludeBismillah = isStartFromFirstAyah && isNotTawbahThis && (currentIntroMode === 'both' || currentIntroMode === 'bismillah-only');
-
-          if (shouldIncludeTaawwuz) {
-            allRawVerses.push({
-              verse_key: `${currentSurah}:0:taawwuz`,
-              verse_number: 0,
-              text_arabic: 'أَعُوذُ بِاللَّهِ مِنَ الشَّيْطَانِ الرَّجِيمِ',
-              text_english: getTaawwuzTranslation(transOpt.languageCode),
-              isTaawwuz: true
-            });
-          }
-
-          if (shouldIncludeBismillah) {
-            allRawVerses.push({
-              verse_key: `${currentSurah}:0:bismillah`,
-              verse_number: 0,
-              text_arabic: 'بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ',
-              text_english: getTasmiyahTranslation(transOpt.languageCode),
-              isTasmiyah: true
-            });
-          }
-        } else {
-          // For all subsequent Surahs occurring in the multi-surah audio:
-          // Automatically include Bismillah as the opening header of each following Surah (unless Surah 9 At-Tawbah)
-          if (isNotTawbahThis && currentIntroMode !== 'none') {
-            allRawVerses.push({
-              verse_key: `${currentSurah}:0:bismillah`,
-              verse_number: 0,
-              text_arabic: 'بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ',
-              text_english: getTasmiyahTranslation(transOpt.languageCode),
-              isTasmiyah: true
-            });
-          }
-        }
-
-        addLog(`[Quran AI] Fetching scripture & ${transOpt.language} translation for Surah #${currentSurah}...`, 68 + Math.floor((sIdx / surahsToProcess.length) * 10));
-
-        let surahVerses: any[] = [];
-        let page = 1;
-        let totalPages = 1;
-
-        // Asynchronous recursive pagination loop to fetch ALL verses of the chapter
-        while (page <= totalPages && page <= 5) {
-          try {
-            const apiUrl = `https://api.quran.com/api/v4/verses/by_chapter/${currentSurah}?language=${transOpt.languageCode}&words=false&translations=${transApiId}&fields=text_uthmani&per_page=300&page=${page}`;
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 3000);
-            const res = await fetch(apiUrl, { signal: controller.signal });
-            clearTimeout(timeoutId);
-            if (res.ok) {
-              const data = await res.json();
-              totalPages = data.pagination?.total_pages || 1;
-              const raw = data.verses || [];
-              const mapped = raw.map((v: any, idx: number) => {
-                const vNum = v.verse_number || (v.verse_key ? parseInt(v.verse_key.split(':')[1], 10) : (page - 1) * 300 + idx + 1);
-                let rawArabic = v.text_uthmani || v.text_arabic || '';
-                rawArabic = attachAyahSymbolToText(
-                  rawArabic,
-                  vNum,
-                  quranShowAyahSymbol ? quranAyahSymbolStyle : 'none',
-                  quranAyahDigitType,
-                  quranAyahSymbolPosition
-                );
-                return {
-                  verse_key: v.verse_key,
-                  verse_number: vNum,
-                  text_arabic: rawArabic,
-                  text_english: (v.translations?.[0]?.text || '')
-                    .replace(/<[^>]*>/g, '')
-                    .replace(/[\{\}\[\]\(\)]/g, '')
-                    .replace(/&nbsp;/g, ' ')
-                    .trim()
-                };
-              });
-              surahVerses.push(...mapped);
-              page++;
-            } else {
+      if (selectionType === 'mixed' || selectionType === 'collection') {
+        const mixedStr = String(surahList || surahStr || surah).trim();
+        addLog(`[Quran AI] Parsing mixed collection targets: "${mixedStr}"...`, 56);
+        const targets = parseMixedAyahsString(mixedStr);
+        addLog(`[Quran AI] Mixed collection parsed: ${targets.length} verses specified.`, 58);
+        
+        // 1. Load unique surahs we need to fetch
+        const uniqueSurahs = Array.from(new Set(targets.map(t => t.surah))).sort((a, b) => a - b);
+        const surahVersesCache: Record<number, any[]> = {};
+        
+        for (const sNum of uniqueSurahs) {
+          addLog(`[Quran AI] Fetching scripture & ${transOpt.language} translation for Surah #${sNum}...`, 60);
+          let surahVerses: any[] = [];
+          let page = 1;
+          let totalPages = 1;
+          
+          while (page <= totalPages && page <= 5) {
+            try {
+              const apiUrl = `https://api.quran.com/api/v4/verses/by_chapter/${sNum}?language=${transOpt.languageCode}&words=false&translations=${transApiId}&fields=text_uthmani&per_page=300&page=${page}`;
+              const controller = new AbortController();
+              const timeoutId = setTimeout(() => controller.abort(), 3000);
+              const res = await fetch(apiUrl, { signal: controller.signal });
+              clearTimeout(timeoutId);
+              if (res.ok) {
+                const data = await res.json();
+                totalPages = data.pagination?.total_pages || 1;
+                const raw = data.verses || [];
+                const mapped = raw.map((v: any, idx: number) => {
+                  const vNum = v.verse_number || (v.verse_key ? parseInt(v.verse_key.split(':')[1], 10) : (page - 1) * 300 + idx + 1);
+                  let rawArabic = v.text_uthmani || v.text_arabic || '';
+                  rawArabic = attachAyahSymbolToText(
+                    rawArabic,
+                    vNum,
+                    quranShowAyahSymbol ? quranAyahSymbolStyle : 'none',
+                    quranAyahDigitType,
+                    quranAyahSymbolPosition
+                  );
+                  return {
+                    verse_key: v.verse_key,
+                    verse_number: vNum,
+                    text_arabic: rawArabic,
+                    text_english: (v.translations?.[0]?.text || '')
+                      .replace(/<[^>]*>/g, '')
+                      .replace(/[\{\}\[\]\(\)]/g, '')
+                      .replace(/&nbsp;/g, ' ')
+                      .trim()
+                  };
+                });
+                surahVerses.push(...mapped);
+                page++;
+              } else {
+                break;
+              }
+            } catch (fetchErr) {
+              console.warn(`[Quran AI] Mixed fetch failed for Surah ${sNum}:`, fetchErr);
               break;
             }
-          } catch (fetchErr) {
-            console.warn(`[Quran AI] API page ${page} fetch failed for Surah ${currentSurah}:`, fetchErr);
-            break;
+          }
+          
+          if (surahVerses.length === 0) {
+            const fallbackSubs = await alignQuranLocalClient({
+              surah: sNum,
+              startAyah: 1,
+              style,
+              mode: 'batch',
+              ayahSymbolStyle: quranShowAyahSymbol ? quranAyahSymbolStyle : 'none',
+              ayahDigitType: quranAyahDigitType,
+              ayahSymbolPosition: quranAyahSymbolPosition,
+              showAyahSymbol: quranShowAyahSymbol,
+            });
+            surahVerses = fallbackSubs.map((s, idx) => {
+              const parts = (s.verse_key || '').split(':');
+              const vNum = parts[1] ? parseInt(parts[1], 10) : idx + 1;
+              let arText = s.text_arabic || '';
+              arText = attachAyahSymbolToText(
+                arText,
+                vNum,
+                quranShowAyahSymbol ? quranAyahSymbolStyle : 'none',
+                quranAyahDigitType,
+                quranAyahSymbolPosition
+              );
+              const offlineText = OFFLINE_SURAH_TRANSLATIONS[s.verse_key]?.[transOpt.languageCode] || s.text_english;
+              return {
+                verse_key: s.verse_key,
+                verse_number: vNum,
+                text_arabic: arText,
+                text_english: stripAyahSymbol(offlineText)
+              };
+            });
+          }
+          
+          surahVersesCache[sNum] = surahVerses;
+        }
+        
+        // 2. Add starting intro modes if requested
+        const currentIntroMode = introMode || quranIntroMode || 'none';
+        if (currentIntroMode === 'both' || currentIntroMode === 'taawwuz-only') {
+          allRawVerses.push({
+            verse_key: `${targets[0]?.surah || 1}:0:taawwuz`,
+            verse_number: 0,
+            text_arabic: 'أَعُوذُ بِاللَّهِ مِنَ الشَّيْطَانِ الرَّجِيمِ',
+            text_english: getTaawwuzTranslation(transOpt.languageCode),
+            isTaawwuz: true
+          });
+        }
+        if (currentIntroMode === 'both' || currentIntroMode === 'bismillah-only') {
+          allRawVerses.push({
+            verse_key: `${targets[0]?.surah || 1}:0:bismillah`,
+            verse_number: 0,
+            text_arabic: 'بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ',
+            text_english: getTasmiyahTranslation(transOpt.languageCode),
+            isTasmiyah: true
+          });
+        }
+        
+        // 3. Assemble target verses in exact collection sequence
+        for (const target of targets) {
+          const sVerses = surahVersesCache[target.surah] || [];
+          const matched = sVerses.find(v => {
+            const parts = (v.verse_key || '').split(':');
+            const vNum = parseInt(parts[1], 10);
+            return vNum === target.ayah;
+          });
+          
+          if (matched) {
+            allRawVerses.push(matched);
+          } else {
+            const key = `${target.surah}:${target.ayah}`;
+            allRawVerses.push({
+              verse_key: key,
+              verse_number: target.ayah,
+              text_arabic: `[Verse ${key}]`,
+              text_english: `[Translation ${key}]`
+            });
           }
         }
+        
+        surahsToProcess = uniqueSurahs;
+        addLog(`[Quran AI] Mixed Collection compiled successfully with ${targets.length} verses.`, 65);
+      } else {
+        // Infinite Whole-Surah Dynamic Progression Array Iterator Loop
+        for (let sIdx = 0; sIdx < surahsToProcess.length; sIdx++) {
+          const currentSurah = surahsToProcess[sIdx];
+          const isFirstSurah = (sIdx === 0);
+          const isNotTawbahThis = currentSurah !== 9;
+          const currentIntroMode = introMode || quranIntroMode || 'none';
 
-        // Offline dataset fallback if network fetch was incomplete
-        if (surahVerses.length === 0) {
-          const fallbackSubs = await alignQuranLocalClient({
-            surah: currentSurah,
-            startAyah: (sIdx === 0 && selectionType === 'single') ? startAyah : 1,
-            style,
-            mode,
-            ayahSymbolStyle: quranShowAyahSymbol ? quranAyahSymbolStyle : 'none',
-            ayahDigitType: quranAyahDigitType,
-            ayahSymbolPosition: quranAyahSymbolPosition,
-            showAyahSymbol: quranShowAyahSymbol,
-          });
-          surahVerses = fallbackSubs.map((s, idx) => {
-            const parts = (s.verse_key || '').split(':');
-            const vNum = parts[1] ? parseInt(parts[1], 10) : idx + 1;
-            let arText = s.text_arabic || '';
-            arText = attachAyahSymbolToText(
-              arText,
-              vNum,
-              quranShowAyahSymbol ? quranAyahSymbolStyle : 'none',
-              quranAyahDigitType,
-              quranAyahSymbolPosition
-            );
-            const offlineText = OFFLINE_SURAH_TRANSLATIONS[s.verse_key]?.[transOpt.languageCode] || s.text_english;
-            return {
-              verse_key: s.verse_key,
-              verse_number: vNum,
-              text_arabic: arText,
-              text_english: stripAyahSymbol(offlineText)
-            };
-          });
+          // 1. Opening Verse Rules for Multi-Surah & Single Surah:
+          // - First Surah: Follows selected Intro Mode (e.g. Ta'awwuz + Bismillah, or Bismillah only)
+          // - Subsequent Surahs in the audio: Automatically insert Bismillah (unless Surah At-Tawbah #9)
+          if (isFirstSurah) {
+            const isStartFromFirstAyah = (selectionType === 'single' ? startAyah === 1 : true);
+            const shouldIncludeTaawwuz = isStartFromFirstAyah && isNotTawbahThis && (currentIntroMode === 'both' || currentIntroMode === 'taawwuz-only');
+            const shouldIncludeBismillah = isStartFromFirstAyah && isNotTawbahThis && (currentIntroMode === 'both' || currentIntroMode === 'bismillah-only');
+
+            if (shouldIncludeTaawwuz) {
+              allRawVerses.push({
+                verse_key: `${currentSurah}:0:taawwuz`,
+                verse_number: 0,
+                text_arabic: 'أَعُوذُ بِاللَّهِ مِنَ الشَّيْطَانِ الرَّجِيمِ',
+                text_english: getTaawwuzTranslation(transOpt.languageCode),
+                isTaawwuz: true
+              });
+            }
+
+            if (shouldIncludeBismillah) {
+              allRawVerses.push({
+                verse_key: `${currentSurah}:0:bismillah`,
+                verse_number: 0,
+                text_arabic: 'بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ',
+                text_english: getTasmiyahTranslation(transOpt.languageCode),
+                isTasmiyah: true
+              });
+            }
+          } else {
+            // For all subsequent Surahs occurring in the multi-surah audio:
+            // Automatically include Bismillah as the opening header of each following Surah (unless Surah 9 At-Tawbah)
+            if (isNotTawbahThis && currentIntroMode !== 'none') {
+              allRawVerses.push({
+                verse_key: `${currentSurah}:0:bismillah`,
+                verse_number: 0,
+                text_arabic: 'بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ',
+                text_english: getTasmiyahTranslation(transOpt.languageCode),
+                isTasmiyah: true
+              });
+            }
+          }
+
+          addLog(`[Quran AI] Fetching scripture & ${transOpt.language} translation for Surah #${currentSurah}...`, 68 + Math.floor((sIdx / surahsToProcess.length) * 10));
+
+          let surahVerses: any[] = [];
+          let page = 1;
+          let totalPages = 1;
+
+          // Asynchronous recursive pagination loop to fetch ALL verses of the chapter
+          while (page <= totalPages && page <= 5) {
+            try {
+              const apiUrl = `https://api.quran.com/api/v4/verses/by_chapter/${currentSurah}?language=${transOpt.languageCode}&words=false&translations=${transApiId}&fields=text_uthmani&per_page=300&page=${page}`;
+              const controller = new AbortController();
+              const timeoutId = setTimeout(() => controller.abort(), 3000);
+              const res = await fetch(apiUrl, { signal: controller.signal });
+              clearTimeout(timeoutId);
+              if (res.ok) {
+                const data = await res.json();
+                totalPages = data.pagination?.total_pages || 1;
+                const raw = data.verses || [];
+                const mapped = raw.map((v: any, idx: number) => {
+                  const vNum = v.verse_number || (v.verse_key ? parseInt(v.verse_key.split(':')[1], 10) : (page - 1) * 300 + idx + 1);
+                  let rawArabic = v.text_uthmani || v.text_arabic || '';
+                  rawArabic = attachAyahSymbolToText(
+                    rawArabic,
+                    vNum,
+                    quranShowAyahSymbol ? quranAyahSymbolStyle : 'none',
+                    quranAyahDigitType,
+                    quranAyahSymbolPosition
+                  );
+                  return {
+                    verse_key: v.verse_key,
+                    verse_number: vNum,
+                    text_arabic: rawArabic,
+                    text_english: (v.translations?.[0]?.text || '')
+                      .replace(/<[^>]*>/g, '')
+                      .replace(/[\{\}\[\]\(\)]/g, '')
+                      .replace(/&nbsp;/g, ' ')
+                      .trim()
+                  };
+                });
+                surahVerses.push(...mapped);
+                page++;
+              } else {
+                break;
+              }
+            } catch (fetchErr) {
+              console.warn(`[Quran AI] API page ${page} fetch failed for Surah ${currentSurah}:`, fetchErr);
+              break;
+            }
+          }
+
+          // Offline dataset fallback if network fetch was incomplete
+          if (surahVerses.length === 0) {
+            const fallbackSubs = await alignQuranLocalClient({
+              surah: currentSurah,
+              startAyah: (sIdx === 0 && selectionType === 'single') ? startAyah : 1,
+              style,
+              mode,
+              ayahSymbolStyle: quranShowAyahSymbol ? quranAyahSymbolStyle : 'none',
+              ayahDigitType: quranAyahDigitType,
+              ayahSymbolPosition: quranAyahSymbolPosition,
+              showAyahSymbol: quranShowAyahSymbol,
+            });
+            surahVerses = fallbackSubs.map((s, idx) => {
+              const parts = (s.verse_key || '').split(':');
+              const vNum = parts[1] ? parseInt(parts[1], 10) : idx + 1;
+              let arText = s.text_arabic || '';
+              arText = attachAyahSymbolToText(
+                arText,
+                vNum,
+                quranShowAyahSymbol ? quranAyahSymbolStyle : 'none',
+                quranAyahDigitType,
+                quranAyahSymbolPosition
+              );
+              const offlineText = OFFLINE_SURAH_TRANSLATIONS[s.verse_key]?.[transOpt.languageCode] || s.text_english;
+              return {
+                verse_key: s.verse_key,
+                verse_number: vNum,
+                text_arabic: arText,
+                text_english: stripAyahSymbol(offlineText)
+              };
+            });
+          }
+
+          if (sIdx === 0 && selectionType === 'single') {
+            surahVerses = surahVerses.filter(v => {
+              const parts = v.verse_key.split(':');
+              const ayahNum = parseInt(parts[1]) || 1;
+              return ayahNum === startAyah;
+            });
+          }
+
+          // Guarantee strict sequential order (Ayah 1, Ayah 2, Ayah 3...)
+          surahVerses.sort((a, b) => (a.verse_number || 0) - (b.verse_number || 0));
+
+          allRawVerses.push(...surahVerses);
         }
-
-        if (sIdx === 0 && selectionType === 'single') {
-          surahVerses = surahVerses.filter(v => {
-            const parts = v.verse_key.split(':');
-            const ayahNum = parseInt(parts[1]) || 1;
-            return ayahNum === startAyah;
-          });
-        }
-
-        // Guarantee strict sequential order (Ayah 1, Ayah 2, Ayah 3...)
-        surahVerses.sort((a, b) => (a.verse_number || 0) - (b.verse_number || 0));
-
-        allRawVerses.push(...surahVerses);
       }
 
       // CTC FORCED ALIGNMENT ENGINE (Strict Quran Caption Rules 1 to 5)
@@ -6029,6 +6359,26 @@ export default function App() {
               onSelectClips={setSelectedClipIds}
               onUpdateClip={updateClipProperties}
               onBatchUpdateClips={batchUpdateClipProperties}
+              quranShowSurahHeader={quranShowSurahHeader}
+              quranSurahHeaderStyle={quranSurahHeaderStyle}
+              quranSurahHeaderFont={quranSurahHeaderFont}
+              quranSurahHeaderSize={quranSurahHeaderSize}
+              quranSurahHeaderColor={quranSurahHeaderColor}
+              quranSurahHeaderY={quranSurahHeaderY}
+              quranSurahHeaderFormat={quranSurahHeaderFormat}
+              quranSurahHeaderBg={quranSurahHeaderBg}
+              quranSurahHeaderBgColor={quranSurahHeaderBgColor}
+              quranSurahHeaderBgOpacity={quranSurahHeaderBgOpacity}
+              quranCaptionDisplayMode={quranCaptionDisplayMode}
+              quranSingleWordScale={quranSingleWordScale}
+              quranSingleWordPop={quranSingleWordPop}
+              quranShowQariBadge={quranShowQariBadge}
+              quranQariName={quranQariName}
+              quranQariBadgePosition={quranQariBadgePosition}
+              quranShowWaveform={quranShowWaveform}
+              quranWaveformStyle={quranWaveformStyle}
+              quranWaveformColor={quranWaveformColor}
+              quranWaveformY={quranWaveformY}
             />
           )}
           renderTimeline={() => (
@@ -6184,6 +6534,48 @@ export default function App() {
               setQuranDualWrap={setQuranDualWrap}
               quranDualAlign={quranDualAlign}
               setQuranDualAlign={setQuranDualAlign}
+              quranShowSurahHeader={quranShowSurahHeader}
+              setQuranShowSurahHeader={setQuranShowSurahHeader}
+              quranSurahHeaderStyle={quranSurahHeaderStyle}
+              setQuranSurahHeaderStyle={setQuranSurahHeaderStyle}
+              quranSurahHeaderFont={quranSurahHeaderFont}
+              setQuranSurahHeaderFont={setQuranSurahHeaderFont}
+              quranSurahHeaderSize={quranSurahHeaderSize}
+              setQuranSurahHeaderSize={setQuranSurahHeaderSize}
+              quranSurahHeaderColor={quranSurahHeaderColor}
+              setQuranSurahHeaderColor={setQuranSurahHeaderColor}
+              quranSurahHeaderY={quranSurahHeaderY}
+              setQuranSurahHeaderY={setQuranSurahHeaderY}
+              quranSurahHeaderFormat={quranSurahHeaderFormat}
+              setQuranSurahHeaderFormat={setQuranSurahHeaderFormat}
+              quranSurahHeaderBg={quranSurahHeaderBg}
+              setQuranSurahHeaderBg={setQuranSurahHeaderBg}
+              quranSurahHeaderBgColor={quranSurahHeaderBgColor}
+              setQuranSurahHeaderBgColor={setQuranSurahHeaderBgColor}
+              quranSurahHeaderBgOpacity={quranSurahHeaderBgOpacity}
+              setQuranSurahHeaderBgOpacity={setQuranSurahHeaderBgOpacity}
+              quranCaptionDisplayMode={quranCaptionDisplayMode}
+              setQuranCaptionDisplayMode={setQuranCaptionDisplayMode}
+              quranSingleWordScale={quranSingleWordScale}
+              setQuranSingleWordScale={setQuranSingleWordScale}
+              quranSingleWordPop={quranSingleWordPop}
+              setQuranSingleWordPop={setQuranSingleWordPop}
+              quranShowQariBadge={quranShowQariBadge}
+              setQuranShowQariBadge={setQuranShowQariBadge}
+              quranQariName={quranQariName}
+              setQuranQariName={setQuranQariName}
+              quranQariBadgePosition={quranQariBadgePosition}
+              setQuranQariBadgePosition={setQuranQariBadgePosition}
+              quranShowWaveform={quranShowWaveform}
+              setQuranShowWaveform={setQuranShowWaveform}
+              quranWaveformStyle={quranWaveformStyle}
+              setQuranWaveformStyle={setQuranWaveformStyle}
+              quranWaveformColor={quranWaveformColor}
+              setQuranWaveformColor={setQuranWaveformColor}
+              quranWaveformY={quranWaveformY}
+              setQuranWaveformY={setQuranWaveformY}
+              onAddBismillahCard={handleAddBismillahCard}
+              onAddSadaqallahCard={handleAddSadaqallahCard}
               onAutoSeparateDualTracks={handleAutoSeparateDualTracks}
               quranKaraokeHighlight={quranKaraokeHighlight}
               setQuranKaraokeHighlight={setQuranKaraokeHighlight}
@@ -6724,6 +7116,48 @@ export default function App() {
             setQuranDualWrap={setQuranDualWrap}
             quranDualAlign={quranDualAlign}
             setQuranDualAlign={setQuranDualAlign}
+            quranShowSurahHeader={quranShowSurahHeader}
+            setQuranShowSurahHeader={setQuranShowSurahHeader}
+            quranSurahHeaderStyle={quranSurahHeaderStyle}
+            setQuranSurahHeaderStyle={setQuranSurahHeaderStyle}
+            quranSurahHeaderFont={quranSurahHeaderFont}
+            setQuranSurahHeaderFont={setQuranSurahHeaderFont}
+            quranSurahHeaderSize={quranSurahHeaderSize}
+            setQuranSurahHeaderSize={setQuranSurahHeaderSize}
+            quranSurahHeaderColor={quranSurahHeaderColor}
+            setQuranSurahHeaderColor={setQuranSurahHeaderColor}
+            quranSurahHeaderY={quranSurahHeaderY}
+            setQuranSurahHeaderY={setQuranSurahHeaderY}
+            quranSurahHeaderFormat={quranSurahHeaderFormat}
+            setQuranSurahHeaderFormat={setQuranSurahHeaderFormat}
+            quranSurahHeaderBg={quranSurahHeaderBg}
+            setQuranSurahHeaderBg={setQuranSurahHeaderBg}
+            quranSurahHeaderBgColor={quranSurahHeaderBgColor}
+            setQuranSurahHeaderBgColor={setQuranSurahHeaderBgColor}
+            quranSurahHeaderBgOpacity={quranSurahHeaderBgOpacity}
+            setQuranSurahHeaderBgOpacity={setQuranSurahHeaderBgOpacity}
+            quranCaptionDisplayMode={quranCaptionDisplayMode}
+            setQuranCaptionDisplayMode={setQuranCaptionDisplayMode}
+            quranSingleWordScale={quranSingleWordScale}
+            setQuranSingleWordScale={setQuranSingleWordScale}
+            quranSingleWordPop={quranSingleWordPop}
+            setQuranSingleWordPop={setQuranSingleWordPop}
+            quranShowQariBadge={quranShowQariBadge}
+            setQuranShowQariBadge={setQuranShowQariBadge}
+            quranQariName={quranQariName}
+            setQuranQariName={setQuranQariName}
+            quranQariBadgePosition={quranQariBadgePosition}
+            setQuranQariBadgePosition={setQuranQariBadgePosition}
+            quranShowWaveform={quranShowWaveform}
+            setQuranShowWaveform={setQuranShowWaveform}
+            quranWaveformStyle={quranWaveformStyle}
+            setQuranWaveformStyle={setQuranWaveformStyle}
+            quranWaveformColor={quranWaveformColor}
+            setQuranWaveformColor={setQuranWaveformColor}
+            quranWaveformY={quranWaveformY}
+            setQuranWaveformY={setQuranWaveformY}
+            onAddBismillahCard={handleAddBismillahCard}
+            onAddSadaqallahCard={handleAddSadaqallahCard}
             onAutoSeparateDualTracks={handleAutoSeparateDualTracks}
             quranKaraokeHighlight={quranKaraokeHighlight}
             setQuranKaraokeHighlight={setQuranKaraokeHighlight}
@@ -6783,6 +7217,26 @@ export default function App() {
               onSelectClips={setSelectedClipIds}
               onUpdateClip={updateClipProperties}
               onBatchUpdateClips={batchUpdateClipProperties}
+              quranShowSurahHeader={quranShowSurahHeader}
+              quranSurahHeaderStyle={quranSurahHeaderStyle}
+              quranSurahHeaderFont={quranSurahHeaderFont}
+              quranSurahHeaderSize={quranSurahHeaderSize}
+              quranSurahHeaderColor={quranSurahHeaderColor}
+              quranSurahHeaderY={quranSurahHeaderY}
+              quranSurahHeaderFormat={quranSurahHeaderFormat}
+              quranSurahHeaderBg={quranSurahHeaderBg}
+              quranSurahHeaderBgColor={quranSurahHeaderBgColor}
+              quranSurahHeaderBgOpacity={quranSurahHeaderBgOpacity}
+              quranCaptionDisplayMode={quranCaptionDisplayMode}
+              quranSingleWordScale={quranSingleWordScale}
+              quranSingleWordPop={quranSingleWordPop}
+              quranShowQariBadge={quranShowQariBadge}
+              quranQariName={quranQariName}
+              quranQariBadgePosition={quranQariBadgePosition}
+              quranShowWaveform={quranShowWaveform}
+              quranWaveformStyle={quranWaveformStyle}
+              quranWaveformColor={quranWaveformColor}
+              quranWaveformY={quranWaveformY}
             />
           </div>
 
