@@ -138,6 +138,25 @@ jobs:
             uuid-dev \
             libbsd-dev \
             libmd-dev \
+            libjpeg-dev \
+            libpng-dev \
+            libtiff-dev \
+            libwebp-dev \
+            libopenjp2-7-dev \
+            liblcms2-dev \
+            zlib1g-dev \
+            liblzma-dev \
+            libzstd-dev \
+            liblz4-dev \
+            libsystemd-dev \
+            libcap-dev \
+            libgcrypt20-dev \
+            libgpg-error-dev \
+            libvorbis-dev \
+            libogg-dev \
+            libopus-dev \
+            libvpx-dev \
+            libva-dev \
             libxkbcommon-dev \
             libdbus-1-dev \
             libdrm-dev \

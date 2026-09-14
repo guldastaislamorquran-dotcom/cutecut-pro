@@ -38,7 +38,10 @@ const templatePatch = `const launcherScript = '#!/bin/bash\\n' +
           'libdrm', 'libgbm', 'libasound', 'libcups',
           'libavahi-common', 'libavahi-client', 'libgnutls',
           'libxkbcommon', 'libdbus-1',
-          'libX', 'libx', 'libxcb', 'libexpat', 'libuuid', 'libbsd', 'libmd', 'libsecret'
+          'libX', 'libx', 'libxcb', 'libexpat', 'libuuid', 'libbsd', 'libmd', 'libsecret',
+          'libjpeg', 'libpng', 'libtiff', 'libwebp', 'libjbig', 'libdeflate', 'libopenjp2', 'liblcms2',
+          'libz', 'liblzma', 'libzstd', 'liblz4', 'libsystemd', 'libcap', 'libgcrypt', 'libgpg-error',
+          'libvorbis', 'libogg', 'libopus', 'libvpx', 'libva'
         ];
         for (const sDir of sysLibDirs) {
           if (fsSync.existsSync(sDir)) {
