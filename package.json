@@ -194,6 +194,7 @@
         "pulseaudio",
         "audio-playback",
         "audio-record",
+        "alsa",
         "gsettings",
         "opengl",
         "unity7",

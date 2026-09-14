@@ -12,6 +12,7 @@ const resolvedDirname = __dirname;
 app.commandLine.appendSwitch('disable-web-security');
 app.commandLine.appendSwitch('allow-running-insecure-content');
 app.commandLine.appendSwitch('ignore-certificate-errors');
+app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 
 // Safe GPU acceleration & Linux sandboxing (avoids Linux X11/Wayland/Snap launch crashes)
 if (process.platform === 'linux') {
@@ -21,6 +22,7 @@ if (process.platform === 'linux') {
   app.commandLine.appendSwitch('disable-dev-shm-usage');
   app.commandLine.appendSwitch('ignore-gpu-blocklist');
   app.commandLine.appendSwitch('enable-gpu-rasterization');
+  app.commandLine.appendSwitch('disable-features', 'AudioServiceSandbox');
 
   const xdgRuntime = process.env.XDG_RUNTIME_DIR;
   const waylandDisplay = process.env.WAYLAND_DISPLAY;
