@@ -166,6 +166,8 @@ jobs:
             libavahi-client-dev \
             libgnutls28-dev \
             libcups2-dev \
+            libpulse-dev \
+            libasound2-plugins \
             libcanberra-gtk3-module \
             libcanberra-gtk3-dev || true
           sudo snap install snapcraft --classic || true
