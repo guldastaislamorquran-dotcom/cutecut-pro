@@ -32,6 +32,7 @@ const templatePatch = `const launcherScript = '#!/bin/bash\\n' +
           'libcairo', 'libpixman-1',
           'libpango', 'libpangocairo', 'libpangoft2', 'libharfbuzz',
           'libfribidi', 'libthai', 'libdatrie', 'libgraphite2',
+          'libwayland', 'libGL', 'libEGL', 'libGLES',
           'libgdk_pixbuf', 'libgio', 'libglib', 'libgobject', 'libgmodule',
           'libfontconfig', 'libfreetype',
           'libdrm', 'libgbm', 'libasound', 'libcups',

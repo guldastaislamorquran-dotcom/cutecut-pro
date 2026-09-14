@@ -99,6 +99,14 @@ jobs:
             libdatrie-dev \
             libgraphite2-dev \
             libepoxy-dev \
+            libwayland-dev \
+            libwayland-server0 \
+            libwayland-client0 \
+            libwayland-cursor0 \
+            libwayland-egl1 \
+            libgl1-mesa-dev \
+            libegl1-mesa-dev \
+            libgles2-mesa-dev \
             libxkbcommon-dev \
             libdbus-1-dev \
             libdrm-dev \

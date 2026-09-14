@@ -101,6 +101,13 @@
         "libdatrie1",
         "libgraphite2-3",
         "libepoxy0",
+        "libwayland-server0",
+        "libwayland-client0",
+        "libwayland-cursor0",
+        "libwayland-egl1",
+        "libgl1",
+        "libegl1",
+        "libgles2",
         "libdrm2",
         "libgbm1",
         "libasound2",
@@ -109,6 +116,8 @@
         "libavahi-client3",
         "libgnutls30",
         "libxkbcommon0",
+        "libxkbcommon-x11-0",
+        "libx11-xcb1",
         "libdbus-1-3"
       ],
       "plugs": [
