@@ -84,6 +84,7 @@ jobs:
             python3 \
             libnspr4-dev \
             libnss3-dev \
+            libnss3-tools \
             libatk1.0-dev \
             libatk-bridge2.0-dev \
             libgtk-3-dev \

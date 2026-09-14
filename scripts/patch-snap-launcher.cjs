@@ -13,9 +13,10 @@ let content = fs.readFileSync(targetPath, 'utf8');
 // 1. Patch buildWithTemplate to write clean command.sh with GNOME runtime paths and stage critical libraries
 const templateTarget = 'const templateDir = await (0, electronGet_1.downloadBuilderToolset)({ releaseName, filenameWithExt, checksums, githubOrgRepo: "electron-userland/electron-builder-binaries" });';
 const templatePatch = `const launcherScript = '#!/bin/bash\\n' +
-          'export LD_LIBRARY_PATH="$SNAP:$SNAP/usr/lib/x86_64-linux-gnu:$SNAP/lib/x86_64-linux-gnu:/snap/gnome-42-2204/current/usr/lib/x86_64-linux-gnu:/snap/gnome-42-2204/current/usr/lib:/snap/gnome-42-2204/current/lib/x86_64-linux-gnu:/snap/gnome-42-2204/current/lib:/snap/core22/current/usr/lib/x86_64-linux-gnu:/snap/core22/current/lib/x86_64-linux-gnu:\${LD_LIBRARY_PATH:-}"\\n' +
+          'export LD_LIBRARY_PATH="$SNAP:$SNAP/usr/lib/x86_64-linux-gnu:$SNAP/lib/x86_64-linux-gnu:$SNAP/usr/lib/x86_64-linux-gnu/nss:$SNAP/lib/x86_64-linux-gnu/nss:$SNAP/nss:/snap/gnome-42-2204/current/usr/lib/x86_64-linux-gnu:/snap/gnome-42-2204/current/usr/lib:/snap/gnome-42-2204/current/lib/x86_64-linux-gnu:/snap/gnome-42-2204/current/lib:/snap/core22/current/usr/lib/x86_64-linux-gnu:/snap/core22/current/lib/x86_64-linux-gnu:\${LD_LIBRARY_PATH:-}"\\n' +
           'export PATH="/snap/gnome-42-2204/current/usr/bin:$SNAP/bin:$SNAP/usr/bin:\$PATH"\\n' +
           'export XDG_DATA_DIRS="/snap/gnome-42-2204/current/usr/share:$SNAP/usr/share:\${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"\\n' +
+          'export GSETTINGS_SCHEMA_DIR="/snap/gnome-42-2204/current/usr/share/glib-2.0/schemas:$SNAP/usr/share/glib-2.0/schemas:/usr/share/glib-2.0/schemas:\${GSETTINGS_SCHEMA_DIR:-}"\\n' +
           'export GTK_PATH="/snap/gnome-42-2204/current/usr/lib/x86_64-linux-gnu/gtk-3.0"\\n' +
           'export GIO_MODULE_DIR="/snap/gnome-42-2204/current/usr/lib/x86_64-linux-gnu/gio/modules"\\n' +
           'if [ -n "$WAYLAND_DISPLAY" ] && [ -e "$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY" ]; then\\n' +
@@ -29,10 +30,18 @@ const templatePatch = `const launcherScript = '#!/bin/bash\\n' +
         await (0, promises_1.writeFile)(path.join(templateDir, "command.sh"), launcherScript, { mode: 0o755 });
         const fsSync = require('fs');
         const pathSync = require('path');
-        const sysLibDirs = ['/usr/lib/x86_64-linux-gnu', '/lib/x86_64-linux-gnu', '/usr/lib', '/lib'];
+        const sysLibDirs = [
+          '/usr/lib/x86_64-linux-gnu',
+          '/usr/lib/x86_64-linux-gnu/nss',
+          '/lib/x86_64-linux-gnu',
+          '/lib/x86_64-linux-gnu/nss',
+          '/usr/lib',
+          '/usr/lib/nss',
+          '/lib'
+        ];
         const prefixes = [
           'libnspr4', 'libplc4', 'libplds4',
-          'libnss3', 'libnssutil3', 'libsmime3', 'libsoftokn3',
+          'libnss3', 'libnssutil3', 'libsmime3', 'libsoftokn3', 'libfreebl3', 'libfreeblpriv3', 'libnssdbm3',
           'libatk-1.0', 'libatk-bridge', 'libatspi',
           'libgtk-3', 'libgdk-3', 'libepoxy',
           'libcairo', 'libpixman-1',
@@ -76,9 +85,10 @@ if (content.includes(targetFunc)) {
   const prefix = content.substring(0, index);
   const newFunc = `function buildCommandShContent(opts) {
     return '#!/bin/bash\\n' +
-      'export LD_LIBRARY_PATH="$SNAP:$SNAP/usr/lib/x86_64-linux-gnu:$SNAP/lib/x86_64-linux-gnu:/snap/gnome-42-2204/current/usr/lib/x86_64-linux-gnu:/snap/gnome-42-2204/current/usr/lib:/snap/gnome-42-2204/current/lib/x86_64-linux-gnu:/snap/gnome-42-2204/current/lib:/snap/core22/current/usr/lib/x86_64-linux-gnu:/snap/core22/current/lib/x86_64-linux-gnu:\${LD_LIBRARY_PATH:-}"\\n' +
+      'export LD_LIBRARY_PATH="$SNAP:$SNAP/usr/lib/x86_64-linux-gnu:$SNAP/lib/x86_64-linux-gnu:$SNAP/usr/lib/x86_64-linux-gnu/nss:$SNAP/lib/x86_64-linux-gnu/nss:$SNAP/nss:/snap/gnome-42-2204/current/usr/lib/x86_64-linux-gnu:/snap/gnome-42-2204/current/usr/lib:/snap/gnome-42-2204/current/lib/x86_64-linux-gnu:/snap/gnome-42-2204/current/lib:/snap/core22/current/usr/lib/x86_64-linux-gnu:/snap/core22/current/lib/x86_64-linux-gnu:\${LD_LIBRARY_PATH:-}"\\n' +
       'export PATH="/snap/gnome-42-2204/current/usr/bin:$SNAP/bin:$SNAP/usr/bin:\$PATH"\\n' +
       'export XDG_DATA_DIRS="/snap/gnome-42-2204/current/usr/share:$SNAP/usr/share:\${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"\\n' +
+      'export GSETTINGS_SCHEMA_DIR="/snap/gnome-42-2204/current/usr/share/glib-2.0/schemas:$SNAP/usr/share/glib-2.0/schemas:/usr/share/glib-2.0/schemas:\${GSETTINGS_SCHEMA_DIR:-}"\\n' +
       'export GTK_PATH="/snap/gnome-42-2204/current/usr/lib/x86_64-linux-gnu/gtk-3.0"\\n' +
       'export GIO_MODULE_DIR="/snap/gnome-42-2204/current/usr/lib/x86_64-linux-gnu/gio/modules"\\n' +
       'if [ -n "$WAYLAND_DISPLAY" ] && [ -e "$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY" ]; then\\n' +
