@@ -18,10 +18,20 @@ if (process.platform === 'linux') {
   app.commandLine.appendSwitch('no-sandbox');
   app.commandLine.appendSwitch('disable-setuid-sandbox');
   app.commandLine.appendSwitch('disable-gpu-sandbox');
+  app.commandLine.appendSwitch('disable-dev-shm-usage');
   app.commandLine.appendSwitch('ignore-gpu-blocklist');
   app.commandLine.appendSwitch('enable-gpu-rasterization');
-  app.commandLine.appendSwitch('enable-features', 'VaapiVideoDecoder,UseOzonePlatform');
-  app.commandLine.appendSwitch('ozone-platform-hint', 'auto');
+
+  const xdgRuntime = process.env.XDG_RUNTIME_DIR;
+  const waylandDisplay = process.env.WAYLAND_DISPLAY;
+  const isWaylandAvailable = !!(xdgRuntime && waylandDisplay && fs.existsSync(path.join(xdgRuntime, waylandDisplay)));
+
+  if (isWaylandAvailable) {
+    app.commandLine.appendSwitch('enable-features', 'VaapiVideoDecoder,UseOzonePlatform');
+    app.commandLine.appendSwitch('ozone-platform-hint', 'auto');
+  } else {
+    app.commandLine.appendSwitch('ozone-platform', 'x11');
+  }
 } else {
   app.commandLine.appendSwitch('enable-gpu-rasterization');
   app.commandLine.appendSwitch('ignore-gpu-blocklist');

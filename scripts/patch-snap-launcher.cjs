@@ -19,12 +19,13 @@ const templatePatch = `const launcherScript = '#!/bin/bash\\n' +
           'export GTK_PATH="/snap/gnome-42-2204/current/usr/lib/x86_64-linux-gnu/gtk-3.0"\\n' +
           'export GIO_MODULE_DIR="/snap/gnome-42-2204/current/usr/lib/x86_64-linux-gnu/gio/modules"\\n' +
           'if [ -n "$WAYLAND_DISPLAY" ] && [ -e "$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY" ]; then\\n' +
-          '  export ELECTRON_OZONE_PLATFORM_HINT="auto"\\n' +
+          '  PLATFORM_FLAGS="--ozone-platform-hint=auto"\\n' +
           'else\\n' +
-          '  export ELECTRON_OZONE_PLATFORM_HINT="x11"\\n' +
+          '  unset WAYLAND_DISPLAY\\n' +
           '  export GDK_BACKEND="x11"\\n' +
+          '  PLATFORM_FLAGS="--ozone-platform=x11"\\n' +
           'fi\\n' +
-          'exec "$SNAP/cutecut-pro" --no-sandbox --disable-dev-shm-usage "$@"\\n';
+          'exec "$SNAP/cutecut-pro" --no-sandbox --disable-dev-shm-usage $PLATFORM_FLAGS "$@"\\n';
         await (0, promises_1.writeFile)(path.join(templateDir, "command.sh"), launcherScript, { mode: 0o755 });
         const fsSync = require('fs');
         const pathSync = require('path');
@@ -81,12 +82,13 @@ if (content.includes(targetFunc)) {
       'export GTK_PATH="/snap/gnome-42-2204/current/usr/lib/x86_64-linux-gnu/gtk-3.0"\\n' +
       'export GIO_MODULE_DIR="/snap/gnome-42-2204/current/usr/lib/x86_64-linux-gnu/gio/modules"\\n' +
       'if [ -n "$WAYLAND_DISPLAY" ] && [ -e "$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY" ]; then\\n' +
-      '  export ELECTRON_OZONE_PLATFORM_HINT="auto"\\n' +
+      '  PLATFORM_FLAGS="--ozone-platform-hint=auto"\\n' +
       'else\\n' +
-      '  export ELECTRON_OZONE_PLATFORM_HINT="x11"\\n' +
+      '  unset WAYLAND_DISPLAY\\n' +
       '  export GDK_BACKEND="x11"\\n' +
+      '  PLATFORM_FLAGS="--ozone-platform=x11"\\n' +
       'fi\\n' +
-      'exec "$SNAP/cutecut-pro" --no-sandbox --disable-dev-shm-usage "$@"\\n';
+      'exec "$SNAP/cutecut-pro" --no-sandbox --disable-dev-shm-usage $PLATFORM_FLAGS "$@"\\n';
 }
 //# sourceMappingURL=coreLegacy.js.map`;
   content = prefix + newFunc;
