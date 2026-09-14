@@ -71,7 +71,7 @@ jobs:
 
       # Linux-specific setup
       - name: Install System Dependencies for Linux
-        if: matrix.os == 'ubuntu-latest'
+        if: startsWith(matrix.os, 'ubuntu')
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
@@ -107,12 +107,12 @@ jobs:
           echo "/snap/bin" >> $GITHUB_PATH
 
       - name: Apply Snap Launcher Patch for Linux
-        if: matrix.os == 'ubuntu-latest'
+        if: startsWith(matrix.os, 'ubuntu')
         run: |
           node scripts/patch-snap-launcher.cjs || true
 
       - name: Bundle Linux Binaries (DEB, AppImage, Snap)
-        if: matrix.os == 'ubuntu-latest'
+        if: startsWith(matrix.os, 'ubuntu')
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
           SNAP_DESTRUCTIVE_MODE: "true"
@@ -121,7 +121,7 @@ jobs:
           npx electron-builder build --linux appimage deb snap --x64 --publish never
 
       - name: Publish Snap to Snap Store
-        if: matrix.os == 'ubuntu-latest' && env.SNAP_CREDS != ''
+        if: startsWith(matrix.os, 'ubuntu') && env.SNAP_CREDS != ''
         continue-on-error: true
         env:
           SNAPCRAFT_STORE_CREDENTIALS: ${{ env.SNAP_CREDS }}
