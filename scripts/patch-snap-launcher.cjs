@@ -41,8 +41,9 @@ const templatePatch = `const launcherScript = '#!/bin/bash\\n' +
         ];
         const prefixes = [
           'libnspr4', 'libplc4', 'libplds4',
-          'libnss3', 'libnssutil3', 'libsmime3', 'libsoftokn3', 'libfreebl3', 'libfreeblpriv3', 'libnssdbm3',
+          'libnss3', 'libnssutil3', 'libsmime3', 'libsoftokn3', 'libfreebl3', 'libfreeblpriv3', 'libnssdbm3', 'libnssckbi',
           'libatk-1.0', 'libatk-bridge', 'libatspi',
+          'libcanberra',
           'libgtk-3', 'libgdk-3', 'libepoxy',
           'libcairo', 'libpixman-1',
           'libpango', 'libpangocairo', 'libpangoft2', 'libharfbuzz',

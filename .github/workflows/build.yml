@@ -165,7 +165,9 @@ jobs:
             libasound2-dev \
             libavahi-client-dev \
             libgnutls28-dev \
-            libcups2-dev || true
+            libcups2-dev \
+            libcanberra-gtk3-module \
+            libcanberra-gtk3-dev || true
           sudo snap install snapcraft --classic || true
           sudo snap install core22 || true
           sudo snap install gtk-common-themes || true
